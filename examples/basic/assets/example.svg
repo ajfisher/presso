@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" role="img" aria-label="Presso placeholder">
+  <rect width="400" height="240" fill="#ff5e9a"/>
+  <circle cx="200" cy="120" r="72" fill="#202020"/>
+  <text x="200" y="130" text-anchor="middle" fill="#fff" font-family="Arial" font-size="32">Presso</text>
+</svg>
+

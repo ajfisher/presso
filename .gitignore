@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.presso/
+coverage/
+*.tsbuildinfo
+transcript.md
+slides.pdf
+notes.pdf
+notes-side.pdf
+notes-pages.pdf

@@ -1,0 +1,11 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/runtime" },
+    { "path": "./packages/export" },
+    { "path": "./packages/create" },
+    { "path": "./packages/server" }
+  ]
+}
+

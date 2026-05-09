@@ -1,0 +1,19 @@
+{
+  "name": "@presso/create",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "create-presso": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  }
+}
+
