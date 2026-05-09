@@ -1,0 +1,13 @@
+{
+  "name": "presso-basic-example",
+  "type": "module",
+  "scripts": {
+    "dev": "presso dev",
+    "build": "presso build",
+    "pdf": "presso pdf",
+    "transcript": "presso transcript"
+  },
+  "devDependencies": {
+    "@presso/server": "file:../../packages/server"
+  }
+}

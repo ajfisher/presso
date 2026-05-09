@@ -1,0 +1,12 @@
+:root {
+  --presso-accent: #ff5e9a;
+}
+
+.presso-slide {
+  border-radius: 0;
+}
+
+.presso-slide h1 {
+  font-size: 5rem;
+}
+
