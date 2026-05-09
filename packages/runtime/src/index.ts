@@ -17,8 +17,8 @@ export function renderPage(deck: Deck, mode: RenderMode, options: { server?: boo
   }
   const body = [
     renderDeck(deck, mode),
-    mode === 'embed' && deck.config.notes.public !== false ? renderNotesToggle(deck.config.notes.public) : ''
-  ].join('\\n');
+    mode === 'deck' || mode === 'embed' ? renderModeControls(deck.config.notes.public) : ''
+  ].filter(Boolean).join('\n');
   return renderDocument(deck, mode, body, options);
 }
 
@@ -36,7 +36,7 @@ export function renderTranscriptMarkdown(deck: Deck): string {
   if (deck.config.baseUrl) {
     lines.push(`[View slides](${deck.config.baseUrl})`, '');
   }
-  return lines.join('\\n').trimEnd() + '\\n';
+  return lines.join('\n').trimEnd() + '\n';
 }
 
 export function baseStyles(deck: Deck): string {
@@ -68,6 +68,18 @@ body[data-mode=\"deck\"], body[data-mode=\"embed\"] { overflow: hidden; }
 .presso-progress > span { display: block; height: 100%; width: 0; background: var(--presso-accent); transition: width .2s ease; }
 .presso-notes-panel { position: fixed; right: 1rem; top: 1rem; bottom: 1rem; width: min(36rem, 35vw); overflow: auto; background: rgba(0,0,0,.78); border-left: .25rem solid var(--presso-accent); padding: 1rem; display: none; }
 body[data-notes-visible=\"true\"] .presso-notes-panel { display: block; }
+.presso-mode-controls { position: fixed; right: 1rem; bottom: 1rem; z-index: 20; display: flex; flex-wrap: wrap; gap: .5rem; opacity: .22; transition: opacity .15s ease; }
+.presso-mode-controls:hover, .presso-mode-controls:focus-within { opacity: 1; }
+.presso-mode-controls button, .presso-shortcuts-overlay button { font: inherit; border: 0; border-radius: .3rem; background: rgba(0,0,0,.74); color: white; padding: .55rem .7rem; cursor: pointer; }
+.presso-mode-controls button:hover, .presso-mode-controls button:focus-visible, .presso-shortcuts-overlay button:hover, .presso-shortcuts-overlay button:focus-visible { background: var(--presso-accent); outline: none; }
+.presso-shortcuts-overlay { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 1rem; background: rgba(0,0,0,.72); }
+body[data-shortcuts-visible=\"true\"] .presso-shortcuts-overlay { display: grid; }
+.presso-shortcuts-panel { width: min(34rem, 100%); background: #111; border: 1px solid rgba(255,255,255,.18); border-radius: .45rem; padding: 1.25rem; box-shadow: 0 1rem 4rem rgba(0,0,0,.45); }
+.presso-shortcuts-panel h2 { margin: 0 0 1rem; color: var(--presso-accent); }
+.presso-shortcuts-panel dl { display: grid; grid-template-columns: 4rem 1fr; gap: .65rem 1rem; margin: 0 0 1rem; }
+.presso-shortcuts-panel dt { margin: 0; }
+.presso-shortcuts-panel dd { margin: 0; color: rgba(255,255,255,.82); }
+.presso-shortcuts-panel kbd { display: inline-block; min-width: 2rem; border: 1px solid rgba(255,255,255,.26); border-bottom-width: 2px; border-radius: .25rem; padding: .12rem .35rem; text-align: center; background: rgba(255,255,255,.08); color: white; }
 .presso-presenter { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 100vh; padding: 1rem; }
 .presso-presenter .presso-preview { background: #111; padding: 1rem; overflow: hidden; }
 .presso-presenter .presso-notes { font-size: var(--presenter-notes-size, 1.25rem); line-height: 1.45; overflow: auto; max-height: 70vh; }
@@ -81,7 +93,7 @@ body[data-mode^=\"print\"] .presso-stage { display: block; padding: 0; }
 body[data-mode^=\"print\"] .presso-slide { box-shadow: none; page-break-after: always; color: #111; background-color: white; }
 body[data-mode=\"print-notes-side\"] .presso-print-page { display: grid; grid-template-columns: 2fr 1fr; page-break-after: always; }
 body[data-mode=\"print-notes-pages\"] .presso-print-notes { page-break-after: always; padding: 2rem; }
-@media print { .presso-progress, .presso-controls { display: none !important; } }
+@media print { .presso-progress, .presso-controls, .presso-mode-controls, .presso-shortcuts-overlay { display: none !important; } }
 `;
 }
 
@@ -92,6 +104,7 @@ export function runtimeScript(): string {
   const progress = document.querySelector('.presso-progress > span');
   const mode = document.body.dataset.mode || 'deck';
   const serverSync = Boolean(window.__PRESSO_SERVER__);
+  const routes = window.__PRESSO_ROUTES__ || {};
   let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.replace('#/', '')) || 0));
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
 
@@ -108,6 +121,29 @@ export function runtimeScript(): string {
     if (source === 'local' && serverSync) fetch('/state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ index }) }).catch(() => {});
   }
   function go(delta) { setIndex(index + delta); }
+  function isEditableTarget(target) {
+    return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
+  }
+  function toggleNotes() {
+    document.body.dataset.notesVisible = document.body.dataset.notesVisible === 'true' ? 'false' : 'true';
+  }
+  function toggleShortcuts(force) {
+    const visible = force ?? document.body.dataset.shortcutsVisible !== 'true';
+    document.body.dataset.shortcutsVisible = visible ? 'true' : 'false';
+  }
+  function toggleFullscreen() {
+    if (document.fullscreenElement) {
+      const exit = document.exitFullscreen?.();
+      exit?.catch?.(() => {});
+      return;
+    }
+    const request = document.documentElement.requestFullscreen?.();
+    request?.catch?.(() => {});
+  }
+  function openRoute(name) {
+    if (!routes[name]) return;
+    window.open(routes[name], 'presso-' + name, 'noopener');
+  }
   function updatePresenter() {
     document.querySelectorAll('[data-current-title]').forEach((el) => el.textContent = slides[index]?.dataset.title || '');
     document.querySelectorAll('[data-next-title]').forEach((el) => el.textContent = slides[index + 1]?.dataset.title || 'End');
@@ -115,15 +151,30 @@ export function runtimeScript(): string {
     document.querySelectorAll('[data-timing]').forEach((el) => el.textContent = slides[index]?.dataset.targetTime || '');
   }
   document.addEventListener('keydown', (event) => {
+    if (isEditableTarget(event.target)) return;
     if (['ArrowRight', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); go(1); }
     if (['ArrowLeft', 'PageUp'].includes(event.key)) { event.preventDefault(); go(-1); }
-    if (event.key === 'n') document.body.dataset.notesVisible = document.body.dataset.notesVisible === 'true' ? 'false' : 'true';
+    if (event.key === 'f') { event.preventDefault(); toggleFullscreen(); }
+    if (event.key === 'p') { event.preventDefault(); openRoute('presenter'); }
+    if (event.key === 'c') { event.preventDefault(); openRoute('control'); }
+    if (event.key === 'n') { event.preventDefault(); toggleNotes(); }
+    if (event.key === '?') { event.preventDefault(); toggleShortcuts(); }
+    if (event.key === 'Escape') toggleShortcuts(false);
+  });
+  document.addEventListener('fullscreenchange', () => {
+    document.body.dataset.fullscreen = document.fullscreenElement ? 'true' : 'false';
   });
   document.addEventListener('click', (event) => {
-    const action = event.target.closest('[data-action]')?.dataset.action;
+    const target = event.target instanceof Element ? event.target : null;
+    const action = target?.closest('[data-action]')?.dataset.action;
     if (action === 'next') go(1);
     if (action === 'prev') go(-1);
-    if (action === 'notes') document.body.dataset.notesVisible = document.body.dataset.notesVisible === 'true' ? 'false' : 'true';
+    if (action === 'notes') toggleNotes();
+    if (action === 'fullscreen') toggleFullscreen();
+    if (action === 'presenter') openRoute('presenter');
+    if (action === 'control') openRoute('control');
+    if (action === 'shortcuts') toggleShortcuts();
+    if (action === 'shortcuts-close') toggleShortcuts(false);
     if (action === 'font-plus') document.documentElement.style.setProperty('--presenter-notes-size', '1.5rem');
     if (action === 'font-minus') document.documentElement.style.setProperty('--presenter-notes-size', '1rem');
   });
@@ -139,6 +190,7 @@ export function runtimeScript(): string {
 
 function renderDocument(deck: Deck, mode: RenderMode, body: string, options: { server?: boolean } = {}): string {
   const themeHref = normalizeHref(deck.config.theme);
+  const shortcutOverlay = mode.startsWith('print-') ? '' : renderShortcutsOverlay();
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -150,7 +202,8 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, options: { s
 </head>
 <body data-mode="${mode}" data-notes-visible="${deck.config.notes.public === 'visible' ? 'true' : 'false'}">
   ${body}
-  <script>window.__PRESSO_SERVER__ = ${options.server ? 'true' : 'false'};</script>
+  ${shortcutOverlay}
+  <script>window.__PRESSO_SERVER__ = ${options.server ? 'true' : 'false'}; window.__PRESSO_ROUTES__ = ${JSON.stringify(buildRoutes(mode))};</script>
   <script>${runtimeScript()}</script>
 </body>
 </html>`;
@@ -158,12 +211,12 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, options: { s
 
 function renderDeck(deck: Deck, mode: RenderMode): string {
   if (mode === 'print-notes-side') {
-    return `<main>${deck.slides.map((slide) => `<section class="presso-print-page">${renderSlide(slide)}<aside class="presso-print-notes">${slide.notesHtml}</aside></section>`).join('\\n')}</main>`;
+    return `<main>${deck.slides.map((slide) => `<section class="presso-print-page">${renderSlide(slide)}<aside class="presso-print-notes">${slide.notesHtml}</aside></section>`).join('\n')}</main>`;
   }
   if (mode === 'print-notes-pages') {
-    return `<main>${deck.slides.map((slide) => `${renderSlide(slide)}<aside class="presso-print-notes"><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</aside>`).join('\\n')}</main>`;
+    return `<main>${deck.slides.map((slide) => `${renderSlide(slide)}<aside class="presso-print-notes"><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</aside>`).join('\n')}</main>`;
   }
-  return `<main class="presso-stage">${deck.slides.map(renderSlide).join('\\n')}</main><div class="presso-progress"><span></span></div>`;
+  return `<main class="presso-stage">${deck.slides.map(renderSlide).join('\n')}</main><div class="presso-progress"><span></span></div>`;
 }
 
 function renderSlide(slide: Slide): string {
@@ -176,9 +229,34 @@ function renderSlide(slide: Slide): string {
 </section>`;
 }
 
-function renderNotesToggle(policy: NotesPublicPolicy): string {
-  if (policy === false) return '';
-  return `<button class="presso-notes-toggle" data-action="notes" type="button">Notes</button>`;
+function renderModeControls(policy: NotesPublicPolicy): string {
+  const notesButton = policy === false ? '' : '<button data-action="notes" type="button" title="Toggle notes (n)">Notes</button>';
+  return `<nav class="presso-mode-controls" aria-label="Presentation controls">
+  <button data-action="fullscreen" type="button" title="Toggle fullscreen (f)">Full screen</button>
+  <button data-action="presenter" type="button" title="Open speaker view (p)">Speaker</button>
+  <button data-action="control" type="button" title="Open controller (c)">Control</button>
+  ${notesButton}
+  <button data-action="shortcuts" type="button" title="Show shortcuts (?)">?</button>
+</nav>`;
+}
+
+function renderShortcutsOverlay(): string {
+  return `<aside class="presso-shortcuts-overlay" aria-label="Keyboard shortcuts">
+  <section class="presso-shortcuts-panel">
+    <h2>Shortcuts</h2>
+    <dl>
+      <dt><kbd>Space</kbd></dt><dd>Next slide</dd>
+      <dt><kbd>&rarr;</kbd></dt><dd>Next slide</dd>
+      <dt><kbd>&larr;</kbd></dt><dd>Previous slide</dd>
+      <dt><kbd>f</kbd></dt><dd>Toggle fullscreen</dd>
+      <dt><kbd>p</kbd></dt><dd>Open speaker view</dd>
+      <dt><kbd>c</kbd></dt><dd>Open controller</dd>
+      <dt><kbd>n</kbd></dt><dd>Toggle notes</dd>
+      <dt><kbd>?</kbd></dt><dd>Show or hide shortcuts</dd>
+    </dl>
+    <button data-action="shortcuts-close" type="button">Close</button>
+  </section>
+</aside>`;
 }
 
 function renderPresenter(deck: Deck): string {
@@ -190,7 +268,7 @@ function renderPresenter(deck: Deck): string {
   <section>
     <p>Next: <strong data-next-title></strong></p>
     <p>Target: <strong data-timing></strong></p>
-    <div class="presso-controls"><button data-action="prev">Back</button><button data-action="next">Next</button><button data-action="font-minus">A-</button><button data-action="font-plus">A+</button></div>
+    <div class="presso-controls"><button data-action="prev">Back</button><button data-action="next">Next</button><button data-action="fullscreen">Full screen</button><button data-action="font-minus">A-</button><button data-action="font-plus">A+</button><button data-action="shortcuts">?</button></div>
     <article class="presso-notes" data-current-notes></article>
   </section>
 </main>`;
@@ -204,11 +282,28 @@ function renderNotes(deck: Deck): string {
   if (deck.config.notes.public === false) {
     return '<main class="presso-notes-list"><h1>Notes are private</h1></main>';
   }
-  return `<main class="presso-notes-list"><h1>${escapeHtml(deck.config.title)} Notes</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</section>`).join('\\n')}</main>`;
+  return `<main class="presso-notes-list"><h1>${escapeHtml(deck.config.title)} Notes</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</section>`).join('\n')}</main>`;
 }
 
 function renderTranscriptHtml(deck: Deck): string {
-  return `<main class="presso-transcript"><h1>${escapeHtml(deck.config.title)}</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.bodyHtml}${slide.notesHtml}</section>`).join('\\n')}</main>`;
+  return `<main class="presso-transcript"><h1>${escapeHtml(deck.config.title)}</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.bodyHtml}${slide.notesHtml}</section>`).join('\n')}</main>`;
+}
+
+function buildRoutes(mode: RenderMode): Record<string, string> {
+  const prefix = routePrefix(mode);
+  return {
+    deck: prefix || './',
+    presenter: `${prefix}presenter/`,
+    control: `${prefix}control/`,
+    notes: `${prefix}notes/`,
+    embed: `${prefix}embed/`
+  };
+}
+
+function routePrefix(mode: RenderMode): string {
+  if (mode.startsWith('print-')) return '../../';
+  if (['embed', 'presenter', 'control', 'notes', 'transcript'].includes(mode)) return '../';
+  return '';
 }
 
 function normalizeHref(value: string): string {
