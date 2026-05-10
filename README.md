@@ -1,5 +1,6 @@
-# presso
-Web based presentation framework that is useful for me
+# Presso
+
+Web-based presentation framework for Markdown-native conference talks, workshops, and similar events.
 
 ## Quick Start
 
@@ -27,3 +28,49 @@ Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CL
 
 - [Product shape](docs/product-shape.md)
 - [Authoring format](docs/authoring-format.md)
+
+## Contribution Guidelines
+
+Presso is aiming for a small, maintainable core. The current direction is:
+
+- Use TypeScript for framework contracts and internals where typed boundaries help: config, parsing, deck models, export, server, and package APIs.
+- Keep browser-facing runtime code as real web files. CSS lives in `.css`, browser JavaScript lives in `.js`, and renderable HTML lives in `.html` templates.
+- Avoid long inline CSS, JavaScript, or HTML template literals in TypeScript. Small single-line DOM/config injections are fine when they are the narrowest way to bind runtime data.
+- Prefer plain modern platform features before adding dependencies.
+- Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, and `make transcript`.
+
+### CSS And DOM
+
+Slides and runtime modes have a strong, predictable DOM structure. Use that structure.
+
+- Prefer `body[data-mode]`, semantic elements, direct-child selectors, and the cascade before introducing new classes.
+- Keep classes for stable runtime hooks, generated Markdown/directive output, and reusable slide primitives such as `.presso-slide`, `.presso-stage`, `.presso-columns`, and `.presso-iframe`.
+- Use CSS layers and native nesting where they make the hierarchy clearer.
+- Theme authors should be able to override Presso without fighting overly-specific selectors.
+
+### Commits
+
+Use conventional commits consistently:
+
+- `feat:` for user-visible capability
+- `fix:` for bug fixes
+- `docs:` for documentation-only changes
+- `refactor:` for structure changes without intended behaviour changes
+- `test:` for test-only changes
+- `chore:` for tooling or maintenance
+
+### Versioning And Releases
+
+Presso should use semantic versioning once package publishing begins.
+
+- Patch releases: compatible fixes and documentation/tooling corrections.
+- Minor releases: new commands, authoring features, layouts, modes, and export capabilities.
+- Major releases: breaking authoring format, config, CLI, package API, or runtime route changes.
+
+The intended release flow is:
+
+1. Keep PR commits conventional.
+2. Generate changelog/release notes from commit history.
+3. Run `make check` and package smoke tests.
+4. Publish the scoped packages together unless a package is intentionally private/internal.
+5. Create a GitHub release with migration notes for any author-facing changes.
