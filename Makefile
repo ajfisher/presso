@@ -1,4 +1,4 @@
-.PHONY: help install clean build test check dev deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
+.PHONY: help install clean build test browser-smoke check dev deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
 
 DECK ?= examples/basic
 PORT ?= 3030
@@ -11,6 +11,7 @@ help:
 	@echo "  make install                         Install workspace dependencies"
 	@echo "  make build                           Build all packages"
 	@echo "  make test                            Run test suite"
+	@echo "  make browser-smoke                   Run Playwright route smoke tests"
 	@echo "  make check                           Build and test"
 	@echo "  make clean                           Remove local build artifacts"
 	@echo ""
@@ -41,6 +42,9 @@ build:
 
 test:
 	npm run test
+
+browser-smoke: build
+	PRESSO_BROWSER_SMOKE=1 npm run test:browser
 
 check: build test
 

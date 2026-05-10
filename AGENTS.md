@@ -9,6 +9,7 @@ These notes exist to keep future agent work aligned with the project direction.
 - Browser JavaScript belongs in `packages/runtime/src/assets/*.js`.
 - Rendered HTML shells/components belong in `packages/runtime/src/templates/*.html`.
 - TypeScript may compose templates and inject escaped data, but it should not become the place where browser artifacts are authored.
+- Static builds serve generated runtime assets from `_presso/`. Do not mix generated runtime files with deck-authored `assets/` or `public/` files.
 
 ## TypeScript Scope
 
@@ -33,3 +34,4 @@ These notes exist to keep future agent work aligned with the project direction.
 - Treat `notes.public: false` as a hard privacy boundary for static/public output.
 - Do not leak local paths such as `rootDir` into public artifacts.
 - Be cautious with local network server features. Static file serving must not permit path traversal outside the deck/public roots.
+- For public/static changes, test nested routes as well as `/`; asset bugs often appear first in `/embed/`, `/notes/`, and `/print/*`.
