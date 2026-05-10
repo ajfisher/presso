@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -b && node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
+    "test:browser": "vitest run test/browser-smoke.test.ts",
     "dev": "npm run build && node packages/server/dist/cli.js dev examples/basic",
     "presso": "node packages/server/dist/cli.js"
   },

@@ -24,6 +24,18 @@ Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CL
 - `n`: toggle notes when public notes are enabled
 - `?`: show or hide shortcuts
 
+## Public Notes
+
+`notes.public` controls whether speaker notes are emitted into public/static output:
+
+- `false`: notes stay local and are omitted from static HTML, `deck.json`, and transcript output.
+- `"toggle"`: notes are published, hidden by default, and can be shown with the Notes button, `/notes`, or `?notes=1`.
+- `"visible"`: notes are published and visible by default in public companion views.
+
+## Static Assets
+
+Runtime files are generated under `_presso/` in static builds. Deck assets should live in `assets/`, public files can live in `public/`, and Markdown references should be deck-root relative, such as `./assets/diagram.svg`.
+
 ## Design Notes
 
 - [Product shape](docs/product-shape.md)
@@ -37,7 +49,7 @@ Presso is aiming for a small, maintainable core. The current direction is:
 - Keep browser-facing runtime code as real web files. CSS lives in `.css`, browser JavaScript lives in `.js`, and renderable HTML lives in `.html` templates.
 - Avoid long inline CSS, JavaScript, or HTML template literals in TypeScript. Small single-line DOM/config injections are fine when they are the narrowest way to bind runtime data.
 - Prefer plain modern platform features before adding dependencies.
-- Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, and `make transcript`.
+- Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, `make transcript`, and `make browser-smoke`.
 
 ### CSS And DOM
 
