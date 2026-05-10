@@ -7,7 +7,18 @@ import { checkOrder, compileDeck, parseOrderFile } from './index.js';
 describe('deck compilation', () => {
   it('loads the example fixture in numeric filename order', async () => {
     const deck = await compileDeck(path.resolve('examples/basic'));
-    expect(deck.slides.map((slide) => slide.id)).toEqual(['title', 'content', 'notes']);
+    expect(deck.slides.map((slide) => slide.id)).toEqual([
+      'title',
+      'content',
+      'notes',
+      'section',
+      'statement',
+      'image',
+      'logos',
+      'code',
+      'demo',
+      'blank'
+    ]);
     expect(deck.slides[0]!.layout).toBe('title');
     expect(deck.slides[2]!.notesMarkdown).toContain('Speaker notes');
   });
