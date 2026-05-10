@@ -1,35 +1,91 @@
+import { readFileSync } from 'node:fs';
 import type { Deck, NotesPublicPolicy, Slide } from '@presso/core';
 
 export type RenderMode = 'deck' | 'presenter' | 'control' | 'notes' | 'embed' | 'print-slides' | 'print-notes-side' | 'print-notes-pages' | 'transcript';
+export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js';
 
-export function renderPage(deck: Deck, mode: RenderMode, options: { server?: boolean } = {}): string {
-  if (mode === 'transcript') {
-    return renderDocument(deck, mode, renderTranscriptHtml(deck));
-  }
-  if (mode === 'notes') {
-    return renderDocument(deck, mode, renderNotes(deck));
-  }
-  if (mode === 'control') {
-    return renderDocument(deck, mode, renderControl(deck), options);
-  }
-  if (mode === 'presenter') {
-    return renderDocument(deck, mode, renderPresenter(deck), options);
-  }
-  const body = [
-    renderDeck(deck, mode),
-    mode === 'deck' || mode === 'embed' ? renderModeControls(deck.config.notes.public) : ''
-  ].filter(Boolean).join('\n');
-  return renderDocument(deck, mode, body, options);
+interface RenderOptions {
+  server?: boolean;
 }
 
-export function renderTranscriptMarkdown(deck: Deck): string {
+interface RenderContext {
+  assetPrefix: string;
+  includeNotes: boolean;
+  mode: RenderMode;
+  notesPublic: NotesPublicPolicy;
+  server: boolean;
+}
+
+const ASSET_ROOT = new URL('./assets/', import.meta.url);
+const TEMPLATE_ROOT = new URL('./templates/', import.meta.url);
+
+const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: string }> = {
+  'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
+  'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' }
+};
+
+const templates = {
+  control: readTemplate('control.html'),
+  deck: readTemplate('deck.html'),
+  document: readTemplate('document.html'),
+  modeControls: readTemplate('mode-controls.html'),
+  notesButton: readTemplate('notes-button.html'),
+  notesList: readTemplate('notes-list.html'),
+  notesPanel: readTemplate('notes-panel.html'),
+  notesPrivate: readTemplate('notes-private.html'),
+  notesSection: readTemplate('notes-section.html'),
+  presenter: readTemplate('presenter.html'),
+  printNotesPage: readTemplate('print-notes-page.html'),
+  printNotesPages: readTemplate('print-notes-pages.html'),
+  printNotesSide: readTemplate('print-notes-side.html'),
+  printNotesSidePage: readTemplate('print-notes-side-page.html'),
+  shortcutsOverlay: readTemplate('shortcuts-overlay.html'),
+  slide: readTemplate('slide.html'),
+  transcript: readTemplate('transcript.html'),
+  transcriptSection: readTemplate('transcript-section.html')
+};
+
+export const runtimeAssetNames = Object.keys(runtimeAssets) as RuntimeAssetName[];
+
+export function readRuntimeAsset(name: RuntimeAssetName): { content: string; contentType: string } {
+  const asset = runtimeAssets[name];
+  return {
+    content: readFileSync(new URL(asset.file, ASSET_ROOT), 'utf8'),
+    contentType: asset.contentType
+  };
+}
+
+export function renderPage(deck: Deck, mode: RenderMode, options: RenderOptions = {}): string {
+  const context = buildContext(deck, mode, options);
+  if (mode === 'transcript') {
+    return renderDocument(deck, mode, renderTranscriptHtml(deck, context), context);
+  }
+  if (mode === 'notes') {
+    return renderDocument(deck, mode, renderNotes(deck, context), context);
+  }
+  if (mode === 'control') {
+    return renderDocument(deck, mode, renderControl(deck), context);
+  }
+  if (mode === 'presenter') {
+    return renderDocument(deck, mode, renderPresenter(deck, context), context);
+  }
+  const body = [
+    renderDeck(deck, context),
+    context.notesPublic !== false ? renderNotesPanel() : '',
+    renderModeControls(context.notesPublic)
+  ].filter(Boolean).join('\n');
+  return renderDocument(deck, mode, body, context);
+}
+
+export function renderTranscriptMarkdown(deck: Deck, options: { includeNotes?: boolean } = {}): string {
+  const includeNotes = options.includeNotes ?? true;
   const lines = [`# ${deck.config.title}`, ''];
   for (const slide of deck.slides) {
     lines.push(`## ${slide.title}`, '');
     if (slide.bodyMarkdown) {
       lines.push(slide.bodyMarkdown, '');
     }
-    if (slide.notesMarkdown) {
+    if (includeNotes && slide.notesMarkdown) {
       lines.push(slide.notesMarkdown, '');
     }
   }
@@ -39,257 +95,140 @@ export function renderTranscriptMarkdown(deck: Deck): string {
   return lines.join('\n').trimEnd() + '\n';
 }
 
-export function baseStyles(deck: Deck): string {
-  const { width, height } = deck.config.size;
-  return `
-:root {
-  --presso-slide-width: ${width}px;
-  --presso-slide-height: ${height}px;
-  --presso-accent: #ff5e9a;
-  --presso-bg: #202020;
-  --presso-fg: #fff;
-  --presso-muted: #9a9a9a;
-}
-* { box-sizing: border-box; }
-html, body { margin: 0; min-height: 100%; background: var(--presso-bg); color: var(--presso-fg); font-family: Inter, system-ui, sans-serif; }
-body[data-mode=\"deck\"], body[data-mode=\"embed\"] { overflow: hidden; }
-.presso-stage { min-height: 100vh; display: grid; place-items: center; padding: 2vmin; }
-.presso-slide { display: none; width: min(100vw, calc(100vh * (${width} / ${height}))); aspect-ratio: ${width} / ${height}; position: relative; overflow: hidden; padding: 5%; background: #2d2d2d; box-shadow: 0 1rem 4rem rgba(0,0,0,.35); }
-.presso-slide.is-active, body[data-mode^=\"print\"] .presso-slide { display: grid; }
-.presso-slide h1, .presso-slide h2, .presso-slide h3 { color: var(--presso-accent); margin-top: 0; }
-.presso-slide[data-layout=\"title\"] { align-content: end; }
-.presso-slide[data-layout=\"section\"], .presso-slide[data-layout=\"statement\"] { align-content: center; }
-.presso-slide[data-layout=\"image\"], .presso-slide[data-layout=\"image-title\"] { background-size: cover; background-position: center; }
-.presso-slide[data-layout=\"two-column\"] .presso-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; align-items: center; }
-.presso-logos { display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; justify-content: center; }
-.presso-logos img { max-width: 10rem; max-height: 6rem; object-fit: contain; }
-.presso-iframe { width: 100%; min-height: 60%; border: 0; background: white; }
-.presso-progress { position: fixed; left: 0; right: 0; bottom: 0; height: .45rem; background: rgba(255,255,255,.18); z-index: 10; }
-.presso-progress > span { display: block; height: 100%; width: 0; background: var(--presso-accent); transition: width .2s ease; }
-.presso-notes-panel { position: fixed; right: 1rem; top: 1rem; bottom: 1rem; width: min(36rem, 35vw); overflow: auto; background: rgba(0,0,0,.78); border-left: .25rem solid var(--presso-accent); padding: 1rem; display: none; }
-body[data-notes-visible=\"true\"] .presso-notes-panel { display: block; }
-.presso-mode-controls { position: fixed; right: 1rem; bottom: 1rem; z-index: 20; display: flex; flex-wrap: wrap; gap: .5rem; opacity: .22; transition: opacity .15s ease; }
-.presso-mode-controls:hover, .presso-mode-controls:focus-within { opacity: 1; }
-.presso-mode-controls button, .presso-shortcuts-overlay button { font: inherit; border: 0; border-radius: .3rem; background: rgba(0,0,0,.74); color: white; padding: .55rem .7rem; cursor: pointer; }
-.presso-mode-controls button:hover, .presso-mode-controls button:focus-visible, .presso-shortcuts-overlay button:hover, .presso-shortcuts-overlay button:focus-visible { background: var(--presso-accent); outline: none; }
-.presso-shortcuts-overlay { position: fixed; inset: 0; z-index: 30; display: none; place-items: center; padding: 1rem; background: rgba(0,0,0,.72); }
-body[data-shortcuts-visible=\"true\"] .presso-shortcuts-overlay { display: grid; }
-.presso-shortcuts-panel { width: min(34rem, 100%); background: #111; border: 1px solid rgba(255,255,255,.18); border-radius: .45rem; padding: 1.25rem; box-shadow: 0 1rem 4rem rgba(0,0,0,.45); }
-.presso-shortcuts-panel h2 { margin: 0 0 1rem; color: var(--presso-accent); }
-.presso-shortcuts-panel dl { display: grid; grid-template-columns: 4rem 1fr; gap: .65rem 1rem; margin: 0 0 1rem; }
-.presso-shortcuts-panel dt { margin: 0; }
-.presso-shortcuts-panel dd { margin: 0; color: rgba(255,255,255,.82); }
-.presso-shortcuts-panel kbd { display: inline-block; min-width: 2rem; border: 1px solid rgba(255,255,255,.26); border-bottom-width: 2px; border-radius: .25rem; padding: .12rem .35rem; text-align: center; background: rgba(255,255,255,.08); color: white; }
-.presso-presenter { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; min-height: 100vh; padding: 1rem; }
-.presso-presenter .presso-preview { background: #111; padding: 1rem; overflow: hidden; }
-.presso-presenter .presso-notes { font-size: var(--presenter-notes-size, 1.25rem); line-height: 1.45; overflow: auto; max-height: 70vh; }
-.presso-controls { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0; }
-.presso-controls button { font: inherit; padding: .7rem 1rem; border: 0; border-radius: .3rem; background: var(--presso-accent); color: white; cursor: pointer; }
-.presso-control-page { min-height: 100vh; display: grid; place-items: center; text-align: center; }
-.presso-control-page button { font-size: 2rem; margin: .5rem; padding: 1rem 1.5rem; }
-.presso-notes-list, .presso-transcript { max-width: 72rem; margin: 0 auto; padding: 3rem 1.5rem; line-height: 1.55; }
-body[data-mode=\"print-slides\"], body[data-mode=\"print-notes-side\"], body[data-mode=\"print-notes-pages\"] { background: white; color: #111; }
-body[data-mode^=\"print\"] .presso-stage { display: block; padding: 0; }
-body[data-mode^=\"print\"] .presso-slide { box-shadow: none; page-break-after: always; color: #111; background-color: white; }
-body[data-mode=\"print-notes-side\"] .presso-print-page { display: grid; grid-template-columns: 2fr 1fr; page-break-after: always; }
-body[data-mode=\"print-notes-pages\"] .presso-print-notes { page-break-after: always; padding: 2rem; }
-@media print { .presso-progress, .presso-controls, .presso-mode-controls, .presso-shortcuts-overlay { display: none !important; } }
-`;
-}
-
-export function runtimeScript(): string {
-  return `
-(() => {
-  const slides = Array.from(document.querySelectorAll('.presso-slide'));
-  const progress = document.querySelector('.presso-progress > span');
-  const mode = document.body.dataset.mode || 'deck';
-  const serverSync = Boolean(window.__PRESSO_SERVER__);
-  const routes = window.__PRESSO_ROUTES__ || {};
-  let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.replace('#/', '')) || 0));
-  const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
-
-  function setIndex(next, source = 'local') {
-    if (!slides.length) return;
-    index = Math.max(0, Math.min(slides.length - 1, next));
-    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
-    document.body.dataset.currentSlide = String(index);
-    if (progress) progress.style.width = String(((index + 1) / slides.length) * 100) + '%';
-    if (mode === 'deck' || mode === 'embed') history.replaceState(null, '', '#/' + index);
-    updatePresenter();
-    localStorage.setItem('presso:index', String(index));
-    if (source === 'local') channel?.postMessage({ index });
-    if (source === 'local' && serverSync) fetch('/state', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ index }) }).catch(() => {});
-  }
-  function go(delta) { setIndex(index + delta); }
-  function isEditableTarget(target) {
-    return target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
-  }
-  function toggleNotes() {
-    document.body.dataset.notesVisible = document.body.dataset.notesVisible === 'true' ? 'false' : 'true';
-  }
-  function toggleShortcuts(force) {
-    const visible = force ?? document.body.dataset.shortcutsVisible !== 'true';
-    document.body.dataset.shortcutsVisible = visible ? 'true' : 'false';
-  }
-  function toggleFullscreen() {
-    if (document.fullscreenElement) {
-      const exit = document.exitFullscreen?.();
-      exit?.catch?.(() => {});
-      return;
-    }
-    const request = document.documentElement.requestFullscreen?.();
-    request?.catch?.(() => {});
-  }
-  function openRoute(name) {
-    if (!routes[name]) return;
-    window.open(routes[name], 'presso-' + name, 'noopener');
-  }
-  function updatePresenter() {
-    document.querySelectorAll('[data-current-title]').forEach((el) => el.textContent = slides[index]?.dataset.title || '');
-    document.querySelectorAll('[data-next-title]').forEach((el) => el.textContent = slides[index + 1]?.dataset.title || 'End');
-    document.querySelectorAll('[data-current-notes]').forEach((el) => el.innerHTML = slides[index]?.querySelector('.presso-slide-notes')?.innerHTML || '');
-    document.querySelectorAll('[data-timing]').forEach((el) => el.textContent = slides[index]?.dataset.targetTime || '');
-  }
-  document.addEventListener('keydown', (event) => {
-    if (isEditableTarget(event.target)) return;
-    if (['ArrowRight', 'PageDown', ' '].includes(event.key)) { event.preventDefault(); go(1); }
-    if (['ArrowLeft', 'PageUp'].includes(event.key)) { event.preventDefault(); go(-1); }
-    if (event.key === 'f') { event.preventDefault(); toggleFullscreen(); }
-    if (event.key === 'p') { event.preventDefault(); openRoute('presenter'); }
-    if (event.key === 'c') { event.preventDefault(); openRoute('control'); }
-    if (event.key === 'n') { event.preventDefault(); toggleNotes(); }
-    if (event.key === '?') { event.preventDefault(); toggleShortcuts(); }
-    if (event.key === 'Escape') toggleShortcuts(false);
+function renderDocument(deck: Deck, mode: RenderMode, body: string, context: RenderContext): string {
+  return renderTemplate('document', {
+    body,
+    mode,
+    runtimeConfigJson: scriptJson({
+      routes: buildRoutes(mode, context.server),
+      server: context.server
+    }),
+    runtimeCssHref: `${context.assetPrefix}presso.css`,
+    runtimeScriptHref: `${context.assetPrefix}presso-runtime.js`,
+    runtimeStyle: escapeAttr(`--presso-slide-width: ${deck.config.size.width}px; --presso-slide-height: ${deck.config.size.height}px; --presso-slide-ratio: ${deck.config.size.width} / ${deck.config.size.height};`),
+    shortcutsOverlay: mode.startsWith('print-') ? '' : renderTemplate('shortcutsOverlay'),
+    themeHref: normalizeHref(deck.config.theme, context.assetPrefix),
+    title: escapeHtml(deck.config.title),
+    notesVisible: deck.config.notes.public === 'visible' ? 'true' : 'false'
   });
-  document.addEventListener('fullscreenchange', () => {
-    document.body.dataset.fullscreen = document.fullscreenElement ? 'true' : 'false';
+}
+
+function renderDeck(deck: Deck, context: RenderContext): string {
+  if (context.mode === 'print-notes-side') {
+    return renderTemplate('printNotesSide', {
+      pages: deck.slides.map((slide) => renderTemplate('printNotesSidePage', {
+        notesHtml: rewriteRelativeHtml(slide.notesHtml, context.assetPrefix),
+        slide: renderSlide(slide, context)
+      })).join('\n')
+    });
+  }
+  if (context.mode === 'print-notes-pages') {
+    return renderTemplate('printNotesPages', {
+      pages: deck.slides.map((slide) => renderTemplate('printNotesPage', {
+        notesHtml: rewriteRelativeHtml(slide.notesHtml, context.assetPrefix),
+        slide: renderSlide(slide, context),
+        title: escapeHtml(slide.title)
+      })).join('\n')
+    });
+  }
+  return renderTemplate('deck', {
+    slides: deck.slides.map((slide) => renderSlide(slide, context)).join('\n')
   });
-  document.addEventListener('click', (event) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const action = target?.closest('[data-action]')?.dataset.action;
-    if (action === 'next') go(1);
-    if (action === 'prev') go(-1);
-    if (action === 'notes') toggleNotes();
-    if (action === 'fullscreen') toggleFullscreen();
-    if (action === 'presenter') openRoute('presenter');
-    if (action === 'control') openRoute('control');
-    if (action === 'shortcuts') toggleShortcuts();
-    if (action === 'shortcuts-close') toggleShortcuts(false);
-    if (action === 'font-plus') document.documentElement.style.setProperty('--presenter-notes-size', '1.5rem');
-    if (action === 'font-minus') document.documentElement.style.setProperty('--presenter-notes-size', '1rem');
-  });
-  channel?.addEventListener('message', (event) => setIndex(Number(event.data.index), 'remote'));
-  if (serverSync && 'EventSource' in window) {
-    const events = new EventSource('/events');
-    events.addEventListener('state', (event) => setIndex(JSON.parse(event.data).index, 'remote'));
-    events.addEventListener('reload', () => location.reload());
-  }
-  setIndex(index, 'init');
-})();`;
 }
 
-function renderDocument(deck: Deck, mode: RenderMode, body: string, options: { server?: boolean } = {}): string {
-  const themeHref = normalizeHref(deck.config.theme);
-  const shortcutOverlay = mode.startsWith('print-') ? '' : renderShortcutsOverlay();
-  return `<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${escapeHtml(deck.config.title)}</title>
-  <style>${baseStyles(deck)}</style>
-  <link rel="stylesheet" href="${themeHref}">
-</head>
-<body data-mode="${mode}" data-notes-visible="${deck.config.notes.public === 'visible' ? 'true' : 'false'}">
-  ${body}
-  ${shortcutOverlay}
-  <script>window.__PRESSO_SERVER__ = ${options.server ? 'true' : 'false'}; window.__PRESSO_ROUTES__ = ${JSON.stringify(buildRoutes(mode))};</script>
-  <script>${runtimeScript()}</script>
-</body>
-</html>`;
-}
-
-function renderDeck(deck: Deck, mode: RenderMode): string {
-  if (mode === 'print-notes-side') {
-    return `<main>${deck.slides.map((slide) => `<section class="presso-print-page">${renderSlide(slide)}<aside class="presso-print-notes">${slide.notesHtml}</aside></section>`).join('\n')}</main>`;
-  }
-  if (mode === 'print-notes-pages') {
-    return `<main>${deck.slides.map((slide) => `${renderSlide(slide)}<aside class="presso-print-notes"><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</aside>`).join('\n')}</main>`;
-  }
-  return `<main class="presso-stage">${deck.slides.map(renderSlide).join('\n')}</main><div class="presso-progress"><span></span></div>`;
-}
-
-function renderSlide(slide: Slide): string {
+function renderSlide(slide: Slide, context: RenderContext): string {
   const classNames = ['presso-slide', ...slide.class].join(' ');
-  const style = slide.background ? ` style="background-image: url('${escapeAttr(slide.background)}'); background-size: ${escapeAttr(slide.backgroundFit ?? 'cover')};"` : '';
   const target = slide.targetTimeSeconds === undefined ? '' : secondsToClock(slide.targetTimeSeconds);
-  return `<section class="${classNames}" data-slide-index="${slide.index}" data-slide-id="${escapeAttr(slide.id)}" data-title="${escapeAttr(slide.title)}" data-layout="${escapeAttr(slide.layout)}" data-target-time="${escapeAttr(target)}"${style}>
-  <div class="presso-slide-body">${slide.bodyHtml}</div>
-  <aside class="presso-slide-notes" hidden>${slide.notesHtml}</aside>
-</section>`;
+  const backgroundStyle = slide.background
+    ? `background-image: url('${escapeAttr(normalizeHref(slide.background, context.assetPrefix))}'); background-size: ${escapeAttr(slide.backgroundFit ?? 'cover')};`
+    : '';
+  return renderTemplate('slide', {
+    backgroundStyle: backgroundStyle ? ` style="${backgroundStyle}"` : '',
+    bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
+    classNames: escapeAttr(classNames),
+    index: String(slide.index),
+    layout: escapeAttr(slide.layout),
+    notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
+    slideId: escapeAttr(slide.id),
+    targetTime: escapeAttr(target),
+    title: escapeAttr(slide.title)
+  });
 }
 
 function renderModeControls(policy: NotesPublicPolicy): string {
-  const notesButton = policy === false ? '' : '<button data-action="notes" type="button" title="Toggle notes (n)">Notes</button>';
-  return `<nav class="presso-mode-controls" aria-label="Presentation controls">
-  <button data-action="fullscreen" type="button" title="Toggle fullscreen (f)">Full screen</button>
-  <button data-action="presenter" type="button" title="Open speaker view (p)">Speaker</button>
-  <button data-action="control" type="button" title="Open controller (c)">Control</button>
-  ${notesButton}
-  <button data-action="shortcuts" type="button" title="Show shortcuts (?)">?</button>
-</nav>`;
+  return renderTemplate('modeControls', {
+    notesButton: policy === false ? '' : renderTemplate('notesButton')
+  });
 }
 
-function renderShortcutsOverlay(): string {
-  return `<aside class="presso-shortcuts-overlay" aria-label="Keyboard shortcuts">
-  <section class="presso-shortcuts-panel">
-    <h2>Shortcuts</h2>
-    <dl>
-      <dt><kbd>Space</kbd></dt><dd>Next slide</dd>
-      <dt><kbd>&rarr;</kbd></dt><dd>Next slide</dd>
-      <dt><kbd>&larr;</kbd></dt><dd>Previous slide</dd>
-      <dt><kbd>f</kbd></dt><dd>Toggle fullscreen</dd>
-      <dt><kbd>p</kbd></dt><dd>Open speaker view</dd>
-      <dt><kbd>c</kbd></dt><dd>Open controller</dd>
-      <dt><kbd>n</kbd></dt><dd>Toggle notes</dd>
-      <dt><kbd>?</kbd></dt><dd>Show or hide shortcuts</dd>
-    </dl>
-    <button data-action="shortcuts-close" type="button">Close</button>
-  </section>
-</aside>`;
+function renderNotesPanel(): string {
+  return renderTemplate('notesPanel');
 }
 
-function renderPresenter(deck: Deck): string {
-  return `<main class="presso-presenter">
-  <section class="presso-preview">
-    <h1 data-current-title></h1>
-    ${renderDeck(deck, 'presenter')}
-  </section>
-  <section>
-    <p>Next: <strong data-next-title></strong></p>
-    <p>Target: <strong data-timing></strong></p>
-    <div class="presso-controls"><button data-action="prev">Back</button><button data-action="next">Next</button><button data-action="fullscreen">Full screen</button><button data-action="font-minus">A-</button><button data-action="font-plus">A+</button><button data-action="shortcuts">?</button></div>
-    <article class="presso-notes" data-current-notes></article>
-  </section>
-</main>`;
+function renderPresenter(deck: Deck, context: RenderContext): string {
+  return renderTemplate('presenter', {
+    deck: renderDeck(deck, { ...context, mode: 'presenter', includeNotes: true })
+  });
 }
 
 function renderControl(deck: Deck): string {
-  return `<main class="presso-control-page"><section><h1>${escapeHtml(deck.config.title)}</h1><p>${deck.slides.length} slides</p><button data-action="prev">Back</button><button data-action="next">Next</button></section></main>`;
+  return renderTemplate('control', {
+    slideCount: String(deck.slides.length),
+    title: escapeHtml(deck.config.title)
+  });
 }
 
-function renderNotes(deck: Deck): string {
-  if (deck.config.notes.public === false) {
-    return '<main class="presso-notes-list"><h1>Notes are private</h1></main>';
+function renderNotes(deck: Deck, context: RenderContext): string {
+  if (!context.includeNotes) {
+    return renderTemplate('notesPrivate');
   }
-  return `<main class="presso-notes-list"><h1>${escapeHtml(deck.config.title)} Notes</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.notesHtml}</section>`).join('\n')}</main>`;
+  return renderTemplate('notesList', {
+    sections: deck.slides.map((slide) => renderTemplate('notesSection', {
+      notesHtml: rewriteRelativeHtml(slide.notesHtml, context.assetPrefix),
+      title: escapeHtml(slide.title)
+    })).join('\n'),
+    title: escapeHtml(deck.config.title)
+  });
 }
 
-function renderTranscriptHtml(deck: Deck): string {
-  return `<main class="presso-transcript"><h1>${escapeHtml(deck.config.title)}</h1>${deck.slides.map((slide) => `<section><h2>${escapeHtml(slide.title)}</h2>${slide.bodyHtml}${slide.notesHtml}</section>`).join('\n')}</main>`;
+function renderTranscriptHtml(deck: Deck, context: RenderContext): string {
+  return renderTemplate('transcript', {
+    sections: deck.slides.map((slide) => renderTemplate('transcriptSection', {
+      bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
+      notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
+      title: escapeHtml(slide.title)
+    })).join('\n'),
+    title: escapeHtml(deck.config.title)
+  });
 }
 
-function buildRoutes(mode: RenderMode): Record<string, string> {
+function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): RenderContext {
+  const server = Boolean(options.server);
+  return {
+    assetPrefix: server ? '/' : routePrefix(mode),
+    includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server),
+    mode,
+    notesPublic: deck.config.notes.public,
+    server
+  };
+}
+
+function shouldIncludeNotes(policy: NotesPublicPolicy, mode: RenderMode, server: boolean): boolean {
+  if (server) return true;
+  if (mode === 'presenter' || mode.startsWith('print-notes')) return true;
+  return policy !== false;
+}
+
+function buildRoutes(mode: RenderMode, server: boolean): Record<string, string> {
+  if (server) {
+    return {
+      deck: '/',
+      presenter: '/presenter',
+      control: '/control',
+      notes: '/notes',
+      embed: '/embed'
+    };
+  }
   const prefix = routePrefix(mode);
   return {
     deck: prefix || './',
@@ -306,8 +245,27 @@ function routePrefix(mode: RenderMode): string {
   return '';
 }
 
-function normalizeHref(value: string): string {
-  return value.startsWith('.') ? value.slice(1) : value;
+function normalizeHref(value: string, prefix: string): string {
+  if (/^(?:[a-z]+:|\/|#)/i.test(value)) {
+    return value;
+  }
+  return `${prefix}${value.replace(/^\.\//, '')}`;
+}
+
+function rewriteRelativeHtml(html: string, prefix: string): string {
+  return html.replace(/\b(src|href)="\.\//g, (_match, attr: string) => `${attr}="${prefix}`);
+}
+
+function renderTemplate(name: keyof typeof templates, values: Record<string, string> = {}): string {
+  return templates[name].replace(/\{\{([a-zA-Z][\w]*)\}\}/g, (_match, key: string) => values[key] ?? '');
+}
+
+function readTemplate(name: string): string {
+  return readFileSync(new URL(name, TEMPLATE_ROOT), 'utf8').trim();
+}
+
+function scriptJson(value: unknown): string {
+  return JSON.stringify(value).replaceAll('<', '\\u003c');
 }
 
 function secondsToClock(seconds: number): string {

@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <link rel="stylesheet" href="{{runtimeCssHref}}">
+  <link rel="stylesheet" href="{{themeHref}}">
+</head>
+<body data-mode="{{mode}}" data-notes-visible="{{notesVisible}}" style="{{runtimeStyle}}">
+  {{body}}
+  {{shortcutsOverlay}}
+  <script type="application/json" id="presso-runtime-config">{{runtimeConfigJson}}</script>
+  <script src="{{runtimeScriptHref}}" type="module"></script>
+</body>
+</html>

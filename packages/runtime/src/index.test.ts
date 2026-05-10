@@ -57,7 +57,11 @@ describe('runtime renderer', () => {
     const html = renderPage(deck, 'deck');
     expect(html).toContain('data-action="fullscreen"');
     expect(html).toContain('data-action="presenter"');
-    expect(html).toContain('window.__PRESSO_ROUTES__');
+    expect(html).toContain('id="presso-runtime-config"');
+    expect(html).toContain('"presenter":"presenter/"');
+    expect(html).toContain('<link rel="stylesheet" href="presso.css">');
+    expect(html).toContain('<script src="presso-runtime.js" type="module"></script>');
+    expect(html).not.toContain('function setIndex');
   });
 
   it('uses real newlines for transcript markdown', () => {

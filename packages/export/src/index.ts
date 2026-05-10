@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { compileDeck, copyDir, pathExists } from '@presso/core';
-import { renderPage, renderTranscriptMarkdown, type RenderMode } from '@presso/runtime';
+import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode } from '@presso/runtime';
 
 const ROUTES: Array<[string, RenderMode]> = [
   ['index.html', 'deck'],
@@ -27,9 +27,12 @@ export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise
     await fs.writeFile(output, renderPage(deck, mode), 'utf8');
   }
 
-  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(deck, null, 2), 'utf8');
-  await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck), 'utf8');
+  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicDeck(deck), null, 2), 'utf8');
+  await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck, { includeNotes: deck.config.notes.public !== false }), 'utf8');
   await fs.writeFile(path.join(dest, 'metadata.json'), JSON.stringify(buildMetadata(deck), null, 2), 'utf8');
+  for (const assetName of runtimeAssetNames) {
+    await fs.writeFile(path.join(dest, assetName), readRuntimeAsset(assetName).content, 'utf8');
+  }
 
   const themePath = path.resolve(deck.config.rootDir, deck.config.theme);
   if (await pathExists(themePath)) {
@@ -84,5 +87,21 @@ function buildMetadata(deck: Awaited<ReturnType<typeof compileDeck>>) {
     canonicalUrl: deck.config.baseUrl,
     embedUrl: deck.config.baseUrl ? `${deck.config.baseUrl.replace(/\/$/, '')}/embed/` : undefined,
     pdfUrl: deck.config.baseUrl ? `${deck.config.baseUrl.replace(/\/$/, '')}/slides.pdf` : undefined
+  };
+}
+
+function publicDeck(deck: Awaited<ReturnType<typeof compileDeck>>) {
+  const includeNotes = deck.config.notes.public !== false;
+  return {
+    ...deck,
+    config: {
+      ...deck.config,
+      rootDir: undefined
+    },
+    slides: deck.slides.map((slide) => ({
+      ...slide,
+      notesMarkdown: includeNotes ? slide.notesMarkdown : '',
+      notesHtml: includeNotes ? slide.notesHtml : ''
+    }))
   };
 }
