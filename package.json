@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node scripts/copy-runtime-assets.mjs",
     "test": "vitest run",
     "dev": "npm run build && node packages/server/dist/cli.js dev examples/basic",
     "presso": "node packages/server/dist/cli.js"

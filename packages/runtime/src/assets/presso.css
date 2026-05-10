@@ -1,0 +1,326 @@
+:root {
+  --presso-slide-width: 1280px;
+  --presso-slide-height: 720px;
+  --presso-slide-ratio: 1280 / 720;
+  --presso-accent: #ff5e9a;
+  --presso-bg: #202020;
+  --presso-fg: #fff;
+  --presso-muted: #9a9a9a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: var(--presso-bg);
+  color: var(--presso-fg);
+  font-family: Inter, system-ui, sans-serif;
+}
+
+body[data-mode="deck"],
+body[data-mode="embed"] {
+  overflow: hidden;
+}
+
+.presso-stage {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 2vmin;
+}
+
+.presso-slide {
+  display: none;
+  width: min(100vw, calc(100vh * var(--presso-slide-ratio)));
+  aspect-ratio: var(--presso-slide-ratio);
+  position: relative;
+  overflow: hidden;
+  padding: 5%;
+  background: #2d2d2d;
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / 35%);
+}
+
+.presso-slide.is-active,
+body[data-mode^="print"] .presso-slide {
+  display: grid;
+}
+
+.presso-slide h1,
+.presso-slide h2,
+.presso-slide h3 {
+  color: var(--presso-accent);
+  margin-top: 0;
+}
+
+.presso-slide[data-layout="title"] {
+  align-content: end;
+}
+
+.presso-slide[data-layout="section"],
+.presso-slide[data-layout="statement"] {
+  align-content: center;
+}
+
+.presso-slide[data-layout="image"],
+.presso-slide[data-layout="image-title"] {
+  background-size: cover;
+  background-position: center;
+}
+
+.presso-slide[data-layout="two-column"] .presso-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  align-items: center;
+}
+
+.presso-logos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: center;
+  justify-content: center;
+}
+
+.presso-logos img {
+  max-width: 10rem;
+  max-height: 6rem;
+  object-fit: contain;
+}
+
+.presso-iframe {
+  width: 100%;
+  min-height: 60%;
+  border: 0;
+  background: white;
+}
+
+.presso-progress {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: .45rem;
+  background: rgb(255 255 255 / 18%);
+  z-index: 10;
+}
+
+.presso-progress > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--presso-accent);
+  transition: width .2s ease;
+}
+
+.presso-notes-panel {
+  position: fixed;
+  right: 1rem;
+  top: 1rem;
+  bottom: 1rem;
+  width: min(36rem, 35vw);
+  overflow: auto;
+  background: rgb(0 0 0 / 78%);
+  border-left: .25rem solid var(--presso-accent);
+  padding: 1rem;
+  display: none;
+  z-index: 15;
+}
+
+body[data-notes-visible="true"] .presso-notes-panel {
+  display: block;
+}
+
+.presso-mode-controls {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  opacity: .22;
+  transition: opacity .15s ease;
+}
+
+.presso-mode-controls:hover,
+.presso-mode-controls:focus-within {
+  opacity: 1;
+}
+
+.presso-mode-controls button,
+.presso-shortcuts-overlay button {
+  font: inherit;
+  border: 0;
+  border-radius: .3rem;
+  background: rgb(0 0 0 / 74%);
+  color: white;
+  padding: .55rem .7rem;
+  cursor: pointer;
+}
+
+.presso-mode-controls button:hover,
+.presso-mode-controls button:focus-visible,
+.presso-shortcuts-overlay button:hover,
+.presso-shortcuts-overlay button:focus-visible {
+  background: var(--presso-accent);
+  outline: none;
+}
+
+.presso-shortcuts-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  place-items: center;
+  padding: 1rem;
+  background: rgb(0 0 0 / 72%);
+}
+
+body[data-shortcuts-visible="true"] .presso-shortcuts-overlay {
+  display: grid;
+}
+
+.presso-shortcuts-panel {
+  width: min(34rem, 100%);
+  background: #111;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: .45rem;
+  padding: 1.25rem;
+  box-shadow: 0 1rem 4rem rgb(0 0 0 / 45%);
+}
+
+.presso-shortcuts-panel h2 {
+  margin: 0 0 1rem;
+  color: var(--presso-accent);
+}
+
+.presso-shortcuts-panel dl {
+  display: grid;
+  grid-template-columns: 4rem 1fr;
+  gap: .65rem 1rem;
+  margin: 0 0 1rem;
+}
+
+.presso-shortcuts-panel dt,
+.presso-shortcuts-panel dd {
+  margin: 0;
+}
+
+.presso-shortcuts-panel dd {
+  color: rgb(255 255 255 / 82%);
+}
+
+.presso-shortcuts-panel kbd {
+  display: inline-block;
+  min-width: 2rem;
+  border: 1px solid rgb(255 255 255 / 26%);
+  border-bottom-width: 2px;
+  border-radius: .25rem;
+  padding: .12rem .35rem;
+  text-align: center;
+  background: rgb(255 255 255 / 8%);
+  color: white;
+}
+
+.presso-presenter {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.presso-presenter .presso-preview {
+  background: #111;
+  padding: 1rem;
+  overflow: hidden;
+}
+
+.presso-presenter .presso-notes {
+  font-size: var(--presenter-notes-size, 1.25rem);
+  line-height: 1.45;
+  overflow: auto;
+  max-height: 70vh;
+}
+
+.presso-controls {
+  display: flex;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+
+.presso-controls button {
+  font: inherit;
+  padding: .7rem 1rem;
+  border: 0;
+  border-radius: .3rem;
+  background: var(--presso-accent);
+  color: white;
+  cursor: pointer;
+}
+
+.presso-control-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+
+.presso-control-page button {
+  font-size: 2rem;
+  margin: .5rem;
+  padding: 1rem 1.5rem;
+}
+
+.presso-notes-list,
+.presso-transcript {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+  line-height: 1.55;
+}
+
+body[data-mode="print-slides"],
+body[data-mode="print-notes-side"],
+body[data-mode="print-notes-pages"] {
+  background: white;
+  color: #111;
+}
+
+body[data-mode^="print"] .presso-stage {
+  display: block;
+  padding: 0;
+}
+
+body[data-mode^="print"] .presso-slide {
+  box-shadow: none;
+  page-break-after: always;
+  color: #111;
+  background-color: white;
+}
+
+body[data-mode="print-notes-side"] .presso-print-page {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  page-break-after: always;
+}
+
+body[data-mode="print-notes-pages"] .presso-print-notes {
+  page-break-after: always;
+  padding: 2rem;
+}
+
+@media print {
+  .presso-progress,
+  .presso-controls,
+  .presso-mode-controls,
+  .presso-shortcuts-overlay {
+    display: none !important;
+  }
+}

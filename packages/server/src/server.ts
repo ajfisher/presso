@@ -3,7 +3,7 @@ import { watch } from 'node:fs';
 import http, { type ServerResponse } from 'node:http';
 import path from 'node:path';
 import { compileDeck, pathExists } from '@presso/core';
-import { renderPage, type RenderMode } from '@presso/runtime';
+import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@presso/runtime';
 
 interface Client {
   id: number;
@@ -64,6 +64,14 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
         }
       }
 
+      const runtimeAsset = runtimeAssetName(url.pathname);
+      if (runtimeAsset) {
+        const asset = readRuntimeAsset(runtimeAsset);
+        res.writeHead(200, { 'content-type': asset.contentType });
+        res.end(asset.content);
+        return;
+      }
+
       const deck = await compileDeck(cwd);
       if (url.pathname === '/deck.json') {
         sendJson(res, deck);
@@ -96,11 +104,13 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
 async function serveStatic(cwd: string, pathname: string, res: ServerResponse): Promise<boolean> {
   const clean = decodeURIComponent(pathname).replace(/^\/+/, '');
-  const candidates = [
-    path.join(cwd, clean),
-    path.join(cwd, 'public', clean)
+  const roots = [
+    cwd,
+    path.join(cwd, 'public')
   ];
-  for (const file of candidates) {
+  for (const root of roots) {
+    const file = path.resolve(root, clean);
+    if (!isInside(root, file)) continue;
     if (await pathExists(file)) {
       const stat = await fs.stat(file);
       if (!stat.isFile()) continue;
@@ -110,6 +120,11 @@ async function serveStatic(cwd: string, pathname: string, res: ServerResponse): 
     }
   }
   return false;
+}
+
+function isInside(root: string, file: string): boolean {
+  const relative = path.relative(path.resolve(root), file);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
 }
 
 function broadcast(clients: Map<number, Client>, event: string, data: unknown): void {
@@ -143,4 +158,9 @@ function contentType(file: string): string {
   if (file.endsWith('.jpg') || file.endsWith('.jpeg')) return 'image/jpeg';
   if (file.endsWith('.webp')) return 'image/webp';
   return 'application/octet-stream';
+}
+
+function runtimeAssetName(pathname: string): RuntimeAssetName | undefined {
+  const name = pathname.replace(/^\/+/, '');
+  return runtimeAssetNames.includes(name as RuntimeAssetName) ? name as RuntimeAssetName : undefined;
 }

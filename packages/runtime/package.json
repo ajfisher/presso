@@ -9,7 +9,7 @@
     }
   },
   "scripts": {
-    "build": "tsc -b",
+    "build": "tsc -b && node ../../scripts/copy-runtime-assets.mjs",
     "test": "vitest run"
   },
   "dependencies": {
