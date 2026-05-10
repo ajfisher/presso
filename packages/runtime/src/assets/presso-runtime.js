@@ -5,9 +5,19 @@
   const progress = document.querySelector('.presso-progress > span');
   const mode = document.body.dataset.mode || 'deck';
   const serverSync = Boolean(config.server);
+  const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.replace('#/', '')) || 0));
+
+  if (!notesAllowed) {
+    document.body.dataset.notesVisible = 'false';
+  } else {
+    const noteParam = new URLSearchParams(location.search).get('notes');
+    if (noteParam === '1' || noteParam === 'true') {
+      document.body.dataset.notesVisible = 'true';
+    }
+  }
 
   function setIndex(next, source = 'local') {
     if (!slides.length) return;
@@ -37,6 +47,7 @@
   }
 
   function toggleNotes() {
+    if (!notesAllowed) return;
     document.body.dataset.notesVisible = document.body.dataset.notesVisible === 'true' ? 'false' : 'true';
   }
 

@@ -5,6 +5,7 @@ export type RenderMode = 'deck' | 'presenter' | 'control' | 'notes' | 'embed' | 
 export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js';
 
 interface RenderOptions {
+  public?: boolean;
   server?: boolean;
 }
 
@@ -13,11 +14,13 @@ interface RenderContext {
   includeNotes: boolean;
   mode: RenderMode;
   notesPublic: NotesPublicPolicy;
+  public: boolean;
   server: boolean;
 }
 
 const ASSET_ROOT = new URL('./assets/', import.meta.url);
 const TEMPLATE_ROOT = new URL('./templates/', import.meta.url);
+const RUNTIME_ASSET_DIR = '_presso/';
 
 const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: string }> = {
   'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
@@ -100,11 +103,12 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     body,
     mode,
     runtimeConfigJson: scriptJson({
+      notesPublic: context.notesPublic,
       routes: buildRoutes(mode, context.server),
       server: context.server
     }),
-    runtimeCssHref: `${context.assetPrefix}presso.css`,
-    runtimeScriptHref: `${context.assetPrefix}presso-runtime.js`,
+    runtimeCssHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso.css`,
+    runtimeScriptHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso-runtime.js`,
     runtimeStyle: escapeAttr(`--presso-slide-width: ${deck.config.size.width}px; --presso-slide-height: ${deck.config.size.height}px; --presso-slide-ratio: ${deck.config.size.width} / ${deck.config.size.height};`),
     shortcutsOverlay: mode.startsWith('print-') ? '' : renderTemplate('shortcutsOverlay'),
     themeHref: normalizeHref(deck.config.theme, context.assetPrefix),
@@ -117,7 +121,7 @@ function renderDeck(deck: Deck, context: RenderContext): string {
   if (context.mode === 'print-notes-side') {
     return renderTemplate('printNotesSide', {
       pages: deck.slides.map((slide) => renderTemplate('printNotesSidePage', {
-        notesHtml: rewriteRelativeHtml(slide.notesHtml, context.assetPrefix),
+        notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
         slide: renderSlide(slide, context)
       })).join('\n')
     });
@@ -125,7 +129,7 @@ function renderDeck(deck: Deck, context: RenderContext): string {
   if (context.mode === 'print-notes-pages') {
     return renderTemplate('printNotesPages', {
       pages: deck.slides.map((slide) => renderTemplate('printNotesPage', {
-        notesHtml: rewriteRelativeHtml(slide.notesHtml, context.assetPrefix),
+        notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
         slide: renderSlide(slide, context),
         title: escapeHtml(slide.title)
       })).join('\n')
@@ -167,7 +171,7 @@ function renderNotesPanel(): string {
 
 function renderPresenter(deck: Deck, context: RenderContext): string {
   return renderTemplate('presenter', {
-    deck: renderDeck(deck, { ...context, mode: 'presenter', includeNotes: true })
+    deck: renderDeck(deck, { ...context, mode: 'presenter' })
   });
 }
 
@@ -204,17 +208,20 @@ function renderTranscriptHtml(deck: Deck, context: RenderContext): string {
 
 function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): RenderContext {
   const server = Boolean(options.server);
+  const publicBuild = Boolean(options.public);
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
-    includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server),
+    includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,
     notesPublic: deck.config.notes.public,
+    public: publicBuild,
     server
   };
 }
 
-function shouldIncludeNotes(policy: NotesPublicPolicy, mode: RenderMode, server: boolean): boolean {
+function shouldIncludeNotes(policy: NotesPublicPolicy, mode: RenderMode, server: boolean, publicBuild: boolean): boolean {
   if (server) return true;
+  if (publicBuild) return policy !== false;
   if (mode === 'presenter' || mode.startsWith('print-notes')) return true;
   return policy !== false;
 }
@@ -253,7 +260,23 @@ function normalizeHref(value: string, prefix: string): string {
 }
 
 function rewriteRelativeHtml(html: string, prefix: string): string {
-  return html.replace(/\b(src|href)="\.\//g, (_match, attr: string) => `${attr}="${prefix}`);
+  return rewriteSrcset(html, prefix).replace(/\b(src|href)=(["'])(.*?)\2/gi, (match, attr: string, quote: string, value: string) => {
+    if (!value) return match;
+    return `${attr}=${quote}${normalizeHref(value, prefix)}${quote}`;
+  });
+}
+
+function rewriteSrcset(html: string, prefix: string): string {
+  return html.replace(/\bsrcset=(["'])(.*?)\1/gi, (_match, quote: string, value: string) => {
+    const rewritten = value
+      .split(',')
+      .map((candidate) => {
+        const [url = '', ...descriptor] = candidate.trim().split(/\s+/);
+        return [normalizeHref(url, prefix), ...descriptor].join(' ').trim();
+      })
+      .join(', ');
+    return `srcset=${quote}${rewritten}${quote}`;
+  });
 }
 
 function renderTemplate(name: keyof typeof templates, values: Record<string, string> = {}): string {
@@ -275,7 +298,7 @@ function secondsToClock(seconds: number): string {
 }
 
 function escapeHtml(value: string): string {
-  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
+  return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#39;');
 }
 
 function escapeAttr(value: string): string {
