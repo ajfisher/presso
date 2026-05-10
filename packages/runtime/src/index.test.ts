@@ -59,9 +59,47 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-action="presenter"');
     expect(html).toContain('id="presso-runtime-config"');
     expect(html).toContain('"presenter":"presenter/"');
-    expect(html).toContain('<link rel="stylesheet" href="presso.css">');
-    expect(html).toContain('<script src="presso-runtime.js" type="module"></script>');
+    expect(html).toContain('<link rel="stylesheet" href="_presso/presso.css">');
+    expect(html).toContain('<script src="_presso/presso-runtime.js" type="module"></script>');
     expect(html).not.toContain('function setIndex');
+  });
+
+  it('uses nested runtime and deck asset paths for static routes', () => {
+    const html = renderPage({
+      ...deck,
+      slides: [
+        {
+          ...deck.slides[0]!,
+          bodyHtml: '<img src="./assets/example.svg" srcset="./assets/example.svg 1x, assets/example@2x.svg 2x">'
+        }
+      ]
+    }, 'embed', { public: true });
+
+    expect(html).toContain('href="../_presso/presso.css"');
+    expect(html).toContain('src="../_presso/presso-runtime.js"');
+    expect(html).toContain('src="../assets/example.svg"');
+    expect(html).toContain('srcset="../assets/example.svg 1x, ../assets/example@2x.svg 2x"');
+  });
+
+  it('omits private notes from public static render output', () => {
+    const html = renderPage(deckWithNotesPolicy(false), 'presenter', { public: true });
+    expect(html).not.toContain('Speaker notes');
+    expect(html).not.toContain('data-action="notes"');
+    expect(html).toContain('"notesPublic":false');
+  });
+
+  it('keeps toggle notes in public static render output but hides them by default', () => {
+    const html = renderPage(deckWithNotesPolicy('toggle'), 'deck', { public: true });
+    expect(html).toContain('Speaker notes');
+    expect(html).toContain('data-action="notes"');
+    expect(html).toContain('data-notes-visible="false"');
+    expect(html).toContain('"notesPublic":"toggle"');
+  });
+
+  it('marks visible public notes as visible by default', () => {
+    const html = renderPage(deckWithNotesPolicy('visible'), 'deck', { public: true });
+    expect(html).toContain('Speaker notes');
+    expect(html).toContain('data-notes-visible="true"');
   });
 
   it('uses real newlines for transcript markdown', () => {
@@ -70,3 +108,16 @@ describe('runtime renderer', () => {
     expect(transcript).not.toContain('\\n');
   });
 });
+
+function deckWithNotesPolicy(publicNotes: Deck['config']['notes']['public']): Deck {
+  return {
+    ...deck,
+    config: {
+      ...deck.config,
+      notes: {
+        ...deck.config.notes,
+        public: publicNotes
+      }
+    }
+  };
+}

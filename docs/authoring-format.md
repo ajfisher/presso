@@ -223,6 +223,21 @@ Possible later fields:
 
 Unknown fields should be preserved through edit/writeback.
 
+## Assets
+
+Markdown asset references are deck-root relative. Prefer `./assets/name.ext`
+for authored slide assets and keep generated runtime files out of that folder.
+
+Static builds use this layout:
+
+- `_presso/`: generated Presso runtime CSS and JavaScript.
+- `assets/`: deck-authored images, SVGs, video, and supporting files.
+- `public/`: copied to the static output root for extra files that should live
+  beside the deck.
+
+Nested routes such as `/embed/`, `/notes/`, and `/print/slides/` rewrite
+relative Markdown assets so the same source works across every output route.
+
 ## Notes
 
 Speaker notes use a block directive:
@@ -242,6 +257,14 @@ Notes should not render in the main slide deck by default. They render in:
 - PDF notes layouts.
 - Transcript exports.
 - Public notes-enabled modes when configured.
+
+`notes.public` controls public/static output:
+
+- `false`: omit notes from public HTML, `deck.json`, and transcript output.
+- `"toggle"`: include notes publicly, hidden by default, with `/notes`,
+  the Notes button, and `?notes=1`.
+- `"visible"`: include notes publicly and show them by default in companion
+  contexts.
 
 Notes can include lightweight timing or teleprompter hints later:
 

@@ -15,33 +15,48 @@ const ROUTES: Array<[string, RenderMode]> = [
   ['transcript/index.html', 'transcript']
 ];
 
+const RUNTIME_ASSET_DIR = '_presso';
+
 export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise<string> {
   const deck = await compileDeck(cwd);
   const dest = path.resolve(cwd, outDir);
   await fs.rm(dest, { recursive: true, force: true });
   await fs.mkdir(dest, { recursive: true });
 
+  await copyDir(path.join(deck.config.rootDir, 'public'), dest);
+  await copyDir(path.join(deck.config.rootDir, 'assets'), path.join(dest, 'assets'));
+  await copyTheme(deck, dest);
+
   for (const [file, mode] of ROUTES) {
     const output = path.join(dest, file);
     await fs.mkdir(path.dirname(output), { recursive: true });
-    await fs.writeFile(output, renderPage(deck, mode), 'utf8');
+    await fs.writeFile(output, renderPage(deck, mode, { public: true }), 'utf8');
   }
 
   await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicDeck(deck), null, 2), 'utf8');
   await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck, { includeNotes: deck.config.notes.public !== false }), 'utf8');
   await fs.writeFile(path.join(dest, 'metadata.json'), JSON.stringify(buildMetadata(deck), null, 2), 'utf8');
+  const runtimeDir = path.join(dest, RUNTIME_ASSET_DIR);
+  await fs.mkdir(runtimeDir, { recursive: true });
   for (const assetName of runtimeAssetNames) {
-    await fs.writeFile(path.join(dest, assetName), readRuntimeAsset(assetName).content, 'utf8');
+    await fs.writeFile(path.join(runtimeDir, assetName), readRuntimeAsset(assetName).content, 'utf8');
   }
-
-  const themePath = path.resolve(deck.config.rootDir, deck.config.theme);
-  if (await pathExists(themePath)) {
-    await fs.copyFile(themePath, path.join(dest, path.basename(deck.config.theme)));
-  }
-  await copyDir(path.join(deck.config.rootDir, 'assets'), path.join(dest, 'assets'));
-  await copyDir(path.join(deck.config.rootDir, 'public'), dest);
 
   return dest;
+}
+
+async function copyTheme(deck: Awaited<ReturnType<typeof compileDeck>>, dest: string): Promise<void> {
+  if (!isLocalPath(deck.config.theme)) return;
+  const themePath = path.resolve(deck.config.rootDir, deck.config.theme);
+  if (await pathExists(themePath)) {
+    const output = path.join(dest, deck.config.theme.replace(/^\.\//, ''));
+    await fs.mkdir(path.dirname(output), { recursive: true });
+    await fs.copyFile(themePath, output);
+  }
+}
+
+function isLocalPath(value: string): boolean {
+  return !/^(?:[a-z]+:|\/|#)/i.test(value);
 }
 
 export async function exportTranscript(cwd = process.cwd(), outFile = 'transcript.md'): Promise<string> {

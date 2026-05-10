@@ -161,6 +161,7 @@ function contentType(file: string): string {
 }
 
 function runtimeAssetName(pathname: string): RuntimeAssetName | undefined {
-  const name = pathname.replace(/^\/+/, '');
+  const clean = pathname.replace(/^\/+/, '');
+  const name = clean.startsWith('_presso/') ? clean.slice('_presso/'.length) : clean;
   return runtimeAssetNames.includes(name as RuntimeAssetName) ? name as RuntimeAssetName : undefined;
 }
