@@ -14,6 +14,17 @@ The example deck lives in `examples/basic`.
 
 Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CLI access is available with `make presso ARGS="build examples/basic"` until the package is installed globally or from a generated deck.
 
+To scaffold a new deck once the packages are published:
+
+```bash
+npm create @presso my-talk
+cd my-talk
+npm install
+npm run dev
+```
+
+Inside this repo, `make create NAME=my-talk` creates the same numbered starter deck with local package links.
+
 ## Runtime Shortcuts
 
 - `Space`, `ArrowRight`, `PageDown`: next slide
@@ -23,6 +34,8 @@ Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CL
 - `c`: open controller
 - `n`: toggle notes when public notes are enabled
 - `?`: show or hide shortcuts
+
+The speaker view at `/presenter` shows the current slide, next slide preview, notes, elapsed time, target timing, and session-persistent notes font controls.
 
 ## Public Notes
 
