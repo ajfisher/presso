@@ -38,6 +38,7 @@ const templates = {
   notesPrivate: readTemplate('notes-private.html'),
   notesSection: readTemplate('notes-section.html'),
   presenter: readTemplate('presenter.html'),
+  presenterPreviewTemplate: readTemplate('presenter-preview-template.html'),
   printNotesPage: readTemplate('print-notes-page.html'),
   printNotesPages: readTemplate('print-notes-pages.html'),
   printNotesSide: readTemplate('print-notes-side.html'),
@@ -171,7 +172,12 @@ function renderNotesPanel(): string {
 
 function renderPresenter(deck: Deck, context: RenderContext): string {
   return renderTemplate('presenter', {
-    deck: renderDeck(deck, { ...context, mode: 'presenter' })
+    deck: renderDeck(deck, { ...context, mode: 'presenter' }),
+    previews: deck.slides.map((slide) => renderTemplate('presenterPreviewTemplate', {
+      bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
+      index: String(slide.index),
+      title: escapeAttr(slide.title)
+    })).join('\n')
   });
 }
 

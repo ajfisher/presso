@@ -1,19 +1,50 @@
 <main>
-  <section>
-    <h1 data-current-title></h1>
+  <section aria-label="Current slide">
+    <header>
+      <p>Current</p>
+      <h1 data-current-title></h1>
+    </header>
     {{deck}}
   </section>
-  <section>
-    <p>Next: <strong data-next-title></strong></p>
-    <p>Target: <strong data-timing></strong></p>
-    <div>
-      <button data-action="prev">Back</button>
-      <button data-action="next">Next</button>
-      <button data-action="fullscreen">Full screen</button>
-      <button data-action="font-minus">A-</button>
-      <button data-action="font-plus">A+</button>
-      <button data-action="shortcuts">?</button>
-    </div>
-    <article data-current-notes></article>
-  </section>
+  <aside aria-label="Presenter tools">
+    <section aria-label="Timing">
+      <dl>
+        <div>
+          <dt>Slide</dt>
+          <dd><span data-current-position></span>/<span data-slide-count></span></dd>
+        </div>
+        <div>
+          <dt>Elapsed</dt>
+          <dd><time data-elapsed>00:00</time></dd>
+        </div>
+        <div>
+          <dt>Target</dt>
+          <dd><time data-current-target-time></time></dd>
+        </div>
+        <div>
+          <dt>Delta</dt>
+          <dd><time data-time-delta></time></dd>
+        </div>
+      </dl>
+    </section>
+    <section aria-label="Controls">
+      <button data-action="prev" type="button">Back</button>
+      <button data-action="next" type="button">Next</button>
+      <button data-action="fullscreen" type="button">Full screen</button>
+      <button data-action="timer-reset" type="button">Reset timer</button>
+      <button data-action="font-minus" type="button">A-</button>
+      <button data-action="font-plus" type="button">A+</button>
+      <button data-action="shortcuts" type="button">?</button>
+    </section>
+    <section aria-label="Next slide">
+      <h2>Next</h2>
+      <h3 data-next-title></h3>
+      <article data-next-preview></article>
+    </section>
+    <section aria-label="Speaker notes">
+      <h2>Notes</h2>
+      <article data-current-notes tabindex="0"></article>
+    </section>
+  </aside>
+  {{previews}}
 </main>

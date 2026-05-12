@@ -36,6 +36,18 @@ browserDescribe('browser smoke', () => {
         await expectActiveSlide(page);
       }
 
+      await expectText(page, '[data-next-title]', 'A tiny vertical slice');
+      await expectText(page, '[data-next-preview]', 'A tiny vertical slice');
+      await expectText(page, '[data-current-notes]', 'Opening notes for the basic fixture.');
+      await expectText(page, '[data-current-position]', '1');
+      await expectText(page, '[data-slide-count]', '10');
+      const initialNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
+      await page.locator('[data-action="font-plus"]').click();
+      const largerNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
+      expect(largerNotesSize).not.toBe(initialNotesSize);
+      await page.reload({ waitUntil: 'networkidle' });
+      expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim())).toBe(largerNotesSize);
+
       await page.goto(`${staticServer.origin}/notes/`, { waitUntil: 'networkidle' });
       await expectText(page, 'h1', 'Presso Basic Example Notes');
 
@@ -46,8 +58,9 @@ browserDescribe('browser smoke', () => {
       await expectText(page, 'h1', 'Presso Basic Example');
 
       await page.goto(`${staticServer.origin}/embed/#/5`, { waitUntil: 'networkidle' });
-      await page.waitForSelector('.presso-slide.is-active img');
-      expect(await page.locator('.presso-slide.is-active img').evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
+      await page.waitForSelector('.presso-slide.is-active[data-slide-id="image"] img', { state: 'attached' });
+      expect(await page.locator('.presso-slide.is-active[data-slide-id="image"]').evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+      expect(await page.locator('.presso-slide.is-active[data-slide-id="image"] img').evaluate((img) => img instanceof HTMLImageElement && img.complete && img.naturalWidth > 0)).toBe(true);
 
       await page.goto(`${staticServer.origin}/?notes=1`, { waitUntil: 'networkidle' });
       expect(await page.locator('body').getAttribute('data-notes-visible')).toBe('true');

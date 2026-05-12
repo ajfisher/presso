@@ -83,7 +83,7 @@ describe('runtime renderer', () => {
 
   it('omits private notes from public static render output', () => {
     const html = renderPage(deckWithNotesPolicy(false), 'presenter', { public: true });
-    expect(html).not.toContain('Speaker notes');
+    expect(html).not.toContain('<p>Speaker notes</p>');
     expect(html).not.toContain('data-action="notes"');
     expect(html).toContain('"notesPublic":false');
   });
@@ -100,6 +100,18 @@ describe('runtime renderer', () => {
     const html = renderPage(deckWithNotesPolicy('visible'), 'deck', { public: true });
     expect(html).toContain('Speaker notes');
     expect(html).toContain('data-notes-visible="true"');
+  });
+
+  it('renders presenter timing controls and next slide preview templates', () => {
+    const html = renderPage(deck, 'presenter', { server: true });
+    expect(html).toContain('data-current-title');
+    expect(html).toContain('data-elapsed');
+    expect(html).toContain('data-current-target-time');
+    expect(html).toContain('data-time-delta');
+    expect(html).toContain('data-action="timer-reset"');
+    expect(html).toContain('data-next-preview');
+    expect(html).toContain('data-slide-preview-template="1"');
+    expect(html).toContain('<h2>Two</h2>');
   });
 
   it('uses real newlines for transcript markdown', () => {

@@ -406,27 +406,172 @@
 @layer presso.modes {
   body[data-mode="presenter"] > main {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1.35fr) minmax(24rem, .65fr);
     gap: 1rem;
     min-height: 100vh;
     padding: 1rem;
 
     > section:first-child {
+      display: grid;
+      grid-template-rows: auto minmax(0, 1fr);
+      gap: .75rem;
       background: #111;
       padding: 1rem;
       overflow: hidden;
+
+      > header {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 1rem;
+
+        p {
+          margin: 0;
+          color: var(--presso-muted);
+          text-transform: uppercase;
+          font-size: .75rem;
+          letter-spacing: .08em;
+        }
+
+        h1 {
+          margin: 0;
+          color: white;
+          font-size: 1rem;
+          font-weight: 600;
+        }
+      }
+
+      .presso-stage {
+        min-height: auto;
+        padding: 0;
+      }
+
+      .presso-slide {
+        width: 100%;
+        box-shadow: none;
+      }
     }
 
-    > section:last-child > div {
-      display: flex;
-      gap: .75rem;
-      flex-wrap: wrap;
-      margin: 1rem 0;
+    > aside {
+      display: grid;
+      grid-template-rows: auto auto minmax(10rem, .75fr) minmax(14rem, 1fr);
+      gap: 1rem;
+      min-height: 0;
 
-      button {
-        padding: .7rem 1rem;
-        background: var(--presso-accent);
-        color: white;
+      > section {
+        min-width: 0;
+      }
+
+      > section:first-child {
+        dl {
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: .5rem;
+          margin: 0;
+        }
+
+        div {
+          padding: .7rem;
+          background: rgb(255 255 255 / 8%);
+        }
+
+        dt {
+          margin: 0 0 .25rem;
+          color: var(--presso-muted);
+          font-size: .75rem;
+          text-transform: uppercase;
+          letter-spacing: .08em;
+        }
+
+        dd {
+          margin: 0;
+          font-size: 1.2rem;
+          font-variant-numeric: tabular-nums;
+        }
+      }
+
+      > section:nth-child(2) {
+        display: flex;
+        gap: .5rem;
+        flex-wrap: wrap;
+
+        button {
+          padding: .7rem .85rem;
+          background: rgb(255 255 255 / 12%);
+          color: white;
+
+          &[data-action="next"] {
+            background: var(--presso-accent);
+          }
+        }
+      }
+
+      > section:nth-child(3) {
+        min-height: 0;
+
+        h2,
+        h3 {
+          margin: 0;
+        }
+
+        h2 {
+          color: var(--presso-muted);
+          text-transform: uppercase;
+          font-size: .75rem;
+          letter-spacing: .08em;
+        }
+
+        h3 {
+          margin: .2rem 0 .65rem;
+          color: white;
+          font-size: 1.1rem;
+        }
+
+        article {
+          aspect-ratio: var(--presso-slide-ratio);
+          overflow: hidden;
+          padding: 1rem;
+          background: #2d2d2d;
+          font-size: .42rem;
+
+          h1 {
+            font-size: 2.2rem;
+          }
+
+          h2 {
+            color: var(--presso-accent);
+            font-size: 1.6rem;
+            letter-spacing: 0;
+            text-transform: none;
+          }
+
+          p,
+          ul,
+          ol {
+            font-size: .85rem;
+            line-height: 1.3;
+          }
+
+          img,
+          video,
+          iframe {
+            max-width: 100%;
+            max-height: 100%;
+          }
+        }
+      }
+
+      > section:last-child {
+        min-height: 0;
+        overflow: hidden;
+
+        h2 {
+          margin: 0 0 .5rem;
+          color: var(--presso-muted);
+          text-transform: uppercase;
+          font-size: .75rem;
+          letter-spacing: .08em;
+        }
       }
     }
 
@@ -434,7 +579,16 @@
       font-size: var(--presenter-notes-size, 1.25rem);
       line-height: 1.45;
       overflow: auto;
-      max-height: 70vh;
+      height: calc(100% - 1.6rem);
+      padding-right: .5rem;
+    }
+
+    @media (max-width: 900px) {
+      grid-template-columns: 1fr;
+
+      > aside {
+        grid-template-rows: auto auto auto minmax(14rem, 1fr);
+      }
     }
   }
 
