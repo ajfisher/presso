@@ -833,7 +833,8 @@
 
     nav {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: minmax(0, min(100%, 22rem));
+      justify-content: center;
       gap: .75rem;
     }
 
@@ -845,15 +846,17 @@
     }
 
     nav button {
-      min-height: 7rem;
+      min-height: 4.5rem;
       padding: 1rem;
       background: rgb(255 255 255 / 12%);
       color: white;
-      font-size: clamp(1.6rem, 7vw, 2.8rem);
+      font-size: clamp(1.35rem, 5vw, 2rem);
       font-weight: 700;
 
       &[data-action="next"] {
+        min-height: 8rem;
         background: var(--presso-accent);
+        font-size: clamp(2rem, 9vw, 3.4rem);
       }
     }
 
@@ -901,12 +904,8 @@
         min-height: calc(100vh - 2rem);
       }
 
-      nav {
-        grid-template-columns: 1fr;
-      }
-
-      nav button {
-        min-height: 6rem;
+      nav button[data-action="next"] {
+        min-height: 7.5rem;
       }
     }
   }

@@ -192,7 +192,7 @@
   }
 
   async function requestWakeLock() {
-    if (!('wakeLock' in navigator)) {
+    if (!canWakeLock()) {
       wakeLockRequested = false;
       updateWakeLockViews('Unavailable');
       return;
@@ -208,6 +208,10 @@
       wakeLockRequested = false;
       updateWakeLockViews('Unavailable');
     }
+  }
+
+  function canWakeLock() {
+    return window.isSecureContext && 'wakeLock' in navigator;
   }
 
   function updateNavigationButtons() {
@@ -382,6 +386,11 @@
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const action = target?.closest('[data-action]')?.dataset.action;
+    if (action === 'wake-lock') {
+      event.preventDefault();
+      toggleWakeLock();
+      return;
+    }
     if (action === 'next') go(1);
     if (action === 'prev') go(-1);
     if (action === 'notes') toggleNotes();
@@ -393,7 +402,6 @@
     if (action === 'fullscreen-dismiss') hideFullscreenPrompt();
     if (action === 'controller-open') showControllerPopover();
     if (action === 'controller-close') hideControllerPopover();
-    if (action === 'wake-lock') toggleWakeLock();
     if (action === 'presenter') openRoute('presenter');
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
@@ -412,6 +420,7 @@
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   setIndex(index, 'init');
   updateFullscreenViews();
+  updateWakeLockViews(canWakeLock() ? undefined : 'Unavailable');
   if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
     postState(index).finally(connectServerEvents);
   } else {
