@@ -149,7 +149,8 @@
       return;
     }
     if (!serverSync) return;
-    postCommand({ type: presentationFullscreen ? 'presentation-fullscreen-exit' : 'presentation-fullscreen-enter' });
+    if (presentationFullscreen) return;
+    postCommand({ type: 'presentation-fullscreen-enter' });
   }
 
   async function toggleWakeLock() {
@@ -202,16 +203,27 @@
     const active = mode === 'deck' || mode === 'embed' ? Boolean(document.fullscreenElement) : presentationFullscreen;
     document.body.dataset.presentationFullscreen = presentationFullscreen ? 'true' : 'false';
     document.querySelectorAll('button[data-action="fullscreen"]').forEach((button) => {
-      button.textContent = active ? 'Exit full screen' : 'Full screen';
+      const remoteControl = mode === 'control' || mode === 'presenter';
+      button.textContent = active
+        ? remoteControl ? 'Full screen active' : 'Exit full screen'
+        : 'Full screen';
+      button.disabled = remoteControl && active;
     });
   }
 
   function updateWakeLockViews(label) {
     const active = Boolean(wakeLock);
     document.body.dataset.wakeLock = active ? 'true' : 'false';
-    document.querySelectorAll('button[data-action="wake-lock"]').forEach((button) => {
-      button.textContent = label || (active ? 'Screen awake' : 'Keep awake');
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    document.querySelectorAll('[data-wake-lock-toggle]').forEach((input) => {
+      input.checked = active;
+      input.disabled = label === 'Unavailable';
+    });
+    document.querySelectorAll('[data-wake-lock-label]').forEach((el) => {
+      el.textContent = label || 'Keep awake';
+    });
+    document.querySelectorAll('[data-wake-lock-control]').forEach((el) => {
+      el.dataset.active = active ? 'true' : 'false';
+      el.dataset.unavailable = label === 'Unavailable' ? 'true' : 'false';
     });
   }
 
@@ -263,9 +275,6 @@
       if (!(mode === 'deck' || mode === 'embed')) return;
       if (command.type === 'presentation-fullscreen-enter') {
         showFullscreenPrompt('enter');
-      }
-      if (command.type === 'presentation-fullscreen-exit') {
-        showFullscreenPrompt('exit');
       }
     });
     events.addEventListener('reload', () => location.reload());

@@ -14,7 +14,10 @@
     </nav>
     <footer aria-label="Session controls">
       <button data-action="fullscreen" type="button">Full screen</button>
-      <button data-action="wake-lock" type="button" aria-pressed="false">Keep awake</button>
+      <label data-wake-lock-control>
+        <input data-action="wake-lock" data-wake-lock-toggle type="checkbox">
+        <span data-wake-lock-label>Keep awake</span>
+      </label>
     </footer>
   </section>
 </main>
