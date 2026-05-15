@@ -18,8 +18,6 @@
   let presentationFullscreen = false;
   let fullscreenDialogMode = 'enter';
   let wakeLock = null;
-  let wakeLockFallbackActive = false;
-  let wakeLockFallbackVideo = null;
   let wakeLockRequested = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
@@ -206,15 +204,6 @@
         wakeLock = null;
       }
     }
-    if (canUseFallbackWakeLock()) {
-      try {
-        await requestFallbackWakeLock();
-        updateWakeLockViews();
-        return;
-      } catch {
-        wakeLockFallbackActive = false;
-      }
-    }
     wakeLockRequested = false;
     updateWakeLockViews('Unavailable');
   }
@@ -224,49 +213,18 @@
       await wakeLock.release().catch(() => {});
       wakeLock = null;
     }
-    if (wakeLockFallbackVideo) {
-      wakeLockFallbackVideo.pause();
-      try {
-        wakeLockFallbackVideo.currentTime = 0;
-      } catch {
-        // Ignore browsers that do not allow resetting an unloaded fallback video.
-      }
-    }
-    wakeLockFallbackActive = false;
-  }
-
-  async function requestFallbackWakeLock() {
-    if (!wakeLockFallbackVideo) {
-      wakeLockFallbackVideo = document.createElement('video');
-      wakeLockFallbackVideo.dataset.wakeLockFallback = '';
-      wakeLockFallbackVideo.src = new URL('wake-lock.mp4', import.meta.url).href;
-      wakeLockFallbackVideo.loop = true;
-      wakeLockFallbackVideo.muted = true;
-      wakeLockFallbackVideo.playsInline = true;
-      wakeLockFallbackVideo.preload = 'auto';
-      wakeLockFallbackVideo.setAttribute('aria-hidden', 'true');
-      wakeLockFallbackVideo.setAttribute('playsinline', '');
-      document.body.append(wakeLockFallbackVideo);
-    }
-    await wakeLockFallbackVideo.play();
-    wakeLockFallbackActive = true;
   }
 
   function isWakeLockActive() {
-    return Boolean(wakeLock) || wakeLockFallbackActive;
+    return Boolean(wakeLock);
   }
 
   function canUseNativeWakeLock() {
     return window.isSecureContext && 'wakeLock' in navigator;
   }
 
-  function canUseFallbackWakeLock() {
-    const video = document.createElement('video');
-    return typeof video.play === 'function' && video.canPlayType('video/mp4') !== '';
-  }
-
   function canRequestWakeLock() {
-    return canUseNativeWakeLock() || canUseFallbackWakeLock();
+    return canUseNativeWakeLock();
   }
 
   function handleWakeLockUnavailable() {

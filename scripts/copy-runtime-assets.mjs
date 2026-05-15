@@ -6,6 +6,8 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimeRoot = path.join(root, 'packages/runtime');
 
 await fs.mkdir(path.join(runtimeRoot, 'dist'), { recursive: true });
+await fs.rm(path.join(runtimeRoot, 'dist/assets'), { recursive: true, force: true });
+await fs.rm(path.join(runtimeRoot, 'dist/templates'), { recursive: true, force: true });
 await copyTree(path.join(runtimeRoot, 'src/assets'), path.join(runtimeRoot, 'dist/assets'));
 await copyTree(path.join(runtimeRoot, 'src/templates'), path.join(runtimeRoot, 'dist/templates'));
 

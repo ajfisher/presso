@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { Deck, NotesPublicPolicy, Slide } from '@presso/core';
 
 export type RenderMode = 'deck' | 'presenter' | 'control' | 'notes' | 'embed' | 'print-slides' | 'print-notes-side' | 'print-notes-pages' | 'transcript';
-export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js' | 'wake-lock.mp4';
+export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js';
 
 interface RenderOptions {
   controlUrls?: string[];
@@ -26,8 +26,7 @@ const RUNTIME_ASSET_DIR = '_presso/';
 
 const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: string }> = {
   'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
-  'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' },
-  'wake-lock.mp4': { contentType: 'video/mp4', file: 'wake-lock.mp4' }
+  'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' }
 };
 
 const templates = {
@@ -56,10 +55,10 @@ const templates = {
 
 export const runtimeAssetNames = Object.keys(runtimeAssets) as RuntimeAssetName[];
 
-export function readRuntimeAsset(name: RuntimeAssetName): { content: Buffer; contentType: string } {
+export function readRuntimeAsset(name: RuntimeAssetName): { content: string; contentType: string } {
   const asset = runtimeAssets[name];
   return {
-    content: readFileSync(new URL(asset.file, ASSET_ROOT)),
+    content: readFileSync(new URL(asset.file, ASSET_ROOT), 'utf8'),
     contentType: asset.contentType
   };
 }

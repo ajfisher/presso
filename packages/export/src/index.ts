@@ -39,7 +39,7 @@ export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise
   const runtimeDir = path.join(dest, RUNTIME_ASSET_DIR);
   await fs.mkdir(runtimeDir, { recursive: true });
   for (const assetName of runtimeAssetNames) {
-    await fs.writeFile(path.join(runtimeDir, assetName), readRuntimeAsset(assetName).content);
+    await fs.writeFile(path.join(runtimeDir, assetName), readRuntimeAsset(assetName).content, 'utf8');
   }
 
   return dest;

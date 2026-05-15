@@ -36,6 +36,8 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 
 The speaker view at `/presenter` shows the current slide, next slide preview, notes, elapsed time, target timing, session-persistent notes font controls, and a phone-controller QR code for opening `/control` from another device on the same network.
 
+The controller's Keep awake toggle uses the browser Screen Wake Lock API. Mobile browsers require a secure context for this, so `http://localhost` can work during local desktop testing, but `http://<lan-ip>:3030/control` usually cannot. Use an HTTPS controller URL, such as one provided by Tailscale Serve, when testing from a phone.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:
