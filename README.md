@@ -38,6 +38,17 @@ The speaker view at `/presenter` shows the current slide, next slide preview, no
 
 The controller's Keep awake toggle uses the browser Screen Wake Lock API. Mobile browsers require a secure context for this, so `http://localhost` can work during local desktop testing, but `http://<lan-ip>:3030/control` usually cannot. Use an HTTPS controller URL, such as one provided by Tailscale Serve, when testing from a phone.
 
+For a tailnet HTTPS controller, run these in separate terminals:
+
+```bash
+make dev
+make tailnet-serve
+```
+
+When Tailscale Serve is active, the dev server detects `tailscale serve status --json` and adds the matching `https://*.ts.net/control` URL to the speaker view. The phone-controller popover lets you choose which URL drives the QR code. If automatic detection is not available, set `PRESSO_CONTROL_URLS` to a comma-separated list before starting `make dev`.
+
+Use `make tailnet-reset` to clear the temporary Tailscale Serve mapping.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:

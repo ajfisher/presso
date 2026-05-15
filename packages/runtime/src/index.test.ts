@@ -113,6 +113,8 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-action="timer-reset"');
     expect(html).toContain('data-action="controller-open"');
     expect(html).toContain('data-controller-popover');
+    expect(html).toContain('data-controller-url-open');
+    expect(html).toContain('data-controller-url-list');
     expect(html).toContain('data-next-preview');
     expect(html).toContain('data-slide-preview-template="1"');
     expect(html).toContain('<h2>Two</h2>');

@@ -472,7 +472,8 @@
     }
 
     p,
-    a {
+    a,
+    legend {
       font-size: .95rem;
       line-height: 1.35;
     }
@@ -480,6 +481,26 @@
     a {
       overflow-wrap: anywhere;
       color: white;
+    }
+
+    [data-controller-url-current] {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: .5rem;
+    }
+
+    [data-controller-url-open],
+    [data-action="controller-url-open"] {
+      display: inline-grid;
+      width: 2.25rem;
+      height: 2.25rem;
+      place-items: center;
+      border-radius: .3rem;
+      background: rgb(255 255 255 / 12%);
+      font-size: 1rem;
+      line-height: 1;
+      text-decoration: none;
     }
 
     [data-controller-qr] {
@@ -498,7 +519,34 @@
 
     [data-controller-url-list] {
       display: grid;
-      gap: .35rem;
+      gap: .45rem;
+      min-width: 0;
+      margin: 0;
+      padding: 0;
+      border: 0;
+
+      legend {
+        margin-block-end: .15rem;
+        color: var(--presso-muted);
+      }
+
+      label {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: .55rem;
+        min-width: 0;
+        padding: .55rem;
+        border-radius: .35rem;
+        background: rgb(255 255 255 / 8%);
+        color: white;
+        font-size: .88rem;
+      }
+
+      span {
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
     }
 
     button {

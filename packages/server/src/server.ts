@@ -1,8 +1,10 @@
 import fs from 'node:fs/promises';
 import { watch } from 'node:fs';
+import { execFile } from 'node:child_process';
 import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { promisify } from 'node:util';
 import { compileDeck, pathExists } from '@presso/core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@presso/runtime';
 
@@ -10,6 +12,9 @@ interface Client {
   id: number;
   res: ServerResponse;
 }
+
+const execFileAsync = promisify(execFile);
+const CONTROL_URL_CACHE_MS = 2_000;
 
 const ROUTE_MODES = new Map<string, RenderMode>([
   ['/', 'deck'],
@@ -36,7 +41,17 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
-  const controlUrls = buildControlUrls(port);
+  let controlUrlCache: { expiresAt: number; urls: string[] } | undefined;
+
+  const controlUrls = async (): Promise<string[]> => {
+    if (controlUrlCache && Date.now() < controlUrlCache.expiresAt) return controlUrlCache.urls;
+    const urls = await buildControlUrls(port);
+    controlUrlCache = {
+      expiresAt: Date.now() + CONTROL_URL_CACHE_MS,
+      urls
+    };
+    return urls;
+  };
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -70,6 +85,10 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           return;
         }
       }
+      if (url.pathname === '/control-urls' && req.method === 'GET') {
+        sendJson(res, { controlUrls: await controlUrls() });
+        return;
+      }
       if (url.pathname === '/command' && req.method === 'POST') {
         const body = await readBody(req);
         const command = parseJsonObject(body);
@@ -102,7 +121,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       }
       const mode = ROUTE_MODES.get(url.pathname);
       if (mode) {
-        sendHtml(res, renderPage(deck, mode, { controlUrls, server: true }));
+        sendHtml(res, renderPage(deck, mode, { controlUrls: await controlUrls(), server: true }));
         return;
       }
       if (await serveStatic(cwd, url.pathname, res)) {
@@ -123,7 +142,8 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
   await new Promise<void>((resolve) => server.listen(port, resolve));
   console.log(`Presso dev server running at http://localhost:${port}`);
-  if (controlUrls.length) console.log(`Phone controller: ${controlUrls[0]}`);
+  const initialControlUrls = await controlUrls();
+  if (initialControlUrls.length) console.log(`Phone controller: ${initialControlUrls[0]}`);
 }
 
 async function serveStatic(cwd: string, pathname: string, res: ServerResponse): Promise<boolean> {
@@ -166,7 +186,10 @@ function sendHtml(res: ServerResponse, html: string): void {
 }
 
 function sendJson(res: ServerResponse, data: unknown): void {
-  res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
+  res.writeHead(200, {
+    'cache-control': 'no-store',
+    'content-type': 'application/json; charset=utf-8'
+  });
   res.end(JSON.stringify(data, null, 2));
 }
 
@@ -210,7 +233,78 @@ function runtimeAssetName(pathname: string): RuntimeAssetName | undefined {
   return runtimeAssetNames.includes(name as RuntimeAssetName) ? name as RuntimeAssetName : undefined;
 }
 
-function buildControlUrls(port: number): string[] {
+async function buildControlUrls(port: number): Promise<string[]> {
+  return uniqueUrls([
+    ...envControlUrls(),
+    ...await tailscaleControlUrls(port),
+    ...localControlUrls(port)
+  ]);
+}
+
+function envControlUrls(): string[] {
+  const raw = process.env.PRESSO_CONTROL_URLS ?? process.env.PRESSO_CONTROL_URL ?? '';
+  return raw.split(/[\s,]+/).map((url) => url.trim()).filter(Boolean);
+}
+
+async function tailscaleControlUrls(port: number): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync('tailscale', ['serve', 'status', '--json'], {
+      maxBuffer: 128 * 1024,
+      timeout: 1_000
+    });
+    return controlUrlsFromTailscaleServeStatus(stdout, port);
+  } catch {
+    return [];
+  }
+}
+
+export function controlUrlsFromTailscaleServeStatus(statusJson: string, port: number): string[] {
+  try {
+    return uniqueUrls(collectTailscaleControlUrls(JSON.parse(statusJson), port));
+  } catch {
+    return [];
+  }
+}
+
+function collectTailscaleControlUrls(value: unknown, port: number): string[] {
+  if (!value || typeof value !== 'object') return [];
+  const urls: string[] = [];
+  if ('Web' in value && value.Web && typeof value.Web === 'object') {
+    for (const [host, site] of Object.entries(value.Web)) {
+      if (!site || typeof site !== 'object' || !('Handlers' in site) || !site.Handlers || typeof site.Handlers !== 'object') continue;
+      for (const [handlerPath, handler] of Object.entries(site.Handlers)) {
+        if (handlerTargetsPort(handler, port)) {
+          urls.push(tailscaleControllerUrl(host, handlerPath));
+        }
+      }
+    }
+  }
+  for (const child of Object.values(value)) {
+    urls.push(...collectTailscaleControlUrls(child, port));
+  }
+  return urls;
+}
+
+function handlerTargetsPort(handler: unknown, port: number): boolean {
+  return Boolean(handler && typeof handler === 'object' && 'Proxy' in handler && typeof handler.Proxy === 'string' && proxyTargetsPort(handler.Proxy, port));
+}
+
+function proxyTargetsPort(proxy: string, port: number): boolean {
+  try {
+    const url = new URL(proxy);
+    return ['127.0.0.1', 'localhost', '::1', '[::1]'].includes(url.hostname) && Number(url.port) === port;
+  } catch {
+    return proxy.endsWith(`:${port}`);
+  }
+}
+
+function tailscaleControllerUrl(host: string, handlerPath: string): string {
+  const publicHost = host.endsWith(':443') ? host.slice(0, -4) : host;
+  const basePath = handlerPath === '/' ? '' : `/${handlerPath.replace(/^\/+|\/+$/g, '')}`;
+  return `https://${publicHost}${basePath}/control`;
+}
+
+function localControlUrls(port: number): string[] {
   const urls: string[] = [];
   for (const entries of Object.values(os.networkInterfaces())) {
     for (const entry of entries ?? []) {
@@ -220,5 +314,9 @@ function buildControlUrls(port: number): string[] {
     }
   }
   urls.push(`http://localhost:${port}/control`);
-  return [...new Set(urls)];
+  return urls;
+}
+
+function uniqueUrls(urls: string[]): string[] {
+  return [...new Set(urls.filter(Boolean))];
 }

@@ -9,7 +9,7 @@
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
-  const controlUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
+  let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
   const timerStartKey = 'presso:presenter-started-at';
@@ -19,6 +19,8 @@
   let fullscreenDialogMode = 'enter';
   let wakeLock = null;
   let wakeLockRequested = false;
+  let selectedControllerUrl = null;
+  let controllerUrlSelectedByUser = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
   if (mode === 'presenter') {
@@ -83,26 +85,93 @@
   function showControllerPopover() {
     const popover = document.querySelector('[data-controller-popover]');
     if (!(popover instanceof HTMLElement)) return;
-    const url = controlUrls[0] || new URL(routes.control || '/control', location.href).href;
-    const link = popover.querySelector('[data-controller-url]');
-    const qr = popover.querySelector('[data-controller-qr]');
-    const list = popover.querySelector('[data-controller-url-list]');
-    if (link instanceof HTMLAnchorElement) {
-      link.href = url;
-      link.textContent = url;
-    }
-    if (qr instanceof HTMLElement) {
-      renderQrCode(qr, url);
-    }
-    if (list instanceof HTMLElement) {
-      list.innerHTML = controlUrls.slice(1).map((candidate) => `<a href="${escapeHtml(candidate)}">${escapeHtml(candidate)}</a>`).join('');
-    }
     popover.hidden = false;
+    updateControllerPopoverUrls(availableControllerUrls());
+    refreshControllerUrls().then((urls) => updateControllerPopoverUrls(availableControllerUrls(urls)));
+  }
+
+  function updateControllerPopoverUrls(urls) {
+    const url = controllerUrlSelectedByUser && selectedControllerUrl && urls.includes(selectedControllerUrl) ? selectedControllerUrl : urls[0];
+    selectedControllerUrl = url;
+    renderControllerUrlOptions(urls, url);
+    selectControllerUrl(url);
   }
 
   function hideControllerPopover() {
     const popover = document.querySelector('[data-controller-popover]');
     if (popover instanceof HTMLElement) popover.hidden = true;
+  }
+
+  async function refreshControllerUrls() {
+    if (!serverSync) return controllerUrls;
+    try {
+      const response = await fetch('/control-urls', { cache: 'no-store' });
+      if (!response.ok) return controllerUrls;
+      const data = await response.json();
+      if (Array.isArray(data.controlUrls)) {
+        controllerUrls = data.controlUrls.filter((url) => typeof url === 'string' && url);
+      }
+    } catch {
+      // Keep the embedded URLs if the dev-server helper is unavailable.
+    }
+    return controllerUrls;
+  }
+
+  function availableControllerUrls(urls = controllerUrls) {
+    const routeUrl = new URL(routes.control || '/control', location.href).href;
+    return [...new Set([...urls, routeUrl])];
+  }
+
+  function selectControllerUrl(url, userInitiated = false) {
+    selectedControllerUrl = url;
+    if (userInitiated) controllerUrlSelectedByUser = true;
+    const popover = document.querySelector('[data-controller-popover]');
+    if (!(popover instanceof HTMLElement)) return;
+    const link = popover.querySelector('[data-controller-url]');
+    const openLink = popover.querySelector('[data-controller-url-open]');
+    const qr = popover.querySelector('[data-controller-qr]');
+    if (link instanceof HTMLAnchorElement) {
+      link.href = url;
+      link.textContent = url;
+    }
+    if (openLink instanceof HTMLAnchorElement) {
+      openLink.href = url;
+    }
+    if (qr instanceof HTMLElement) {
+      renderQrCode(qr, url);
+    }
+    popover.querySelectorAll('input[data-action="controller-url-select"]').forEach((input) => {
+      if (input instanceof HTMLInputElement) input.checked = input.value === url;
+    });
+  }
+
+  function renderControllerUrlOptions(urls, selectedUrl) {
+    const list = document.querySelector('[data-controller-url-list]');
+    if (!(list instanceof HTMLFieldSetElement)) return;
+    const legend = list.querySelector('legend') ?? document.createElement('legend');
+    legend.textContent = 'Controller URL';
+    list.replaceChildren(legend);
+    urls.forEach((url) => {
+      const label = document.createElement('label');
+      const input = document.createElement('input');
+      const text = document.createElement('span');
+      const open = document.createElement('a');
+      input.type = 'radio';
+      input.name = 'presso-controller-url';
+      input.value = url;
+      input.checked = url === selectedUrl;
+      input.dataset.action = 'controller-url-select';
+      text.textContent = url;
+      open.href = url;
+      open.target = '_blank';
+      open.rel = 'noreferrer';
+      open.dataset.action = 'controller-url-open';
+      open.dataset.controllerOpenUrl = url;
+      open.ariaLabel = `Open ${url}`;
+      open.textContent = '↗';
+      label.append(input, text, open);
+      list.append(label);
+    });
   }
 
   function renderActiveSlide() {
@@ -422,6 +491,14 @@
     if (action === 'fullscreen-dismiss') hideFullscreenPrompt();
     if (action === 'controller-open') showControllerPopover();
     if (action === 'controller-close') hideControllerPopover();
+    if (action === 'controller-url-select') {
+      const input = target?.closest('input[data-action="controller-url-select"]');
+      if (input instanceof HTMLInputElement) selectControllerUrl(input.value, true);
+    }
+    if (action === 'controller-url-open') {
+      const link = target?.closest('a[data-action="controller-url-open"]');
+      if (link instanceof HTMLAnchorElement && link.dataset.controllerOpenUrl) selectControllerUrl(link.dataset.controllerOpenUrl, true);
+    }
     if (action === 'presenter') openRoute('presenter');
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
@@ -654,11 +731,4 @@
     return Boolean((value >>> index) & 1);
   }
 
-  function escapeHtml(value) {
-    return String(value)
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
-  }
 })();
