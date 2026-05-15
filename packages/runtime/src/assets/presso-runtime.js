@@ -15,6 +15,9 @@
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
   let presentationFullscreen = false;
+  let fullscreenDialogMode = 'enter';
+  let wakeLock = null;
+  let wakeLockRequested = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
   if (mode === 'presenter') {
@@ -61,17 +64,14 @@
     document.body.dataset.shortcutsVisible = visible ? 'true' : 'false';
   }
 
-  function toggleFullscreen(options = {}) {
-    if (document.fullscreenElement) {
-      if (options.confirmExit && !window.confirm('Exit full screen?')) return;
-      const exit = document.exitFullscreen?.();
-      exit?.catch?.(() => {});
-      return;
-    }
+  function enterFullscreen() {
     const request = document.documentElement.requestFullscreen?.();
-    request?.catch?.(() => {
-      if (options.promptOnFail) showFullscreenPrompt();
-    });
+    request?.then?.(hideFullscreenPrompt)?.catch?.(() => showFullscreenPrompt('enter'));
+  }
+
+  function exitFullscreen() {
+    const exit = document.exitFullscreen?.();
+    exit?.then?.(hideFullscreenPrompt)?.catch?.(() => {});
   }
 
   function openRoute(name) {
@@ -141,12 +141,46 @@
 
   function requestPresentationFullscreen() {
     if (mode === 'deck' || mode === 'embed') {
-      toggleFullscreen({ confirmExit: true });
+      if (document.fullscreenElement) {
+        showFullscreenPrompt('exit');
+      } else {
+        enterFullscreen();
+      }
       return;
     }
     if (!serverSync) return;
-    if (presentationFullscreen && !window.confirm('Exit presentation full screen?')) return;
-    postCommand({ type: 'presentation-fullscreen-toggle' });
+    postCommand({ type: presentationFullscreen ? 'presentation-fullscreen-exit' : 'presentation-fullscreen-enter' });
+  }
+
+  async function toggleWakeLock() {
+    if (wakeLock) {
+      wakeLockRequested = false;
+      await wakeLock.release().catch(() => {});
+      wakeLock = null;
+      updateWakeLockViews();
+      return;
+    }
+    wakeLockRequested = true;
+    await requestWakeLock();
+  }
+
+  async function requestWakeLock() {
+    if (!('wakeLock' in navigator)) {
+      wakeLockRequested = false;
+      updateWakeLockViews('Unavailable');
+      return;
+    }
+    try {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => {
+        wakeLock = null;
+        updateWakeLockViews();
+      });
+      updateWakeLockViews();
+    } catch {
+      wakeLockRequested = false;
+      updateWakeLockViews('Unavailable');
+    }
   }
 
   function updateNavigationButtons() {
@@ -169,6 +203,15 @@
     document.body.dataset.presentationFullscreen = presentationFullscreen ? 'true' : 'false';
     document.querySelectorAll('button[data-action="fullscreen"]').forEach((button) => {
       button.textContent = active ? 'Exit full screen' : 'Full screen';
+    });
+  }
+
+  function updateWakeLockViews(label) {
+    const active = Boolean(wakeLock);
+    document.body.dataset.wakeLock = active ? 'true' : 'false';
+    document.querySelectorAll('button[data-action="wake-lock"]').forEach((button) => {
+      button.textContent = label || (active ? 'Screen awake' : 'Keep awake');
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   }
 
@@ -217,8 +260,12 @@
     });
     events.addEventListener('command', (event) => {
       const command = JSON.parse(event.data);
-      if (command.type === 'presentation-fullscreen-toggle' && (mode === 'deck' || mode === 'embed')) {
-        toggleFullscreen({ promptOnFail: true });
+      if (!(mode === 'deck' || mode === 'embed')) return;
+      if (command.type === 'presentation-fullscreen-enter') {
+        showFullscreenPrompt('enter');
+      }
+      if (command.type === 'presentation-fullscreen-exit') {
+        showFullscreenPrompt('exit');
       }
     });
     events.addEventListener('reload', () => location.reload());
@@ -233,9 +280,20 @@
     if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source);
   }
 
-  function showFullscreenPrompt() {
+  function showFullscreenPrompt(mode) {
+    fullscreenDialogMode = mode;
     const prompt = document.querySelector('[data-fullscreen-prompt]');
     if (prompt instanceof HTMLElement) {
+      const title = prompt.querySelector('[data-fullscreen-title]');
+      const message = prompt.querySelector('[data-fullscreen-message]');
+      const confirm = prompt.querySelector('[data-fullscreen-confirm]');
+      if (title) title.textContent = mode === 'exit' ? 'Exit full screen?' : 'Enter full screen?';
+      if (message) {
+        message.textContent = mode === 'exit'
+          ? 'Confirm before leaving full screen on this presentation.'
+          : 'Browsers require this confirmation on the presentation screen.';
+      }
+      if (confirm) confirm.textContent = mode === 'exit' ? 'Exit full screen' : 'Enter full screen';
       prompt.hidden = false;
     }
   }
@@ -259,7 +317,7 @@
     }
     if (event.key === 'f') {
       event.preventDefault();
-      toggleFullscreen();
+      requestPresentationFullscreen();
     }
     if (event.key === 'p') {
       event.preventDefault();
@@ -297,8 +355,12 @@
     if (action === 'prev') go(-1);
     if (action === 'notes') toggleNotes();
     if (action === 'fullscreen') requestPresentationFullscreen();
-    if (action === 'fullscreen-confirm') toggleFullscreen({ confirmExit: true });
+    if (action === 'fullscreen-confirm') {
+      if (fullscreenDialogMode === 'exit') exitFullscreen();
+      else enterFullscreen();
+    }
     if (action === 'fullscreen-dismiss') hideFullscreenPrompt();
+    if (action === 'wake-lock') toggleWakeLock();
     if (action === 'presenter') openRoute('presenter');
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
@@ -325,6 +387,9 @@
   if (mode === 'presenter') {
     window.setInterval(updatePresenterTimer, 1000);
   }
+  document.addEventListener('visibilitychange', () => {
+    if (wakeLockRequested && document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+  });
 
   function parseHashIndex(hash) {
     const match = hash.match(/^#\/(\d+)$/);

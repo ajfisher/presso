@@ -1,8 +1,8 @@
 <div data-fullscreen-prompt hidden>
-  <section>
-    <h2>Full screen request</h2>
-    <p>The controller asked this presentation to enter full screen.</p>
-    <button data-action="fullscreen-confirm" type="button">Enter full screen</button>
+  <section role="dialog" aria-modal="true" aria-labelledby="presso-fullscreen-title">
+    <h2 id="presso-fullscreen-title" data-fullscreen-title>Full screen</h2>
+    <p data-fullscreen-message>Confirm the fullscreen change on this presentation.</p>
+    <button data-action="fullscreen-confirm" data-fullscreen-confirm type="button">Continue</button>
     <button data-action="fullscreen-dismiss" type="button">Dismiss</button>
   </section>
 </div>
