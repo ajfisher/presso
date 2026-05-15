@@ -124,6 +124,7 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-slide-count');
     expect(html).toContain('data-action="prev"');
     expect(html).toContain('data-action="next"');
+    expect(html).toContain('data-action="fullscreen"');
     expect(config.slides).toEqual([
       { id: 'one', index: 0, title: 'One' },
       { id: 'two', index: 1, title: 'Two' }

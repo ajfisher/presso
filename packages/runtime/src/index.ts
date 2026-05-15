@@ -31,6 +31,7 @@ const templates = {
   control: readTemplate('control.html'),
   deck: readTemplate('deck.html'),
   document: readTemplate('document.html'),
+  fullscreenPrompt: readTemplate('fullscreen-prompt.html'),
   modeControls: readTemplate('mode-controls.html'),
   notesButton: readTemplate('notes-button.html'),
   notesList: readTemplate('notes-list.html'),
@@ -102,6 +103,7 @@ export function renderTranscriptMarkdown(deck: Deck, options: { includeNotes?: b
 function renderDocument(deck: Deck, mode: RenderMode, body: string, context: RenderContext): string {
   return renderTemplate('document', {
     body,
+    fullscreenPrompt: mode.startsWith('print-') ? '' : renderTemplate('fullscreenPrompt'),
     mode,
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,

@@ -32,6 +32,7 @@ const ROUTE_MODES = new Map<string, RenderMode>([
 
 export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<void> {
   let currentIndex = 0;
+  let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
 
@@ -45,25 +46,39 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           'cache-control': 'no-cache',
           connection: 'keep-alive'
         });
-        res.write(`event: state\ndata: ${JSON.stringify({ index: currentIndex })}\n\n`);
+        res.write(`event: state\ndata: ${JSON.stringify({ fullscreen: currentFullscreen, index: currentIndex })}\n\n`);
         clients.set(id, { id, res });
         req.on('close', () => clients.delete(id));
         return;
       }
       if (url.pathname === '/state') {
         if (req.method === 'GET') {
-          sendJson(res, { index: currentIndex });
+          sendJson(res, { fullscreen: currentFullscreen, index: currentIndex });
           return;
         }
         if (req.method === 'POST') {
           const deck = await compileDeck(cwd);
           const body = await readBody(req);
           const state = parseJsonObject(body);
-          currentIndex = clampStateIndex(state.index, deck.slides.length, currentIndex);
-          broadcast(clients, 'state', { index: currentIndex });
-          sendJson(res, { index: currentIndex });
+          currentIndex = clampStateIndex(state.index ?? currentIndex, deck.slides.length, currentIndex);
+          if (typeof state.fullscreen === 'boolean') currentFullscreen = state.fullscreen;
+          const nextState = { fullscreen: currentFullscreen, index: currentIndex };
+          broadcast(clients, 'state', nextState);
+          sendJson(res, nextState);
           return;
         }
+      }
+      if (url.pathname === '/command' && req.method === 'POST') {
+        const body = await readBody(req);
+        const command = parseJsonObject(body);
+        if (typeof command.type === 'string') {
+          broadcast(clients, 'command', command);
+          sendJson(res, { ok: true });
+          return;
+        }
+        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'Command type is required.' }));
+        return;
       }
 
       const runtimeAsset = runtimeAssetName(url.pathname);

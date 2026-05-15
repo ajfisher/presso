@@ -129,6 +129,9 @@ browserDescribe('browser smoke', () => {
       await expectCurrentSlide(controlPage, 5);
       await expectText(controlPage, '[data-current-title]', 'image');
       await expectText(controlPage, '[data-current-position]', '6');
+
+      await controlPage.locator('button[data-action="fullscreen"]').click();
+      await deckPage.waitForFunction(() => Boolean(document.fullscreenElement) || !document.querySelector('[data-fullscreen-prompt]')?.hasAttribute('hidden'));
     } finally {
       await browser?.close();
       await devServer.close();

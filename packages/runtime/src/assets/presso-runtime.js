@@ -14,6 +14,7 @@
   const timerStartKey = 'presso:presenter-started-at';
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
+  let presentationFullscreen = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
   if (mode === 'presenter') {
@@ -60,14 +61,17 @@
     document.body.dataset.shortcutsVisible = visible ? 'true' : 'false';
   }
 
-  function toggleFullscreen() {
+  function toggleFullscreen(options = {}) {
     if (document.fullscreenElement) {
+      if (options.confirmExit && !window.confirm('Exit full screen?')) return;
       const exit = document.exitFullscreen?.();
       exit?.catch?.(() => {});
       return;
     }
     const request = document.documentElement.requestFullscreen?.();
-    request?.catch?.(() => {});
+    request?.catch?.(() => {
+      if (options.promptOnFail) showFullscreenPrompt();
+    });
   }
 
   function openRoute(name) {
@@ -135,6 +139,16 @@
     sessionStorage.setItem(notesSizeKey, String(presenterNotesSize));
   }
 
+  function requestPresentationFullscreen() {
+    if (mode === 'deck' || mode === 'embed') {
+      toggleFullscreen({ confirmExit: true });
+      return;
+    }
+    if (!serverSync) return;
+    if (presentationFullscreen && !window.confirm('Exit presentation full screen?')) return;
+    postCommand({ type: 'presentation-fullscreen-toggle' });
+  }
+
   function updateNavigationButtons() {
     document.querySelectorAll('button[data-action="prev"]').forEach((button) => {
       button.disabled = index <= 0;
@@ -150,19 +164,41 @@
     });
   }
 
-  function postState(next) {
+  function updateFullscreenViews() {
+    const active = mode === 'deck' || mode === 'embed' ? Boolean(document.fullscreenElement) : presentationFullscreen;
+    document.body.dataset.presentationFullscreen = presentationFullscreen ? 'true' : 'false';
+    document.querySelectorAll('button[data-action="fullscreen"]').forEach((button) => {
+      button.textContent = active ? 'Exit full screen' : 'Full screen';
+    });
+  }
+
+  function postState(next, extra = {}) {
     if (!serverSync) return Promise.resolve();
     setSyncStatus('Syncing');
     return fetch('/state', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ index: next })
+      body: JSON.stringify({ index: next, ...extra })
     })
       .then(async (response) => {
         if (!response.ok) throw new Error('State update failed');
         const state = await response.json();
         setSyncStatus('Synced');
-        if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), 'server');
+        applyServerState(state, 'server');
+      })
+      .catch(() => setSyncStatus('Offline'));
+  }
+
+  function postCommand(command) {
+    setSyncStatus('Syncing');
+    return fetch('/command', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(command)
+    })
+      .then((response) => {
+        if (!response.ok) throw new Error('Command failed');
+        setSyncStatus('Synced');
       })
       .catch(() => setSyncStatus('Offline'));
   }
@@ -177,10 +213,38 @@
     events.addEventListener('open', () => setSyncStatus('Synced'));
     events.addEventListener('state', (event) => {
       setSyncStatus('Synced');
-      setIndex(JSON.parse(event.data).index, 'remote');
+      applyServerState(JSON.parse(event.data), 'remote');
+    });
+    events.addEventListener('command', (event) => {
+      const command = JSON.parse(event.data);
+      if (command.type === 'presentation-fullscreen-toggle' && (mode === 'deck' || mode === 'embed')) {
+        toggleFullscreen({ promptOnFail: true });
+      }
     });
     events.addEventListener('reload', () => location.reload());
     events.addEventListener('error', () => setSyncStatus('Reconnecting'));
+  }
+
+  function applyServerState(state, source) {
+    if (typeof state.fullscreen === 'boolean') {
+      presentationFullscreen = state.fullscreen;
+      updateFullscreenViews();
+    }
+    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source);
+  }
+
+  function showFullscreenPrompt() {
+    const prompt = document.querySelector('[data-fullscreen-prompt]');
+    if (prompt instanceof HTMLElement) {
+      prompt.hidden = false;
+    }
+  }
+
+  function hideFullscreenPrompt() {
+    const prompt = document.querySelector('[data-fullscreen-prompt]');
+    if (prompt instanceof HTMLElement) {
+      prompt.hidden = true;
+    }
   }
 
   document.addEventListener('keydown', (event) => {
@@ -218,6 +282,12 @@
 
   document.addEventListener('fullscreenchange', () => {
     document.body.dataset.fullscreen = document.fullscreenElement ? 'true' : 'false';
+    if (mode === 'deck' || mode === 'embed') {
+      presentationFullscreen = Boolean(document.fullscreenElement);
+      hideFullscreenPrompt();
+      updateFullscreenViews();
+      postState(index, { fullscreen: presentationFullscreen });
+    }
   });
 
   document.addEventListener('click', (event) => {
@@ -226,7 +296,9 @@
     if (action === 'next') go(1);
     if (action === 'prev') go(-1);
     if (action === 'notes') toggleNotes();
-    if (action === 'fullscreen') toggleFullscreen();
+    if (action === 'fullscreen') requestPresentationFullscreen();
+    if (action === 'fullscreen-confirm') toggleFullscreen({ confirmExit: true });
+    if (action === 'fullscreen-dismiss') hideFullscreenPrompt();
     if (action === 'presenter') openRoute('presenter');
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
@@ -244,6 +316,7 @@
   channel?.addEventListener('message', (event) => setIndex(Number(event.data.index), 'remote'));
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   setIndex(index, 'init');
+  updateFullscreenViews();
   if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
     postState(index).finally(connectServerEvents);
   } else {
