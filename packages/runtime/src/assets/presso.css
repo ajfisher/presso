@@ -43,6 +43,11 @@
     outline: none;
   }
 
+  button:disabled {
+    cursor: not-allowed;
+    opacity: .45;
+  }
+
   kbd {
     display: inline-block;
     min-width: 2rem;
@@ -614,15 +619,93 @@
   body[data-mode="control"] > main {
     min-height: 100vh;
     display: grid;
-    place-items: center;
-    text-align: center;
+    align-items: stretch;
+    padding: clamp(1rem, 5vw, 2rem);
+
+    > section {
+      width: min(100%, 34rem);
+      min-height: min(42rem, calc(100vh - 2rem));
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 1.5rem;
+      margin: auto;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--presso-muted);
+      text-transform: uppercase;
+      font-size: .75rem;
+      letter-spacing: .08em;
+    }
+
+    h1 {
+      margin: 0;
+      color: white;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    div {
+      display: grid;
+      align-content: center;
+      gap: 1rem;
+      text-align: center;
+    }
+
+    div p {
+      margin: 0;
+      color: var(--presso-muted);
+      font-size: clamp(1.8rem, 8vw, 3.5rem);
+      font-variant-numeric: tabular-nums;
+    }
+
+    h2 {
+      margin: 0;
+      color: var(--presso-accent);
+      font-size: clamp(2rem, 10vw, 4.5rem);
+      line-height: 1;
+    }
+
+    nav {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: .75rem;
+    }
 
     button {
-      font-size: 2rem;
-      margin: .5rem;
-      padding: 1rem 1.5rem;
-      background: var(--presso-accent);
+      min-height: 7rem;
+      padding: 1rem;
+      background: rgb(255 255 255 / 12%);
       color: white;
+      font-size: clamp(1.6rem, 7vw, 2.8rem);
+      font-weight: 700;
+
+      &[data-action="next"] {
+        background: var(--presso-accent);
+      }
+    }
+
+    @media (max-width: 520px) {
+      > section {
+        min-height: calc(100vh - 2rem);
+      }
+
+      nav {
+        grid-template-columns: 1fr;
+      }
+
+      button {
+        min-height: 6rem;
+      }
     }
   }
 

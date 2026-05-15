@@ -114,6 +114,23 @@ describe('runtime renderer', () => {
     expect(html).toContain('<h2>Two</h2>');
   });
 
+  it('renders controller state hooks and slide metadata without notes', () => {
+    const html = renderPage(deck, 'control', { server: true });
+    const config = runtimeConfig(html);
+
+    expect(html).toContain('data-sync-status');
+    expect(html).toContain('data-current-title');
+    expect(html).toContain('data-current-position');
+    expect(html).toContain('data-slide-count');
+    expect(html).toContain('data-action="prev"');
+    expect(html).toContain('data-action="next"');
+    expect(config.slides).toEqual([
+      { id: 'one', index: 0, title: 'One' },
+      { id: 'two', index: 1, title: 'Two' }
+    ]);
+    expect(JSON.stringify(config)).not.toContain('Speaker notes');
+  });
+
   it('uses real newlines for transcript markdown', () => {
     const transcript = renderTranscriptMarkdown(deck);
     expect(transcript).toContain('# Runtime Test\n\n## One');
@@ -132,4 +149,10 @@ function deckWithNotesPolicy(publicNotes: Deck['config']['notes']['public']): De
       }
     }
   };
+}
+
+function runtimeConfig(html: string): Record<string, unknown> {
+  const match = html.match(/<script type="application\/json" id="presso-runtime-config">([\s\S]*?)<\/script>/);
+  if (!match) throw new Error('Runtime config script was not rendered.');
+  return JSON.parse(match[1]!);
 }

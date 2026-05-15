@@ -45,7 +45,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           'cache-control': 'no-cache',
           connection: 'keep-alive'
         });
-        res.write(`event: state\\ndata: ${JSON.stringify({ index: currentIndex })}\\n\\n`);
+        res.write(`event: state\ndata: ${JSON.stringify({ index: currentIndex })}\n\n`);
         clients.set(id, { id, res });
         req.on('close', () => clients.delete(id));
         return;
@@ -56,8 +56,10 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           return;
         }
         if (req.method === 'POST') {
+          const deck = await compileDeck(cwd);
           const body = await readBody(req);
-          currentIndex = Number(JSON.parse(body || '{}').index ?? currentIndex);
+          const state = parseJsonObject(body);
+          currentIndex = clampStateIndex(state.index, deck.slides.length, currentIndex);
           broadcast(clients, 'state', { index: currentIndex });
           sendJson(res, { index: currentIndex });
           return;
@@ -73,6 +75,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       }
 
       const deck = await compileDeck(cwd);
+      currentIndex = clampStateIndex(currentIndex, deck.slides.length);
       if (url.pathname === '/deck.json') {
         sendJson(res, deck);
         return;
@@ -129,7 +132,7 @@ function isInside(root: string, file: string): boolean {
 
 function broadcast(clients: Map<number, Client>, event: string, data: unknown): void {
   for (const client of clients.values()) {
-    client.res.write(`event: ${event}\\ndata: ${JSON.stringify(data)}\\n\\n`);
+    client.res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 }
 
@@ -147,6 +150,23 @@ async function readBody(req: http.IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) chunks.push(Buffer.from(chunk));
   return Buffer.concat(chunks).toString('utf8');
+}
+
+function parseJsonObject(body: string): Record<string, unknown> {
+  try {
+    const value = JSON.parse(body || '{}');
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
+  } catch {
+    return {};
+  }
+}
+
+export function clampStateIndex(value: unknown, slideCount: number, fallback = 0): number {
+  const max = Math.max(0, slideCount - 1);
+  const fallbackIndex = Math.min(max, Math.max(0, Math.trunc(Number(fallback)) || 0));
+  const next = Math.trunc(Number(value));
+  if (!Number.isFinite(next)) return fallbackIndex;
+  return Math.min(max, Math.max(0, next));
 }
 
 function contentType(file: string): string {

@@ -106,7 +106,12 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       routes: buildRoutes(mode, context.server),
-      server: context.server
+      server: context.server,
+      slides: deck.slides.map((slide) => ({
+        id: slide.id,
+        index: slide.index,
+        title: slide.title
+      }))
     }),
     runtimeCssHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso.css`,
     runtimeScriptHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso-runtime.js`,
@@ -183,6 +188,7 @@ function renderPresenter(deck: Deck, context: RenderContext): string {
 
 function renderControl(deck: Deck): string {
   return renderTemplate('control', {
+    currentTitle: escapeHtml(deck.slides[0]?.title ?? 'No slides'),
     slideCount: String(deck.slides.length),
     title: escapeHtml(deck.config.title)
   });

@@ -2,6 +2,8 @@
   const configEl = document.getElementById('presso-runtime-config');
   const config = configEl ? JSON.parse(configEl.textContent || '{}') : {};
   const slides = Array.from(document.querySelectorAll('.presso-slide'));
+  const slideMetadata = Array.isArray(config.slides) ? config.slides : [];
+  const slideCount = Math.max(slides.length, slideMetadata.length);
   const progress = document.querySelector('.presso-progress > span');
   const mode = document.body.dataset.mode || 'deck';
   const serverSync = Boolean(config.server);
@@ -10,7 +12,8 @@
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
   const timerStartKey = 'presso:presenter-started-at';
-  let index = Math.max(0, Math.min(slides.length - 1, Number(location.hash.replace('#/', '')) || 0));
+  const initialHashIndex = parseHashIndex(location.hash);
+  let index = clampIndex(initialHashIndex ?? 0);
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
   if (mode === 'presenter') {
@@ -28,22 +31,15 @@
   }
 
   function setIndex(next, source = 'local') {
-    if (!slides.length) return;
-    index = Math.max(0, Math.min(slides.length - 1, next));
-    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+    index = clampIndex(next);
+    renderActiveSlide();
     document.body.dataset.currentSlide = String(index);
-    if (progress) progress.style.width = String(((index + 1) / slides.length) * 100) + '%';
-    if (mode === 'deck' || mode === 'embed') history.replaceState(null, '', '#/' + index);
-    updatePresenter();
+    if (progress && slideCount) progress.style.width = String(((index + 1) / slideCount) * 100) + '%';
+    if ((mode === 'deck' || mode === 'embed') && slides.length) history.replaceState(null, '', '#/' + index);
+    updateStateViews();
     localStorage.setItem('presso:index', String(index));
     if (source === 'local') channel?.postMessage({ index });
-    if (source === 'local' && serverSync) {
-      fetch('/state', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ index })
-      }).catch(() => {});
-    }
+    if (source === 'local') postState(index);
   }
 
   function go(delta) {
@@ -79,16 +75,22 @@
     window.open(routes[name], `presso-${name}`, 'noopener');
   }
 
-  function updatePresenter() {
+  function renderActiveSlide() {
+    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+  }
+
+  function updateStateViews() {
     const activeSlide = slides[index];
     const nextSlide = slides[index + 1];
+    const activeMetadata = slideMetadata[index];
+    const nextMetadata = slideMetadata[index + 1];
     const activeNotes = activeSlide?.querySelector('.presso-slide-notes')?.innerHTML || '';
     const nextPreview = document.querySelector(`template[data-slide-preview-template="${index + 1}"]`);
     document.querySelectorAll('[data-current-title]').forEach((el) => {
-      el.textContent = activeSlide?.dataset.title || '';
+      el.textContent = activeSlide?.dataset.title || activeMetadata?.title || '';
     });
     document.querySelectorAll('[data-next-title]').forEach((el) => {
-      el.textContent = nextSlide?.dataset.title || 'End';
+      el.textContent = nextSlide?.dataset.title || nextMetadata?.title || 'End';
     });
     document.querySelectorAll('[data-next-preview]').forEach((el) => {
       el.innerHTML = nextPreview?.innerHTML || '';
@@ -97,14 +99,15 @@
       el.innerHTML = activeNotes;
     });
     document.querySelectorAll('[data-current-position]').forEach((el) => {
-      el.textContent = String(index + 1);
+      el.textContent = String(slideCount ? index + 1 : 0);
     });
     document.querySelectorAll('[data-slide-count]').forEach((el) => {
-      el.textContent = String(slides.length);
+      el.textContent = String(slideCount);
     });
     document.querySelectorAll('[data-current-target-time], [data-timing]').forEach((el) => {
       el.textContent = activeSlide?.dataset.targetTime || 'No target';
     });
+    updateNavigationButtons();
     updatePresenterTimer();
   }
 
@@ -130,6 +133,54 @@
     presenterNotesSize = clampNumber(next, 0.9, 2.4);
     document.documentElement.style.setProperty('--presenter-notes-size', presenterNotesSize.toFixed(2) + 'rem');
     sessionStorage.setItem(notesSizeKey, String(presenterNotesSize));
+  }
+
+  function updateNavigationButtons() {
+    document.querySelectorAll('button[data-action="prev"]').forEach((button) => {
+      button.disabled = index <= 0;
+    });
+    document.querySelectorAll('button[data-action="next"]').forEach((button) => {
+      button.disabled = !slideCount || index >= slideCount - 1;
+    });
+  }
+
+  function setSyncStatus(status) {
+    document.querySelectorAll('[data-sync-status]').forEach((el) => {
+      el.textContent = status;
+    });
+  }
+
+  function postState(next) {
+    if (!serverSync) return Promise.resolve();
+    setSyncStatus('Syncing');
+    return fetch('/state', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ index: next })
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('State update failed');
+        const state = await response.json();
+        setSyncStatus('Synced');
+        if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), 'server');
+      })
+      .catch(() => setSyncStatus('Offline'));
+  }
+
+  function connectServerEvents() {
+    if (!serverSync) return;
+    if (!('EventSource' in window)) {
+      setSyncStatus('Unsupported');
+      return;
+    }
+    const events = new EventSource('/events');
+    events.addEventListener('open', () => setSyncStatus('Synced'));
+    events.addEventListener('state', (event) => {
+      setSyncStatus('Synced');
+      setIndex(JSON.parse(event.data).index, 'remote');
+    });
+    events.addEventListener('reload', () => location.reload());
+    events.addEventListener('error', () => setSyncStatus('Reconnecting'));
   }
 
   document.addEventListener('keydown', (event) => {
@@ -185,17 +236,26 @@
     if (action === 'timer-reset') resetPresenterTimer();
   });
 
+  window.addEventListener('hashchange', () => {
+    const next = parseHashIndex(location.hash);
+    if (next !== undefined) setIndex(next);
+  });
+
   channel?.addEventListener('message', (event) => setIndex(Number(event.data.index), 'remote'));
-
-  if (serverSync && 'EventSource' in window) {
-    const events = new EventSource('/events');
-    events.addEventListener('state', (event) => setIndex(JSON.parse(event.data).index, 'remote'));
-    events.addEventListener('reload', () => location.reload());
-  }
-
+  setSyncStatus(serverSync ? 'Connecting' : 'Local');
   setIndex(index, 'init');
+  if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
+    postState(index).finally(connectServerEvents);
+  } else {
+    connectServerEvents();
+  }
   if (mode === 'presenter') {
     window.setInterval(updatePresenterTimer, 1000);
+  }
+
+  function parseHashIndex(hash) {
+    const match = hash.match(/^#\/(\d+)$/);
+    return match ? Number(match[1]) : undefined;
   }
 
   function secondsToClock(seconds) {
@@ -223,5 +283,12 @@
 
   function clampNumber(value, min, max) {
     return Math.min(max, Math.max(min, value));
+  }
+
+  function clampIndex(value) {
+    const numeric = Math.trunc(Number(value));
+    const max = Math.max(0, slideCount - 1);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.min(max, Math.max(0, numeric));
   }
 })();

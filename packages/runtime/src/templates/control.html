@@ -1,8 +1,16 @@
 <main>
-  <section>
-    <h1>{{title}}</h1>
-    <p>{{slideCount}} slides</p>
-    <button data-action="prev">Back</button>
-    <button data-action="next">Next</button>
+  <section aria-label="Controller">
+    <header>
+      <p data-sync-status>Local</p>
+      <h1>{{title}}</h1>
+    </header>
+    <div>
+      <p><span data-current-position>1</span>/<span data-slide-count>{{slideCount}}</span></p>
+      <h2 data-current-title>{{currentTitle}}</h2>
+    </div>
+    <nav aria-label="Slide controls">
+      <button data-action="prev" type="button">Back</button>
+      <button data-action="next" type="button">Next</button>
+    </nav>
   </section>
 </main>
