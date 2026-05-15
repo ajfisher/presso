@@ -18,6 +18,8 @@
   let presentationFullscreen = false;
   let fullscreenDialogMode = 'enter';
   let wakeLock = null;
+  let wakeLockFallbackActive = false;
+  let wakeLockFallbackVideo = null;
   let wakeLockRequested = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
@@ -180,10 +182,9 @@
   }
 
   async function toggleWakeLock() {
-    if (wakeLock) {
+    if (isWakeLockActive()) {
       wakeLockRequested = false;
-      await wakeLock.release().catch(() => {});
-      wakeLock = null;
+      await releaseWakeLock();
       updateWakeLockViews();
       return;
     }
@@ -192,26 +193,87 @@
   }
 
   async function requestWakeLock() {
-    if (!canWakeLock()) {
-      wakeLockRequested = false;
-      updateWakeLockViews('Unavailable');
-      return;
-    }
-    try {
-      wakeLock = await navigator.wakeLock.request('screen');
-      wakeLock.addEventListener('release', () => {
-        wakeLock = null;
+    if (canUseNativeWakeLock()) {
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        wakeLock.addEventListener('release', () => {
+          wakeLock = null;
+          updateWakeLockViews();
+        });
         updateWakeLockViews();
-      });
-      updateWakeLockViews();
-    } catch {
-      wakeLockRequested = false;
-      updateWakeLockViews('Unavailable');
+        return;
+      } catch {
+        wakeLock = null;
+      }
     }
+    if (canUseFallbackWakeLock()) {
+      try {
+        await requestFallbackWakeLock();
+        updateWakeLockViews();
+        return;
+      } catch {
+        wakeLockFallbackActive = false;
+      }
+    }
+    wakeLockRequested = false;
+    updateWakeLockViews('Unavailable');
   }
 
-  function canWakeLock() {
+  async function releaseWakeLock() {
+    if (wakeLock) {
+      await wakeLock.release().catch(() => {});
+      wakeLock = null;
+    }
+    if (wakeLockFallbackVideo) {
+      wakeLockFallbackVideo.pause();
+      try {
+        wakeLockFallbackVideo.currentTime = 0;
+      } catch {
+        // Ignore browsers that do not allow resetting an unloaded fallback video.
+      }
+    }
+    wakeLockFallbackActive = false;
+  }
+
+  async function requestFallbackWakeLock() {
+    if (!wakeLockFallbackVideo) {
+      wakeLockFallbackVideo = document.createElement('video');
+      wakeLockFallbackVideo.dataset.wakeLockFallback = '';
+      wakeLockFallbackVideo.src = new URL('wake-lock.mp4', import.meta.url).href;
+      wakeLockFallbackVideo.loop = true;
+      wakeLockFallbackVideo.muted = true;
+      wakeLockFallbackVideo.playsInline = true;
+      wakeLockFallbackVideo.preload = 'auto';
+      wakeLockFallbackVideo.setAttribute('aria-hidden', 'true');
+      wakeLockFallbackVideo.setAttribute('playsinline', '');
+      document.body.append(wakeLockFallbackVideo);
+    }
+    await wakeLockFallbackVideo.play();
+    wakeLockFallbackActive = true;
+  }
+
+  function isWakeLockActive() {
+    return Boolean(wakeLock) || wakeLockFallbackActive;
+  }
+
+  function canUseNativeWakeLock() {
     return window.isSecureContext && 'wakeLock' in navigator;
+  }
+
+  function canUseFallbackWakeLock() {
+    const video = document.createElement('video');
+    return typeof video.play === 'function' && video.canPlayType('video/mp4') !== '';
+  }
+
+  function canRequestWakeLock() {
+    return canUseNativeWakeLock() || canUseFallbackWakeLock();
+  }
+
+  function handleWakeLockUnavailable() {
+    if (!canRequestWakeLock()) {
+      wakeLockRequested = false;
+      updateWakeLockViews('Unavailable');
+    }
   }
 
   function updateNavigationButtons() {
@@ -242,7 +304,7 @@
   }
 
   function updateWakeLockViews(label) {
-    const active = Boolean(wakeLock);
+    const active = isWakeLockActive();
     document.body.dataset.wakeLock = active ? 'true' : 'false';
     document.querySelectorAll('[data-wake-lock-toggle]').forEach((input) => {
       input.checked = active;
@@ -420,7 +482,7 @@
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   setIndex(index, 'init');
   updateFullscreenViews();
-  updateWakeLockViews(canWakeLock() ? undefined : 'Unavailable');
+  handleWakeLockUnavailable();
   if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
     postState(index).finally(connectServerEvents);
   } else {
@@ -430,7 +492,7 @@
     window.setInterval(updatePresenterTimer, 1000);
   }
   document.addEventListener('visibilitychange', () => {
-    if (wakeLockRequested && document.visibilityState === 'visible' && !wakeLock) requestWakeLock();
+    if (wakeLockRequested && document.visibilityState === 'visible' && !isWakeLockActive()) requestWakeLock();
   });
 
   function parseHashIndex(hash) {
