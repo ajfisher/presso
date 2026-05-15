@@ -86,7 +86,10 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       const runtimeAsset = runtimeAssetName(url.pathname);
       if (runtimeAsset) {
         const asset = readRuntimeAsset(runtimeAsset);
-        res.writeHead(200, { 'content-type': asset.contentType });
+        res.writeHead(200, {
+          'cache-control': 'no-store',
+          'content-type': asset.contentType
+        });
         res.end(asset.content);
         return;
       }
@@ -155,7 +158,10 @@ function broadcast(clients: Map<number, Client>, event: string, data: unknown): 
 }
 
 function sendHtml(res: ServerResponse, html: string): void {
-  res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+  res.writeHead(200, {
+    'cache-control': 'no-store',
+    'content-type': 'text/html; charset=utf-8'
+  });
   res.end(html);
 }
 
