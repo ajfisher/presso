@@ -5,12 +5,14 @@ export type RenderMode = 'deck' | 'presenter' | 'control' | 'notes' | 'embed' | 
 export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js';
 
 interface RenderOptions {
+  controlUrls?: string[];
   public?: boolean;
   server?: boolean;
 }
 
 interface RenderContext {
   assetPrefix: string;
+  controlUrls: string[];
   includeNotes: boolean;
   mode: RenderMode;
   notesPublic: NotesPublicPolicy;
@@ -29,6 +31,7 @@ const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: strin
 
 const templates = {
   control: readTemplate('control.html'),
+  controllerPopover: readTemplate('controller-popover.html'),
   deck: readTemplate('deck.html'),
   document: readTemplate('document.html'),
   fullscreenPrompt: readTemplate('fullscreen-prompt.html'),
@@ -107,6 +110,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     mode,
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
+      controlUrls: context.controlUrls,
       routes: buildRoutes(mode, context.server),
       server: context.server,
       slides: deck.slides.map((slide) => ({
@@ -179,6 +183,7 @@ function renderNotesPanel(): string {
 
 function renderPresenter(deck: Deck, context: RenderContext): string {
   return renderTemplate('presenter', {
+    controllerPopover: renderTemplate('controllerPopover'),
     deck: renderDeck(deck, { ...context, mode: 'presenter' }),
     previews: deck.slides.map((slide) => renderTemplate('presenterPreviewTemplate', {
       bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
@@ -225,6 +230,7 @@ function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): Ren
   const publicBuild = Boolean(options.public);
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
+    controlUrls: options.controlUrls ?? [],
     includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,
     notesPublic: deck.config.notes.public,

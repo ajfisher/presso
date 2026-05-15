@@ -109,6 +109,10 @@ browserDescribe('browser smoke', () => {
       await expectActiveSlide(presenterPage, 0);
       await expectCurrentSlide(controlPage, 0);
       await expectText(controlPage, '[data-sync-status]', 'Synced');
+      await presenterPage.locator('button[data-action="controller-open"]').click();
+      await presenterPage.waitForSelector('[data-controller-popover]:not([hidden]) svg');
+      expect(await presenterPage.locator('[data-controller-url]').textContent()).toContain('/control');
+      await presenterPage.locator('button[data-action="controller-close"]').click();
 
       await controlPage.locator('button[data-action="next"]').click();
       await expectCurrentSlide(deckPage, 1);

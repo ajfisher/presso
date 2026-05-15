@@ -31,11 +31,10 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 - `ArrowLeft`, `PageUp`: previous slide
 - `f`: toggle fullscreen
 - `p`: open speaker view
-- `c`: open controller
 - `n`: toggle notes when public notes are enabled
 - `?`: show or hide shortcuts
 
-The speaker view at `/presenter` shows the current slide, next slide preview, notes, elapsed time, target timing, and session-persistent notes font controls.
+The speaker view at `/presenter` shows the current slide, next slide preview, notes, elapsed time, target timing, session-persistent notes font controls, and a phone-controller QR code for opening `/control` from another device on the same network.
 
 ## Public Notes
 

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import { watch } from 'node:fs';
 import http, { type ServerResponse } from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import { compileDeck, pathExists } from '@presso/core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@presso/runtime';
@@ -35,6 +36,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
+  const controlUrls = buildControlUrls(port);
 
   const server = http.createServer(async (req, res) => {
     try {
@@ -97,7 +99,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       }
       const mode = ROUTE_MODES.get(url.pathname);
       if (mode) {
-        sendHtml(res, renderPage(deck, mode, { server: true }));
+        sendHtml(res, renderPage(deck, mode, { controlUrls, server: true }));
         return;
       }
       if (await serveStatic(cwd, url.pathname, res)) {
@@ -118,6 +120,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
   await new Promise<void>((resolve) => server.listen(port, resolve));
   console.log(`Presso dev server running at http://localhost:${port}`);
+  if (controlUrls.length) console.log(`Phone controller: ${controlUrls[0]}`);
 }
 
 async function serveStatic(cwd: string, pathname: string, res: ServerResponse): Promise<boolean> {
@@ -199,4 +202,17 @@ function runtimeAssetName(pathname: string): RuntimeAssetName | undefined {
   const clean = pathname.replace(/^\/+/, '');
   const name = clean.startsWith('_presso/') ? clean.slice('_presso/'.length) : clean;
   return runtimeAssetNames.includes(name as RuntimeAssetName) ? name as RuntimeAssetName : undefined;
+}
+
+function buildControlUrls(port: number): string[] {
+  const urls: string[] = [];
+  for (const entries of Object.values(os.networkInterfaces())) {
+    for (const entry of entries ?? []) {
+      if (entry.family === 'IPv4' && !entry.internal) {
+        urls.push(`http://${entry.address}:${port}/control`);
+      }
+    }
+  }
+  urls.push(`http://localhost:${port}/control`);
+  return [...new Set(urls)];
 }

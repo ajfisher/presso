@@ -9,6 +9,7 @@
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
+  const controlUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
   const timerStartKey = 'presso:presenter-started-at';
@@ -77,6 +78,31 @@
   function openRoute(name) {
     if (!routes[name]) return;
     window.open(routes[name], `presso-${name}`, 'noopener');
+  }
+
+  function showControllerPopover() {
+    const popover = document.querySelector('[data-controller-popover]');
+    if (!(popover instanceof HTMLElement)) return;
+    const url = controlUrls[0] || new URL(routes.control || '/control', location.href).href;
+    const link = popover.querySelector('[data-controller-url]');
+    const qr = popover.querySelector('[data-controller-qr]');
+    const list = popover.querySelector('[data-controller-url-list]');
+    if (link instanceof HTMLAnchorElement) {
+      link.href = url;
+      link.textContent = url;
+    }
+    if (qr instanceof HTMLElement) {
+      renderQrCode(qr, url);
+    }
+    if (list instanceof HTMLElement) {
+      list.innerHTML = controlUrls.slice(1).map((candidate) => `<a href="${escapeHtml(candidate)}">${escapeHtml(candidate)}</a>`).join('');
+    }
+    popover.hidden = false;
+  }
+
+  function hideControllerPopover() {
+    const popover = document.querySelector('[data-controller-popover]');
+    if (popover instanceof HTMLElement) popover.hidden = true;
   }
 
   function renderActiveSlide() {
@@ -332,10 +358,6 @@
       event.preventDefault();
       openRoute('presenter');
     }
-    if (event.key === 'c') {
-      event.preventDefault();
-      openRoute('control');
-    }
     if (event.key === 'n') {
       event.preventDefault();
       toggleNotes();
@@ -369,6 +391,8 @@
       else enterFullscreen();
     }
     if (action === 'fullscreen-dismiss') hideFullscreenPrompt();
+    if (action === 'controller-open') showControllerPopover();
+    if (action === 'controller-close') hideControllerPopover();
     if (action === 'wake-lock') toggleWakeLock();
     if (action === 'presenter') openRoute('presenter');
     if (action === 'control') openRoute('control');
@@ -437,5 +461,175 @@
     const max = Math.max(0, slideCount - 1);
     if (!Number.isFinite(numeric)) return 0;
     return Math.min(max, Math.max(0, numeric));
+  }
+
+  function renderQrCode(target, text) {
+    try {
+      const modules = createQrModules(text);
+      const quiet = 4;
+      const size = modules.length + quiet * 2;
+      const path = modules.map((row, y) => row
+        .map((dark, x) => dark ? `M${x + quiet} ${y + quiet}h1v1h-1z` : '')
+        .join('')).join('');
+      target.innerHTML = `<svg viewBox="0 0 ${size} ${size}" role="img" aria-label="QR code"><path fill="#fff" d="M0 0h${size}v${size}H0z"/><path fill="#111" d="${path}"/></svg>`;
+    } catch {
+      target.textContent = text;
+    }
+  }
+
+  function createQrModules(text) {
+    const version = 5;
+    const size = 21 + (version - 1) * 4;
+    const dataCodewords = 108;
+    const eccCodewords = 26;
+    const bytes = new TextEncoder().encode(text);
+    if (bytes.length > 106) throw new Error('QR value is too long.');
+
+    const data = makeQrDataCodewords(bytes, dataCodewords);
+    const ecc = reedSolomonRemainder(data, reedSolomonDivisor(eccCodewords));
+    const codewords = [...data, ...ecc];
+    const modules = Array.from({ length: size }, () => Array(size).fill(false));
+    const reserved = Array.from({ length: size }, () => Array(size).fill(false));
+    const setFunction = (x, y, dark) => {
+      if (x < 0 || y < 0 || x >= size || y >= size) return;
+      modules[y][x] = dark;
+      reserved[y][x] = true;
+    };
+
+    drawFinder(modules, reserved, setFunction, 0, 0);
+    drawFinder(modules, reserved, setFunction, size - 7, 0);
+    drawFinder(modules, reserved, setFunction, 0, size - 7);
+    drawAlignment(setFunction, 30, 30);
+    for (let i = 8; i < size - 8; i++) {
+      setFunction(i, 6, i % 2 === 0);
+      setFunction(6, i, i % 2 === 0);
+    }
+    setFunction(8, 4 * version + 9, true);
+    drawFormatBits(setFunction, size, 0);
+
+    const bits = codewords.flatMap((value) => Array.from({ length: 8 }, (_bit, i) => Boolean((value >>> (7 - i)) & 1)));
+    let bitIndex = 0;
+    let upward = true;
+    for (let right = size - 1; right >= 1; right -= 2) {
+      if (right === 6) right--;
+      for (let vert = 0; vert < size; vert++) {
+        const y = upward ? size - 1 - vert : vert;
+        for (let offset = 0; offset < 2; offset++) {
+          const x = right - offset;
+          if (reserved[y][x]) continue;
+          let dark = bitIndex < bits.length ? bits[bitIndex++] : false;
+          if ((x + y) % 2 === 0) dark = !dark;
+          modules[y][x] = dark;
+        }
+      }
+      upward = !upward;
+    }
+    drawFormatBits(setFunction, size, formatBits(1, 0));
+    return modules;
+  }
+
+  function drawFinder(_modules, _reserved, setFunction, x, y) {
+    for (let dy = -1; dy <= 7; dy++) {
+      for (let dx = -1; dx <= 7; dx++) {
+        const xx = x + dx;
+        const yy = y + dy;
+        const dark = dx >= 0 && dx <= 6 && dy >= 0 && dy <= 6 &&
+          (dx === 0 || dx === 6 || dy === 0 || dy === 6 || (dx >= 2 && dx <= 4 && dy >= 2 && dy <= 4));
+        setFunction(xx, yy, dark);
+      }
+    }
+  }
+
+  function drawAlignment(setFunction, x, y) {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        setFunction(x + dx, y + dy, Math.max(Math.abs(dx), Math.abs(dy)) !== 1);
+      }
+    }
+  }
+
+  function drawFormatBits(setFunction, size, bits) {
+    for (let i = 0; i <= 5; i++) setFunction(8, i, bit(bits, i));
+    setFunction(8, 7, bit(bits, 6));
+    setFunction(8, 8, bit(bits, 7));
+    setFunction(7, 8, bit(bits, 8));
+    for (let i = 9; i < 15; i++) setFunction(14 - i, 8, bit(bits, i));
+    for (let i = 0; i < 8; i++) setFunction(size - 1 - i, 8, bit(bits, i));
+    for (let i = 8; i < 15; i++) setFunction(8, size - 15 + i, bit(bits, i));
+  }
+
+  function makeQrDataCodewords(bytes, dataCodewords) {
+    const bits = [0, 1, 0, 0];
+    appendBits(bits, bytes.length, 8);
+    bytes.forEach((value) => appendBits(bits, value, 8));
+    const capacity = dataCodewords * 8;
+    appendBits(bits, 0, Math.min(4, capacity - bits.length));
+    while (bits.length % 8) bits.push(0);
+    const codewords = [];
+    for (let i = 0; i < bits.length; i += 8) {
+      codewords.push(bits.slice(i, i + 8).reduce((value, next) => (value << 1) | Number(next), 0));
+    }
+    for (let pad = 0xec; codewords.length < dataCodewords; pad ^= 0xfd) codewords.push(pad);
+    return codewords;
+  }
+
+  function appendBits(bits, value, length) {
+    for (let i = length - 1; i >= 0; i--) bits.push(Boolean((value >>> i) & 1));
+  }
+
+  function reedSolomonDivisor(degree) {
+    const result = Array(degree).fill(0);
+    result[degree - 1] = 1;
+    let root = 1;
+    for (let i = 0; i < degree; i++) {
+      for (let j = 0; j < degree; j++) {
+        result[j] = gfMultiply(result[j], root);
+        if (j + 1 < degree) result[j] ^= result[j + 1];
+      }
+      root = gfMultiply(root, 2);
+    }
+    return result;
+  }
+
+  function reedSolomonRemainder(data, divisor) {
+    const result = Array(divisor.length).fill(0);
+    data.forEach((value) => {
+      const factor = value ^ result.shift();
+      result.push(0);
+      divisor.forEach((coefficient, i) => {
+        result[i] ^= gfMultiply(coefficient, factor);
+      });
+    });
+    return result;
+  }
+
+  function gfMultiply(x, y) {
+    let z = 0;
+    for (let i = 7; i >= 0; i--) {
+      z = (z << 1) ^ ((z >>> 7) * 0x11d);
+      z ^= ((y >>> i) & 1) * x;
+    }
+    return z;
+  }
+
+  function formatBits(errorCorrectionLevel, mask) {
+    const data = (errorCorrectionLevel << 3) | mask;
+    let remainder = data;
+    for (let i = 0; i < 10; i++) {
+      remainder = (remainder << 1) ^ (((remainder >>> 9) & 1) ? 0x537 : 0);
+    }
+    return ((data << 10) | (remainder & 0x3ff)) ^ 0x5412;
+  }
+
+  function bit(value, index) {
+    return Boolean((value >>> index) & 1);
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
   }
 })();
