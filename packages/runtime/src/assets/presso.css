@@ -17,6 +17,7 @@
     --presso-slide-width: 1280px;
     --presso-slide-height: 720px;
     --presso-slide-ratio: 1280 / 720;
+    --presso-stage-padding: 0px;
     --presso-accent: #ff5e9a;
     --presso-bg: #202020;
     --presso-fg: #fff;
@@ -58,14 +59,24 @@
 @layer presso.deck {
   body[data-mode="deck"],
   body[data-mode="embed"] {
+    --presso-viewport-width: calc(100vw - var(--presso-stage-padding) - var(--presso-stage-padding));
+    --presso-viewport-height: calc(100vh - var(--presso-stage-padding) - var(--presso-stage-padding));
     overflow: hidden;
+  }
+
+  @supports (height: 100dvh) {
+    body[data-mode="deck"],
+    body[data-mode="embed"] {
+      --presso-viewport-height: calc(100dvh - var(--presso-stage-padding) - var(--presso-stage-padding));
+    }
   }
 
   .presso-stage {
     min-height: 100vh;
+    min-height: 100dvh;
     display: grid;
     place-items: center;
-    padding: 2vmin;
+    padding: var(--presso-stage-padding);
   }
 
   .presso-slide {
@@ -269,6 +280,14 @@
         display: block;
       }
     }
+  }
+
+  body[data-mode="deck"] .presso-slide,
+  body[data-mode="embed"] .presso-slide {
+    width: min(
+      var(--presso-viewport-width),
+      calc(var(--presso-viewport-height) * var(--presso-slide-ratio))
+    );
   }
 
   .presso-logos {

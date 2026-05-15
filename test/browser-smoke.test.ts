@@ -10,6 +10,12 @@ import type { Browser, Page } from 'playwright';
 const runBrowserSmoke = process.env.PRESSO_BROWSER_SMOKE === '1';
 const browserDescribe = runBrowserSmoke ? describe : describe.skip;
 const tmpRoots: string[] = [];
+const deckViewports = [
+  { width: 1280, height: 760 },
+  { width: 1366, height: 768 },
+  { width: 1920, height: 1080 },
+  { width: 1948, height: 1298 }
+];
 
 browserDescribe('browser smoke', () => {
   afterEach(async () => {
@@ -31,6 +37,16 @@ browserDescribe('browser smoke', () => {
         }
       });
 
+      for (const viewport of deckViewports) {
+        await page.setViewportSize(viewport);
+        for (const route of ['/', '/embed/']) {
+          await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
+          await expectActiveSlide(page);
+          await expectSlideFitsViewport(page);
+        }
+      }
+
+      await page.setViewportSize({ width: 1366, height: 768 });
       for (const route of ['/', '/embed/', '/presenter/']) {
         await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
         await expectActiveSlide(page);
@@ -95,6 +111,33 @@ async function expectActiveSlide(page: Page): Promise<void> {
   await page.waitForSelector('.presso-slide.is-active');
   expect(await page.locator('body').getAttribute('data-current-slide')).toBe('0');
   expect(await page.locator('.presso-slide.is-active').evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+}
+
+async function expectSlideFitsViewport(page: Page): Promise<void> {
+  const bounds = await page.locator('.presso-slide.is-active').evaluate((slide) => {
+    const rect = slide.getBoundingClientRect();
+    const stage = slide.closest('.presso-stage');
+    if (!(stage instanceof HTMLElement)) throw new Error('Active slide is not inside a stage.');
+    const stageStyle = getComputedStyle(stage);
+    const ratio = Number(getComputedStyle(document.documentElement).getPropertyValue('--presso-slide-ratio').split('/')[0])
+      / Number(getComputedStyle(document.documentElement).getPropertyValue('--presso-slide-ratio').split('/')[1]);
+    const availableWidth = window.innerWidth - parseFloat(stageStyle.paddingLeft) - parseFloat(stageStyle.paddingRight);
+    const availableHeight = window.innerHeight - parseFloat(stageStyle.paddingTop) - parseFloat(stageStyle.paddingBottom);
+    return {
+      documentWidth: document.documentElement.scrollWidth,
+      expectedWidth: Math.min(availableWidth, availableHeight * ratio),
+      height: rect.height,
+      left: rect.left,
+      right: rect.right,
+      viewportWidth: window.innerWidth,
+      width: rect.width
+    };
+  });
+  expect(bounds.left).toBeGreaterThanOrEqual(-1);
+  expect(bounds.right).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+  expect(bounds.documentWidth).toBeLessThanOrEqual(bounds.viewportWidth + 1);
+  expect(bounds.width / bounds.height).toBeCloseTo(16 / 9, 2);
+  expect(bounds.width).toBeCloseTo(bounds.expectedWidth, 1);
 }
 
 async function expectText(page: Page, selector: string, text: string): Promise<void> {
