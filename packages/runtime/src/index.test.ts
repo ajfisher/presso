@@ -111,10 +111,17 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-current-target-time');
     expect(html).toContain('data-time-delta');
     expect(html).toContain('data-action="timer-reset"');
+    expect(html).toContain('data-action="teleprompter-toggle"');
+    expect(html).toContain('data-action="teleprompter-pause"');
+    expect(html).toContain('data-action="teleprompter-slower"');
+    expect(html).toContain('data-action="teleprompter-faster"');
+    expect(html).toContain('data-action="teleprompter-reset"');
+    expect(html).toContain('data-teleprompter-wpm');
     expect(html).toContain('data-action="controller-open"');
     expect(html).toContain('data-controller-popover');
     expect(html).toContain('data-controller-url-open');
     expect(html).toContain('data-controller-url-list');
+    expect(html.indexOf('aria-label="Speaker notes"')).toBeLessThan(html.indexOf('aria-label="Current slide"'));
     expect(html).toContain('data-next-preview');
     expect(html).toContain('data-slide-preview-template="1"');
     expect(html).toContain('<h2>Two</h2>');
