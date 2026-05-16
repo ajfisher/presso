@@ -318,30 +318,44 @@
 }
 
 @layer presso.controls {
-  body[data-mode="deck"] > nav,
-  body[data-mode="embed"] > nav {
+  body[data-mode="deck"] > [data-presentation-controls],
+  body[data-mode="embed"] > [data-presentation-controls] {
     position: fixed;
-    right: 1rem;
-    bottom: 1rem;
+    right: 0;
+    bottom: 0;
     z-index: 20;
     display: flex;
     flex-wrap: wrap;
     gap: .5rem;
-    opacity: .22;
-    transition: opacity .15s ease;
+    padding: 2rem 1rem 1rem 2rem;
+    opacity: 1;
+    transform: translateY(0);
+    animation: presso-controls-idle-hide .18s ease 2s forwards;
+    transition:
+      opacity .18s ease,
+      transform .18s ease;
 
     &:hover,
     &:focus-within {
+      animation: none;
       opacity: 1;
+      transform: translateY(0);
     }
   }
 
-  body[data-fullscreen="true"] > nav {
+  @keyframes presso-controls-idle-hide {
+    to {
+      opacity: 0;
+      transform: translateY(.35rem);
+    }
+  }
+
+  body[data-fullscreen="true"] > [data-presentation-controls] {
     display: none;
   }
 
-  body[data-mode="deck"] > nav button,
-  body[data-mode="embed"] > nav button,
+  body[data-mode="deck"] > [data-presentation-controls] button,
+  body[data-mode="embed"] > [data-presentation-controls] button,
   [data-shortcuts-overlay] button {
     background: rgb(0 0 0 / 74%);
     color: white;
