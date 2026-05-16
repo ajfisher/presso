@@ -36,7 +36,19 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 - `n`: toggle notes when public notes are enabled
 - `?`: show or hide shortcuts
 
-The speaker view at `/presenter` shows the current slide, next slide preview, notes, elapsed time, target timing, session-persistent notes font controls, and a phone-controller QR code for opening `/control` from another device on the same network.
+The speaker view at `/presenter` makes speaker notes the main surface, with compact current and next slide previews, elapsed time, target timing, session-persistent notes font controls, teleprompter controls, and a phone-controller QR code for opening `/control` from another device on the same network.
+
+## Presenter Teleprompter
+
+Open `/presenter` and use the controls row:
+
+- `Prompter`: turn notes auto-scroll on or off.
+- `Pause` / `Resume`: stop or continue the current scroll position.
+- `Slower` / `Faster`: adjust the global speaking pace in 10 wpm steps.
+- `Reset scroll`: return the current slide notes to the top.
+- `A-` / `A+`: adjust presenter notes text size.
+
+The teleprompter defaults to `140 wpm`, clamps between `80 wpm` and `220 wpm`, and stores the current pace for the browser session. When you move to a new slide, the notes reset to the top and keep running if the prompter is enabled. Scrolling starts after a short paced delay based on the first notes paragraph, capped at 8 seconds, so the text does not move before you have started speaking.
 
 ## Phone Controller And Keep Awake
 
