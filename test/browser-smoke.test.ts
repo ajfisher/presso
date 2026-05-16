@@ -197,6 +197,18 @@ browserDescribe('browser smoke', () => {
       await expectText(controlPage, '[data-current-title]', 'image');
       await expectText(controlPage, '[data-current-position]', '6');
 
+      await deckPage.keyboard.press('End');
+      await expectCurrentSlide(deckPage, 9);
+      await expectCurrentSlide(presenterPage, 9);
+      await expectCurrentSlide(controlPage, 9);
+      await expectText(controlPage, '[data-current-position]', '10');
+
+      await deckPage.keyboard.press('Home');
+      await expectCurrentSlide(deckPage, 0);
+      await expectCurrentSlide(presenterPage, 0);
+      await expectCurrentSlide(controlPage, 0);
+      await expectText(controlPage, '[data-current-position]', '1');
+
       await controlPage.locator('button[data-action="fullscreen"]').click();
       await deckPage.waitForFunction(() => Boolean(document.fullscreenElement) || !document.querySelector('[data-fullscreen-prompt]')?.hasAttribute('hidden'));
     } finally {
