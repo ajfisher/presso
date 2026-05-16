@@ -17,6 +17,18 @@ const deckViewports = [
   { width: 1920, height: 1080 },
   { width: 1948, height: 1298 }
 ];
+const starterLayouts = [
+  { id: 'title', index: 0, layout: 'title' },
+  { id: 'content', index: 1, layout: 'bullets' },
+  { id: 'notes', index: 2, layout: 'two-column' },
+  { id: 'section', index: 3, layout: 'section' },
+  { id: 'statement', index: 4, layout: 'statement' },
+  { id: 'image', index: 5, layout: 'image' },
+  { id: 'logos', index: 6, layout: 'logos' },
+  { id: 'code', index: 7, layout: 'code' },
+  { id: 'demo', index: 8, layout: 'demo' },
+  { id: 'blank', index: 9, layout: 'blank' }
+];
 
 browserDescribe('browser smoke', () => {
   afterEach(async () => {
@@ -50,6 +62,7 @@ browserDescribe('browser smoke', () => {
       await page.setViewportSize({ width: 1366, height: 768 });
       for (const route of ['/', '/embed/', '/presenter/']) {
         await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
+        await expectRuntimeAssets(page);
         await expectActiveSlide(page);
       }
 
@@ -66,13 +79,29 @@ browserDescribe('browser smoke', () => {
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim())).toBe(largerNotesSize);
 
       await page.goto(`${staticServer.origin}/notes/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
       await expectText(page, 'h1', 'Presso Basic Example Notes');
 
       await page.goto(`${staticServer.origin}/control/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
       await expectText(page, 'button[data-action="next"]', 'Next');
 
       await page.goto(`${staticServer.origin}/transcript/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
       await expectText(page, 'h1', 'Presso Basic Example');
+
+      for (const route of ['/print/slides/', '/print/notes-side/', '/print/notes-pages/']) {
+        await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
+        await expectRuntimeAssets(page);
+        await expectRenderedSlides(page);
+      }
+
+      await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
+      for (const layout of starterLayouts) {
+        await page.goto(`${staticServer.origin}/#/${layout.index}`, { waitUntil: 'networkidle' });
+        await expectActiveSlide(page, layout.index);
+        await expectActiveLayout(page, layout);
+      }
 
       await page.goto(`${staticServer.origin}/embed/#/5`, { waitUntil: 'networkidle' });
       await page.waitForSelector('.presso-slide.is-active[data-slide-id="image"] img', { state: 'attached' });
@@ -99,16 +128,29 @@ browserDescribe('browser smoke', () => {
       const deckPage = await browser.newPage();
       const presenterPage = await browser.newPage();
       const controlPage = await browser.newPage();
+      const notesPage = await browser.newPage();
+      const transcriptPage = await browser.newPage();
 
       await Promise.all([
         deckPage.goto(`${devServer.origin}/`, { waitUntil: 'domcontentloaded' }),
         presenterPage.goto(`${devServer.origin}/presenter`, { waitUntil: 'domcontentloaded' }),
-        controlPage.goto(`${devServer.origin}/control`, { waitUntil: 'domcontentloaded' })
+        controlPage.goto(`${devServer.origin}/control`, { waitUntil: 'domcontentloaded' }),
+        notesPage.goto(`${devServer.origin}/notes`, { waitUntil: 'domcontentloaded' }),
+        transcriptPage.goto(`${devServer.origin}/transcript`, { waitUntil: 'domcontentloaded' })
       ]);
       await expectActiveSlide(deckPage, 0);
       await expectActiveSlide(presenterPage, 0);
       await expectCurrentSlide(controlPage, 0);
       await expectText(controlPage, '[data-sync-status]', 'Synced');
+
+      await notesPage.keyboard.press('ArrowRight');
+      await transcriptPage.keyboard.press('PageDown');
+      await notesPage.waitForTimeout(150);
+      await expectServerState(devServer.origin, 0);
+      await expectCurrentSlide(deckPage, 0);
+      await expectCurrentSlide(presenterPage, 0);
+      await expectCurrentSlide(controlPage, 0);
+
       await presenterPage.locator('button[data-action="controller-open"]').click();
       await presenterPage.waitForSelector('[data-controller-popover]:not([hidden]) svg');
       expect(await presenterPage.locator('[data-controller-url]').textContent()).toContain('/control');
@@ -167,6 +209,31 @@ async function expectActiveSlide(page: Page, index = 0): Promise<void> {
   expect(await page.locator('.presso-slide.is-active').evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
 }
 
+async function expectActiveLayout(page: Page, layout: { id: string; layout: string }): Promise<void> {
+  const slide = page.locator(`.presso-slide.is-active[data-slide-id="${layout.id}"]`);
+  await slide.waitFor();
+  expect(await slide.getAttribute('data-layout')).toBe(layout.layout);
+  const bodyBox = await slide.locator(':scope > .presso-slide-body').boundingBox();
+  expect(bodyBox?.width ?? 0).toBeGreaterThan(20);
+  expect(bodyBox?.height ?? 0).toBeGreaterThan(20);
+}
+
+async function expectRenderedSlides(page: Page): Promise<void> {
+  await page.waitForSelector('.presso-slide');
+  expect(await page.locator('.presso-slide').count()).toBeGreaterThan(0);
+  expect(await page.locator('.presso-slide').first().evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+}
+
+async function expectRuntimeAssets(page: Page): Promise<void> {
+  const assetHrefs = await page.evaluate(() => [
+    ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).map((link) => link.href),
+    ...Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]')).map((script) => script.src)
+  ]);
+  expect(assetHrefs.some((href) => href.includes('/_presso/presso.css'))).toBe(true);
+  expect(assetHrefs.some((href) => href.includes('/_presso/presso-runtime.js'))).toBe(true);
+  expect(assetHrefs.some((href) => href.endsWith('/theme.css'))).toBe(true);
+}
+
 async function expectSlideFitsViewport(page: Page): Promise<void> {
   const bounds = await page.locator('.presso-slide.is-active').evaluate((slide) => {
     const rect = slide.getBoundingClientRect();
@@ -197,6 +264,12 @@ async function expectSlideFitsViewport(page: Page): Promise<void> {
 async function expectCurrentSlide(page: Page, index: number): Promise<void> {
   await page.waitForFunction((expected) => document.body.dataset.currentSlide === String(expected), index);
   expect(await page.locator('body').getAttribute('data-current-slide')).toBe(String(index));
+}
+
+async function expectServerState(origin: string, index: number): Promise<void> {
+  const response = await fetch(`${origin}/state`);
+  expect(response.ok).toBe(true);
+  expect(await response.json()).toMatchObject({ index });
 }
 
 async function expectText(page: Page, selector: string, text: string): Promise<void> {
