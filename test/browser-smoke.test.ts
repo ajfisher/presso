@@ -280,12 +280,12 @@ async function expectTeleprompter(page: Page): Promise<void> {
     return notes instanceof HTMLElement && notes.scrollHeight > notes.clientHeight;
   }, undefined, { timeout: 5000 });
 
-  await expectText(page, '[data-teleprompter-wpm]', '140 wpm');
+  await expectText(page, '[data-teleprompter-wpm]', '160 wpm');
   await page.locator('[data-action="teleprompter-faster"]').click();
-  await expectText(page, '[data-teleprompter-wpm]', '150 wpm');
+  await expectText(page, '[data-teleprompter-wpm]', '170 wpm');
   await page.locator('[data-action="teleprompter-slower"]').click();
-  await expectText(page, '[data-teleprompter-wpm]', '140 wpm');
-  for (let i = 0; i < 9; i++) await page.locator('[data-action="teleprompter-faster"]').click();
+  await expectText(page, '[data-teleprompter-wpm]', '160 wpm');
+  for (let i = 0; i < 6; i++) await page.locator('[data-action="teleprompter-faster"]').click();
   await expectText(page, '[data-teleprompter-wpm]', '220 wpm');
   expect(await page.evaluate(() => sessionStorage.getItem('presso:teleprompter-wpm'))).toBe('220');
 
@@ -299,6 +299,7 @@ async function expectTeleprompter(page: Page): Promise<void> {
   }, undefined, { timeout: 6000 });
   const runningScroll = await notesScrollTop(page);
   expect(runningScroll).toBeGreaterThan(0);
+  expect(await notesProgress(page)).toBeGreaterThan(0);
 
   await page.locator('[data-action="teleprompter-pause"]').click();
   await page.waitForTimeout(100);
@@ -314,6 +315,7 @@ async function expectTeleprompter(page: Page): Promise<void> {
 
   await page.locator('[data-action="teleprompter-reset"]').click();
   expect(await notesScrollTop(page)).toBe(0);
+  expect(await notesProgress(page)).toBe(0);
 
   await page.locator('[data-action="next"]').click();
   await expectCurrentSlide(page, 1);
@@ -329,6 +331,10 @@ async function expectTeleprompter(page: Page): Promise<void> {
 
 async function notesScrollTop(page: Page): Promise<number> {
   return page.locator('[data-current-notes]').evaluate((notes) => Math.round(notes.scrollTop));
+}
+
+async function notesProgress(page: Page): Promise<number> {
+  return page.locator('[data-notes-progress]').evaluate((progress) => Number(progress.getAttribute('aria-valuenow')));
 }
 
 async function expectRenderedSlides(page: Page): Promise<void> {

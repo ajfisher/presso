@@ -19,7 +19,7 @@
   const teleprompterEnabledKey = 'presso:teleprompter-enabled';
   const teleprompterPausedKey = 'presso:teleprompter-paused';
   const teleprompterWpmKey = 'presso:teleprompter-wpm';
-  const teleprompterDefaultWpm = 140;
+  const teleprompterDefaultWpm = 160;
   const teleprompterMinWpm = 80;
   const teleprompterMaxWpm = 220;
   const teleprompterStepWpm = 10;
@@ -218,6 +218,7 @@
     document.querySelectorAll('[data-current-notes]').forEach((el) => {
       el.innerHTML = activeNotes;
     });
+    updateNotesProgress();
     document.querySelectorAll('[data-current-position]').forEach((el) => {
       el.textContent = String(slideCount ? index + 1 : 0);
     });
@@ -298,6 +299,7 @@
     stopTeleprompter();
     const notes = currentNotesElement();
     if (notes && resetScroll) notes.scrollTop = 0;
+    updateNotesProgress();
     updateTeleprompterViews();
     if (!notes || !teleprompterEnabled || teleprompterPaused) return;
     startTeleprompter(notes, resetScroll);
@@ -319,6 +321,7 @@
     const delayMs = resetScroll ? Math.min(teleprompterMaxLagMs, (firstBlockWords / teleprompterWpm) * 60000) : 0;
     teleprompterStartTime = performance.now() + delayMs;
     notes.scrollTop = teleprompterStartScroll;
+    updateNotesProgress();
     teleprompterFrame = requestAnimationFrame(runTeleprompter);
   }
 
@@ -332,6 +335,7 @@
 
     const progress = teleprompterDurationMs > 0 ? clampNumber((now - teleprompterStartTime) / teleprompterDurationMs, 0, 1) : 1;
     notes.scrollTop = teleprompterStartScroll + ((teleprompterEndScroll - teleprompterStartScroll) * progress);
+    updateNotesProgress();
     if (progress < 1) teleprompterFrame = requestAnimationFrame(runTeleprompter);
     else teleprompterFrame = 0;
   }
@@ -366,6 +370,19 @@
   function currentNotesElement() {
     const notes = document.querySelector('[data-current-notes]');
     return notes instanceof HTMLElement ? notes : null;
+  }
+
+  function updateNotesProgress() {
+    if (mode !== 'presenter') return;
+    const notes = currentNotesElement();
+    const progress = document.querySelector('[data-notes-progress]');
+    const bar = progress?.querySelector('span');
+    if (!(progress instanceof HTMLElement) || !(bar instanceof HTMLElement) || !notes) return;
+    const scrollMax = Math.max(0, notes.scrollHeight - notes.clientHeight);
+    const value = scrollMax > 0 ? notes.scrollTop / scrollMax : 1;
+    const percent = clampNumber(value, 0, 1) * 100;
+    bar.style.width = `${percent}%`;
+    progress.setAttribute('aria-valuenow', percent.toFixed(1).replace(/\.0$/, ''));
   }
 
   function firstNotesBlockText(notes) {
@@ -670,6 +687,10 @@
     if (action === 'teleprompter-faster') setTeleprompterWpm(teleprompterWpm + teleprompterStepWpm);
     if (action === 'teleprompter-reset') resetTeleprompterScroll();
   });
+
+  document.addEventListener('scroll', (event) => {
+    if (event.target === currentNotesElement()) updateNotesProgress();
+  }, true);
 
   window.addEventListener('hashchange', () => {
     const next = parseHashIndex(location.hash);

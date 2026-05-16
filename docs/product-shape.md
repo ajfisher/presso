@@ -203,6 +203,7 @@ Presenter view should include:
 - Previous/next controls.
 - Teleprompter mode with configurable words-per-minute auto-scroll pace,
   pause/resume, reset, and a paced initial delay.
+- Notes progress indicator for the current slide.
 
 The `/control` view should work over the local network or Tailscale. A simple
 pairing code is useful, but not required for the first local-only version.
