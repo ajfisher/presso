@@ -228,9 +228,26 @@
     document.querySelectorAll('[data-current-target-time], [data-timing]').forEach((el) => {
       el.textContent = activeSlide?.dataset.targetTime || 'No target';
     });
+    updatePresenterPreviewScales();
     updateNavigationButtons();
     updatePresenterTimer();
     resetTeleprompterForSlide();
+  }
+
+  function updatePresenterPreviewScales() {
+    if (mode !== 'presenter') return;
+    document.querySelectorAll('aside .presso-stage, aside [data-next-preview]').forEach((frame) => {
+      if (!(frame instanceof HTMLElement)) return;
+      const slide = frame.querySelector('.presso-slide.is-active') || frame.querySelector('.presso-slide');
+      if (!(slide instanceof HTMLElement)) return;
+      const frameRect = frame.getBoundingClientRect();
+      const slideRect = slide.getBoundingClientRect();
+      const slideWidth = slide.offsetWidth || slideRect.width;
+      const slideHeight = slide.offsetHeight || slideRect.height;
+      if (!frameRect.width || !frameRect.height || !slideWidth || !slideHeight) return;
+      const scale = Math.min(frameRect.width / slideWidth, frameRect.height / slideHeight);
+      frame.style.setProperty('--presenter-preview-scale', String(scale));
+    });
   }
 
   function updatePresenterTimer() {
@@ -696,6 +713,7 @@
     const next = parseHashIndex(location.hash);
     if (next !== undefined) setIndex(next);
   });
+  window.addEventListener('resize', updatePresenterPreviewScales);
 
   channel?.addEventListener('message', (event) => {
     if (canNavigateSlides) setIndex(Number(event.data.index), 'remote');

@@ -93,6 +93,12 @@ browserDescribe('browser smoke', () => {
       await expectText(page, '[data-current-position]', '1');
       await expectText(page, '[data-slide-count]', '10');
       await expectPresenterLayout(page);
+      for (const index of [5, 7]) {
+        await page.goto(`${staticServer.origin}/presenter/#/${index}`, { waitUntil: 'networkidle' });
+        await expectActiveSlide(page, index);
+        await expectPresenterPreviewsFit(page);
+      }
+      await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       const initialNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
       for (let i = 0; i < 7; i++) await page.locator('[data-action="font-plus"]').click();
       const largerNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
@@ -272,6 +278,45 @@ async function expectPresenterLayout(page: Page): Promise<void> {
   const nextArea = layout.next.width * layout.next.height;
   expect(notesArea).toBeGreaterThan(currentArea * 2);
   expect(Math.abs(currentArea - nextArea) / Math.max(currentArea, nextArea)).toBeLessThan(0.25);
+}
+
+async function expectPresenterPreviewsFit(page: Page): Promise<void> {
+  const previews = await page.evaluate(() => {
+    const preview = (name: string, frameSelector: string, slideSelector: string) => {
+      const frame = document.querySelector(frameSelector);
+      if (!(frame instanceof HTMLElement)) throw new Error(`Missing ${name} preview frame`);
+      const slide = frame.querySelector(slideSelector);
+      if (!(slide instanceof HTMLElement)) throw new Error(`Missing ${name} preview slide`);
+      const frameRect = frame.getBoundingClientRect();
+      const slideRect = slide.getBoundingClientRect();
+      return {
+        name,
+        frameHeight: frameRect.height,
+        frameWidth: frameRect.width,
+        slideBottom: slideRect.bottom - frameRect.bottom,
+        slideHeight: slideRect.height,
+        slideLeft: slideRect.left - frameRect.left,
+        slideRight: slideRect.right - frameRect.right,
+        slideTop: slideRect.top - frameRect.top,
+        slideWidth: slideRect.width
+      };
+    };
+    return [
+      preview('current', 'aside > section[aria-label="Current slide"] .presso-stage', '.presso-slide.is-active'),
+      preview('next', 'aside > section[aria-label="Next slide"] [data-next-preview]', '.presso-slide')
+    ];
+  });
+
+  for (const preview of previews) {
+    expect(preview.frameWidth / preview.frameHeight, `${preview.name} preview frame ratio`).toBeCloseTo(16 / 9, 1);
+    expect(preview.slideWidth / preview.slideHeight, `${preview.name} preview slide ratio`).toBeCloseTo(16 / 9, 1);
+    expect(preview.slideWidth, `${preview.name} preview width`).toBeLessThanOrEqual(preview.frameWidth + 1);
+    expect(preview.slideHeight, `${preview.name} preview height`).toBeLessThanOrEqual(preview.frameHeight + 1);
+    expect(preview.slideLeft, `${preview.name} preview left`).toBeGreaterThanOrEqual(-1);
+    expect(preview.slideTop, `${preview.name} preview top`).toBeGreaterThanOrEqual(-1);
+    expect(preview.slideRight, `${preview.name} preview right`).toBeLessThanOrEqual(1);
+    expect(preview.slideBottom, `${preview.name} preview bottom`).toBeLessThanOrEqual(1);
+  }
 }
 
 async function expectTeleprompter(page: Page): Promise<void> {

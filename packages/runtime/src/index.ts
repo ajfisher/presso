@@ -186,8 +186,8 @@ function renderPresenter(deck: Deck, context: RenderContext): string {
     controllerPopover: renderTemplate('controllerPopover'),
     deck: renderDeck(deck, { ...context, mode: 'presenter' }),
     previews: deck.slides.map((slide) => renderTemplate('presenterPreviewTemplate', {
-      bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
       index: String(slide.index),
+      slideHtml: renderSlide(slide, context),
       title: escapeAttr(slide.title)
     })).join('\n')
   });
