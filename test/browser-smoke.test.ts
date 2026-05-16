@@ -67,6 +67,18 @@ browserDescribe('browser smoke', () => {
       }
 
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
+      await page.mouse.move(24, 24);
+      await expectPresentationControlsVisible(page);
+      await page.waitForTimeout(2200);
+      await expectPresentationControlsHidden(page);
+      await page.keyboard.press('ArrowRight');
+      await expectPresentationControlsHidden(page);
+      await page.mouse.move(48, 48);
+      await expectPresentationControlsHidden(page);
+      await hoverPresentationControls(page);
+      await expectPresentationControlsVisible(page);
+
+      await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
       await expectProgress(page, 0);
       await page.goto(`${staticServer.origin}/#/5`, { waitUntil: 'networkidle' });
       await expectProgress(page, (5 / 9) * 100);
@@ -238,6 +250,21 @@ async function expectProgress(page: Page, expectedPercent: number): Promise<void
   expect(value).toBeCloseTo(expectedPercent, 2);
 }
 
+async function expectPresentationControlsHidden(page: Page): Promise<void> {
+  await expectPresentationControlsOpacity(page, 0);
+}
+
+async function expectPresentationControlsVisible(page: Page): Promise<void> {
+  await expectPresentationControlsOpacity(page, 1);
+}
+
+async function expectPresentationControlsOpacity(page: Page, expected: number): Promise<void> {
+  await page.waitForFunction((expected) => {
+    const controls = document.querySelector('[data-presentation-controls]');
+    return controls && Math.abs(Number(getComputedStyle(controls).opacity) - expected) < 0.05;
+  }, expected);
+}
+
 async function expectRuntimeAssets(page: Page): Promise<void> {
   const assetHrefs = await page.evaluate(() => [
     ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).map((link) => link.href),
@@ -246,6 +273,12 @@ async function expectRuntimeAssets(page: Page): Promise<void> {
   expect(assetHrefs.some((href) => href.includes('/_presso/presso.css'))).toBe(true);
   expect(assetHrefs.some((href) => href.includes('/_presso/presso-runtime.js'))).toBe(true);
   expect(assetHrefs.some((href) => href.endsWith('/theme.css'))).toBe(true);
+}
+
+async function hoverPresentationControls(page: Page): Promise<void> {
+  const box = await page.locator('[data-presentation-controls]').boundingBox();
+  if (!box) throw new Error('Presentation controls were not visible in layout.');
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 async function expectSlideFitsViewport(page: Page): Promise<void> {
