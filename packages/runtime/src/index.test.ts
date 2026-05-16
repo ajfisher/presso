@@ -57,6 +57,7 @@ describe('runtime renderer', () => {
     const html = renderPage(deck, 'deck');
     expect(html).toContain('data-action="fullscreen"');
     expect(html).toContain('data-action="presenter"');
+    expect(html).not.toContain('data-action="control"');
     expect(html).toContain('id="presso-runtime-config"');
     expect(html).toContain('"presenter":"presenter/"');
     expect(html).toContain('<link rel="stylesheet" href="_presso/presso.css">');
@@ -103,15 +104,41 @@ describe('runtime renderer', () => {
   });
 
   it('renders presenter timing controls and next slide preview templates', () => {
-    const html = renderPage(deck, 'presenter', { server: true });
+    const html = renderPage(deck, 'presenter', { controlUrls: ['http://192.0.2.1:3030/control'], server: true });
+    const config = runtimeConfig(html);
     expect(html).toContain('data-current-title');
     expect(html).toContain('data-elapsed');
     expect(html).toContain('data-current-target-time');
     expect(html).toContain('data-time-delta');
     expect(html).toContain('data-action="timer-reset"');
+    expect(html).toContain('data-action="controller-open"');
+    expect(html).toContain('data-controller-popover');
+    expect(html).toContain('data-controller-url-open');
+    expect(html).toContain('data-controller-url-list');
     expect(html).toContain('data-next-preview');
     expect(html).toContain('data-slide-preview-template="1"');
     expect(html).toContain('<h2>Two</h2>');
+    expect(config.controlUrls).toEqual(['http://192.0.2.1:3030/control']);
+  });
+
+  it('renders controller state hooks and slide metadata without notes', () => {
+    const html = renderPage(deck, 'control', { server: true });
+    const config = runtimeConfig(html);
+
+    expect(html).toContain('data-sync-status');
+    expect(html).toContain('data-current-title');
+    expect(html).toContain('data-current-position');
+    expect(html).toContain('data-slide-count');
+    expect(html).toContain('data-action="prev"');
+    expect(html).toContain('data-action="next"');
+    expect(html).toContain('data-action="fullscreen"');
+    expect(html).toContain('data-action="wake-lock"');
+    expect(html).toContain('type="checkbox"');
+    expect(config.slides).toEqual([
+      { id: 'one', index: 0, title: 'One' },
+      { id: 'two', index: 1, title: 'Two' }
+    ]);
+    expect(JSON.stringify(config)).not.toContain('Speaker notes');
   });
 
   it('uses real newlines for transcript markdown', () => {
@@ -132,4 +159,10 @@ function deckWithNotesPolicy(publicNotes: Deck['config']['notes']['public']): De
       }
     }
   };
+}
+
+function runtimeConfig(html: string): Record<string, unknown> {
+  const match = html.match(/<script type="application\/json" id="presso-runtime-config">([\s\S]*?)<\/script>/);
+  if (!match) throw new Error('Runtime config script was not rendered.');
+  return JSON.parse(match[1]!);
 }

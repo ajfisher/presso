@@ -1,4 +1,4 @@
-.PHONY: help install clean build test browser-smoke check dev deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
+.PHONY: help install clean build test browser-smoke check dev tailnet-serve tailnet-reset deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
 
 DECK ?= examples/basic
 PORT ?= 3030
@@ -17,6 +17,8 @@ help:
 	@echo ""
 	@echo "Deck targets:"
 	@echo "  make dev [DECK=examples/basic] [PORT=3030]"
+	@echo "  make tailnet-serve [PORT=3030]"
+	@echo "  make tailnet-reset"
 	@echo "  make deck-build [DECK=examples/basic]"
 	@echo "  make transcript [DECK=examples/basic]"
 	@echo "  make pdf [DECK=examples/basic]"
@@ -50,6 +52,12 @@ check: build test
 
 dev: build
 	$(PRESSO) dev $(DECK) --port=$(PORT)
+
+tailnet-serve:
+	tailscale serve $(PORT)
+
+tailnet-reset:
+	tailscale serve reset
 
 deck-build: build
 	$(PRESSO) build $(DECK)

@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -87,6 +88,59 @@ browserDescribe('browser smoke', () => {
       await staticServer.close();
     }
   }, 30000);
+
+  it('syncs controller state with the deck and presenter over the dev server', async () => {
+    const devServer = await startDevServer();
+    const playwright = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(playwright.chromium);
+      const deckPage = await browser.newPage();
+      const presenterPage = await browser.newPage();
+      const controlPage = await browser.newPage();
+
+      await Promise.all([
+        deckPage.goto(`${devServer.origin}/`, { waitUntil: 'domcontentloaded' }),
+        presenterPage.goto(`${devServer.origin}/presenter`, { waitUntil: 'domcontentloaded' }),
+        controlPage.goto(`${devServer.origin}/control`, { waitUntil: 'domcontentloaded' })
+      ]);
+      await expectActiveSlide(deckPage, 0);
+      await expectActiveSlide(presenterPage, 0);
+      await expectCurrentSlide(controlPage, 0);
+      await expectText(controlPage, '[data-sync-status]', 'Synced');
+      await presenterPage.locator('button[data-action="controller-open"]').click();
+      await presenterPage.waitForSelector('[data-controller-popover]:not([hidden]) svg');
+      expect(await presenterPage.locator('[data-controller-url]').textContent()).toContain('/control');
+      await presenterPage.locator('button[data-action="controller-close"]').click();
+
+      await controlPage.locator('button[data-action="next"]').click();
+      await expectCurrentSlide(deckPage, 1);
+      await expectCurrentSlide(presenterPage, 1);
+      await expectCurrentSlide(controlPage, 1);
+      await expectText(controlPage, '[data-current-title]', 'A tiny vertical slice');
+      await expectText(controlPage, '[data-current-position]', '2');
+
+      await deckPage.keyboard.press('ArrowRight');
+      await expectCurrentSlide(deckPage, 2);
+      await expectCurrentSlide(presenterPage, 2);
+      await expectCurrentSlide(controlPage, 2);
+      await expectText(controlPage, '[data-current-position]', '3');
+
+      await deckPage.goto(`${devServer.origin}/#/5`, { waitUntil: 'domcontentloaded' });
+      await expectCurrentSlide(deckPage, 5);
+      await expectCurrentSlide(presenterPage, 5);
+      await expectCurrentSlide(controlPage, 5);
+      await expectText(controlPage, '[data-current-title]', 'image');
+      await expectText(controlPage, '[data-current-position]', '6');
+
+      await controlPage.locator('button[data-action="fullscreen"]').click();
+      await deckPage.waitForFunction(() => Boolean(document.fullscreenElement) || !document.querySelector('[data-fullscreen-prompt]')?.hasAttribute('hidden'));
+    } finally {
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 30000);
 });
 
 async function buildExampleDeck(): Promise<string> {
@@ -107,9 +161,9 @@ function localChromePath(): string | undefined {
   return existsSync(chromePath) ? chromePath : undefined;
 }
 
-async function expectActiveSlide(page: Page): Promise<void> {
-  await page.waitForSelector('.presso-slide.is-active');
-  expect(await page.locator('body').getAttribute('data-current-slide')).toBe('0');
+async function expectActiveSlide(page: Page, index = 0): Promise<void> {
+  await page.waitForSelector(`.presso-slide.is-active[data-slide-index="${index}"]`);
+  await expectCurrentSlide(page, index);
   expect(await page.locator('.presso-slide.is-active').evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
 }
 
@@ -140,9 +194,96 @@ async function expectSlideFitsViewport(page: Page): Promise<void> {
   expect(bounds.width).toBeCloseTo(bounds.expectedWidth, 1);
 }
 
+async function expectCurrentSlide(page: Page, index: number): Promise<void> {
+  await page.waitForFunction((expected) => document.body.dataset.currentSlide === String(expected), index);
+  expect(await page.locator('body').getAttribute('data-current-slide')).toBe(String(index));
+}
+
 async function expectText(page: Page, selector: string, text: string): Promise<void> {
   await page.waitForSelector(selector);
+  await page.waitForFunction(
+    ({ selector, text }) => document.querySelector(selector)?.textContent?.includes(text),
+    { selector, text }
+  );
   expect(await page.locator(selector).first().textContent()).toContain(text);
+}
+
+async function startDevServer(): Promise<{ close: () => Promise<void>; origin: string }> {
+  const port = await getFreePort();
+  const child = spawn(process.execPath, [
+    'packages/server/dist/cli.js',
+    'dev',
+    'examples/basic',
+    `--port=${port}`
+  ], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
+
+  try {
+    await waitForDevServer(child, port);
+  } catch (error) {
+    await closeChild(child);
+    throw error;
+  }
+  return {
+    close: () => closeChild(child),
+    origin: `http://127.0.0.1:${port}`
+  };
+}
+
+async function waitForDevServer(child: ChildProcessWithoutNullStreams, port: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    let output = '';
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error(`Presso dev server did not start on port ${port}.\n${output}`));
+    }, 10000);
+    const onData = (chunk: Buffer) => {
+      output += chunk.toString('utf8');
+      if (output.includes(`http://localhost:${port}`)) {
+        cleanup();
+        resolve();
+      }
+    };
+    const onExit = () => {
+      cleanup();
+      reject(new Error(`Presso dev server exited before listening.\n${output}`));
+    };
+    const cleanup = () => {
+      clearTimeout(timer);
+      child.stdout.off('data', onData);
+      child.stderr.off('data', onData);
+      child.off('exit', onExit);
+    };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
+    child.once('exit', onExit);
+  });
+}
+
+async function closeChild(child: ChildProcessWithoutNullStreams): Promise<void> {
+  if (child.exitCode !== null) return;
+  child.kill();
+  await new Promise<void>((resolve) => {
+    const timer = setTimeout(resolve, 2000);
+    child.once('exit', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
+async function getFreePort(): Promise<number> {
+  const server = http.createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+  const address = server.address();
+  if (!address || typeof address === 'string') throw new Error('Could not allocate a local port.');
+  await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+  return address.port;
 }
 
 async function serveStatic(root: string): Promise<{ close: () => Promise<void>; origin: string }> {

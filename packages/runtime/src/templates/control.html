@@ -1,8 +1,23 @@
 <main>
-  <section>
-    <h1>{{title}}</h1>
-    <p>{{slideCount}} slides</p>
-    <button data-action="prev">Back</button>
-    <button data-action="next">Next</button>
+  <section aria-label="Controller">
+    <header>
+      <p data-sync-status>Local</p>
+      <h1>{{title}}</h1>
+    </header>
+    <div>
+      <p><span data-current-position>1</span>/<span data-slide-count>{{slideCount}}</span></p>
+      <h2 data-current-title>{{currentTitle}}</h2>
+    </div>
+    <nav aria-label="Slide controls">
+      <button data-action="next" type="button">Next</button>
+      <button data-action="prev" type="button">Back</button>
+    </nav>
+    <footer aria-label="Session controls">
+      <button data-action="fullscreen" type="button">Full screen</button>
+      <label data-wake-lock-control>
+        <input data-action="wake-lock" data-wake-lock-toggle type="checkbox">
+        <span data-wake-lock-label>Keep awake</span>
+      </label>
+    </footer>
   </section>
 </main>
