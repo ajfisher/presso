@@ -45,7 +45,7 @@
     index = clampIndex(next);
     renderActiveSlide();
     document.body.dataset.currentSlide = String(index);
-    if (progress && slideCount) progress.style.width = String(((index + 1) / slideCount) * 100) + '%';
+    if (progress && slideCount) progress.style.width = String(progressPercent(index)) + '%';
     if (canDirectFullscreen && slides.length) history.replaceState(null, '', '#/' + index);
     updateStateViews();
     localStorage.setItem('presso:index', String(index));
@@ -578,6 +578,11 @@
     const max = Math.max(0, slideCount - 1);
     if (!Number.isFinite(numeric)) return 0;
     return Math.min(max, Math.max(0, numeric));
+  }
+
+  function progressPercent(value) {
+    if (slideCount <= 1) return 0;
+    return (clampIndex(value) / (slideCount - 1)) * 100;
   }
 
   function renderQrCode(target, text) {
