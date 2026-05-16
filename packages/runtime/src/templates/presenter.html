@@ -1,10 +1,10 @@
 <main>
-  <section aria-label="Current slide">
+  <section aria-label="Speaker notes">
     <header>
-      <p>Current</p>
+      <p>Notes</p>
       <h1 data-current-title></h1>
     </header>
-    {{deck}}
+    <article data-current-notes tabindex="0"></article>
   </section>
   <aside aria-label="Presenter tools">
     <section aria-label="Timing">
@@ -35,16 +35,23 @@
       <button data-action="timer-reset" type="button">Reset timer</button>
       <button data-action="font-minus" type="button">A-</button>
       <button data-action="font-plus" type="button">A+</button>
+      <button data-action="teleprompter-toggle" type="button" data-teleprompter-toggle>Prompter</button>
+      <button data-action="teleprompter-pause" type="button" data-teleprompter-pause>Pause</button>
+      <button data-action="teleprompter-slower" type="button">Slower</button>
+      <span data-teleprompter-wpm>140 wpm</span>
+      <button data-action="teleprompter-faster" type="button">Faster</button>
+      <button data-action="teleprompter-reset" type="button">Reset scroll</button>
       <button data-action="shortcuts" type="button">?</button>
+    </section>
+    <section aria-label="Current slide">
+      <h2>Current</h2>
+      <h3 data-current-title></h3>
+      {{deck}}
     </section>
     <section aria-label="Next slide">
       <h2>Next</h2>
       <h3 data-next-title></h3>
       <article data-next-preview></article>
-    </section>
-    <section aria-label="Speaker notes">
-      <h2>Notes</h2>
-      <article data-current-notes tabindex="0"></article>
     </section>
   </aside>
   {{previews}}

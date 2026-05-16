@@ -16,6 +16,14 @@
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
   const timerStartKey = 'presso:presenter-started-at';
+  const teleprompterEnabledKey = 'presso:teleprompter-enabled';
+  const teleprompterPausedKey = 'presso:teleprompter-paused';
+  const teleprompterWpmKey = 'presso:teleprompter-wpm';
+  const teleprompterDefaultWpm = 140;
+  const teleprompterMinWpm = 80;
+  const teleprompterMaxWpm = 220;
+  const teleprompterStepWpm = 10;
+  const teleprompterMaxLagMs = 8000;
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
   let presentationFullscreen = false;
@@ -26,9 +34,18 @@
   let controllerUrlSelectedByUser = false;
   let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
+  let teleprompterEnabled = sessionStorage.getItem(teleprompterEnabledKey) === 'true';
+  let teleprompterPaused = sessionStorage.getItem(teleprompterPausedKey) === 'true';
+  let teleprompterWpm = clampNumber(Number(sessionStorage.getItem(teleprompterWpmKey)) || teleprompterDefaultWpm, teleprompterMinWpm, teleprompterMaxWpm);
+  let teleprompterFrame = 0;
+  let teleprompterStartTime = 0;
+  let teleprompterStartScroll = 0;
+  let teleprompterEndScroll = 0;
+  let teleprompterDurationMs = 0;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
+    persistTeleprompterState();
   }
 
   if (!notesAllowed) {
@@ -212,6 +229,7 @@
     });
     updateNavigationButtons();
     updatePresenterTimer();
+    resetTeleprompterForSlide();
   }
 
   function updatePresenterTimer() {
@@ -236,6 +254,127 @@
     presenterNotesSize = clampNumber(next, 0.9, 2.4);
     document.documentElement.style.setProperty('--presenter-notes-size', presenterNotesSize.toFixed(2) + 'rem');
     sessionStorage.setItem(notesSizeKey, String(presenterNotesSize));
+    restartTeleprompter(false);
+  }
+
+  function toggleTeleprompter() {
+    if (mode !== 'presenter') return;
+    teleprompterEnabled = !teleprompterEnabled;
+    teleprompterPaused = false;
+    persistTeleprompterState();
+    restartTeleprompter(true);
+  }
+
+  function toggleTeleprompterPause() {
+    if (mode !== 'presenter' || !teleprompterEnabled) return;
+    teleprompterPaused = !teleprompterPaused;
+    persistTeleprompterState();
+    if (teleprompterPaused) {
+      stopTeleprompter();
+    } else {
+      restartTeleprompter(false);
+    }
+  }
+
+  function setTeleprompterWpm(next) {
+    if (mode !== 'presenter') return;
+    teleprompterWpm = clampNumber(next, teleprompterMinWpm, teleprompterMaxWpm);
+    persistTeleprompterState();
+    restartTeleprompter(false);
+  }
+
+  function resetTeleprompterScroll() {
+    if (mode !== 'presenter') return;
+    restartTeleprompter(true);
+  }
+
+  function resetTeleprompterForSlide() {
+    if (mode !== 'presenter') return;
+    restartTeleprompter(true);
+  }
+
+  function restartTeleprompter(resetScroll) {
+    if (mode !== 'presenter') return;
+    stopTeleprompter();
+    const notes = currentNotesElement();
+    if (notes && resetScroll) notes.scrollTop = 0;
+    updateTeleprompterViews();
+    if (!notes || !teleprompterEnabled || teleprompterPaused) return;
+    startTeleprompter(notes, resetScroll);
+  }
+
+  function startTeleprompter(notes, resetScroll) {
+    const scrollMax = Math.max(0, notes.scrollHeight - notes.clientHeight);
+    if (!scrollMax) {
+      updateTeleprompterViews();
+      return;
+    }
+
+    const wordCount = countWords(notes.textContent || '');
+    const firstBlockWords = countWords(firstNotesBlockText(notes));
+    const fullDurationMs = Math.max(1000, (Math.max(1, wordCount) / teleprompterWpm) * 60000);
+    teleprompterStartScroll = resetScroll ? 0 : notes.scrollTop;
+    teleprompterEndScroll = scrollMax;
+    teleprompterDurationMs = fullDurationMs * Math.max(0, (teleprompterEndScroll - teleprompterStartScroll) / Math.max(1, scrollMax));
+    const delayMs = resetScroll ? Math.min(teleprompterMaxLagMs, (firstBlockWords / teleprompterWpm) * 60000) : 0;
+    teleprompterStartTime = performance.now() + delayMs;
+    notes.scrollTop = teleprompterStartScroll;
+    teleprompterFrame = requestAnimationFrame(runTeleprompter);
+  }
+
+  function runTeleprompter(now) {
+    const notes = currentNotesElement();
+    if (!notes || !teleprompterEnabled || teleprompterPaused) return;
+    if (now < teleprompterStartTime) {
+      teleprompterFrame = requestAnimationFrame(runTeleprompter);
+      return;
+    }
+
+    const progress = teleprompterDurationMs > 0 ? clampNumber((now - teleprompterStartTime) / teleprompterDurationMs, 0, 1) : 1;
+    notes.scrollTop = teleprompterStartScroll + ((teleprompterEndScroll - teleprompterStartScroll) * progress);
+    if (progress < 1) teleprompterFrame = requestAnimationFrame(runTeleprompter);
+    else teleprompterFrame = 0;
+  }
+
+  function stopTeleprompter() {
+    if (teleprompterFrame) cancelAnimationFrame(teleprompterFrame);
+    teleprompterFrame = 0;
+  }
+
+  function updateTeleprompterViews() {
+    if (mode !== 'presenter') return;
+    document.body.dataset.teleprompter = teleprompterEnabled ? teleprompterPaused ? 'paused' : 'running' : 'off';
+    document.querySelectorAll('[data-teleprompter-toggle]').forEach((button) => {
+      button.textContent = teleprompterEnabled ? 'Prompter on' : 'Prompter';
+      button.setAttribute('aria-pressed', teleprompterEnabled ? 'true' : 'false');
+    });
+    document.querySelectorAll('[data-teleprompter-pause]').forEach((button) => {
+      button.textContent = teleprompterPaused ? 'Resume' : 'Pause';
+      button.disabled = !teleprompterEnabled;
+    });
+    document.querySelectorAll('[data-teleprompter-wpm]').forEach((el) => {
+      el.textContent = `${teleprompterWpm} wpm`;
+    });
+  }
+
+  function persistTeleprompterState() {
+    sessionStorage.setItem(teleprompterEnabledKey, String(teleprompterEnabled));
+    sessionStorage.setItem(teleprompterPausedKey, String(teleprompterPaused));
+    sessionStorage.setItem(teleprompterWpmKey, String(teleprompterWpm));
+  }
+
+  function currentNotesElement() {
+    const notes = document.querySelector('[data-current-notes]');
+    return notes instanceof HTMLElement ? notes : null;
+  }
+
+  function firstNotesBlockText(notes) {
+    const block = notes.querySelector('p, li, blockquote, pre, h1, h2, h3, h4');
+    return block?.textContent || notes.textContent || '';
+  }
+
+  function countWords(text) {
+    return text.trim().split(/\s+/).filter(Boolean).length;
   }
 
   function requestPresentationFullscreen() {
@@ -525,6 +664,11 @@
     if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
     if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
     if (action === 'timer-reset') resetPresenterTimer();
+    if (action === 'teleprompter-toggle') toggleTeleprompter();
+    if (action === 'teleprompter-pause') toggleTeleprompterPause();
+    if (action === 'teleprompter-slower') setTeleprompterWpm(teleprompterWpm - teleprompterStepWpm);
+    if (action === 'teleprompter-faster') setTeleprompterWpm(teleprompterWpm + teleprompterStepWpm);
+    if (action === 'teleprompter-reset') resetTeleprompterScroll();
   });
 
   window.addEventListener('hashchange', () => {
@@ -538,6 +682,7 @@
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   if (canNavigateSlides) setIndex(index, 'init');
   updateFullscreenViews();
+  updateTeleprompterViews();
   handleWakeLockUnavailable();
   if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
     postState(index).finally(connectServerEvents);
