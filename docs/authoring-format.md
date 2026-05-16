@@ -266,20 +266,16 @@ Notes should not render in the main slide deck by default. They render in:
 - `"visible"`: include notes publicly and show them by default in companion
   contexts.
 
-Notes can include lightweight timing or teleprompter hints later:
+Presenter view uses these same notes as the teleprompter source. The first
+teleprompter version does not add Markdown directives; it estimates pace from
+the rendered notes text, uses the first text block for the initial scroll delay,
+and then scrolls the current slide notes at the selected words-per-minute pace.
+The pace is global across slides for the browser session, while each slide
+change resets the notes to the top before applying the initial delay again.
 
-```markdown
-:::notes
-Opening setup.
-
-::pause{seconds=3}
-
-Ask the room for a show of hands.
-:::
-```
-
-The first version does not need these hints, but the syntax leaves room for
-them.
+Lightweight timing or teleprompter hints may be added later with directive
+syntax such as `::pause{seconds=3}`, but they are intentionally out of scope for
+the current authoring format.
 
 ## Layouts
 

@@ -194,14 +194,15 @@ localhost, insecure, or missing external resources.
 
 Presenter view should include:
 
-- Current slide.
-- Next slide.
-- Speaker notes with Markdown rendering.
+- Speaker notes with Markdown rendering as the primary surface.
+- Compact current slide preview.
+- Compact next slide preview.
 - Font size controls.
 - Elapsed and remaining time.
 - Timing markers and pacing feedback.
 - Previous/next controls.
-- Teleprompter mode with configurable auto-scroll pace.
+- Teleprompter mode with configurable words-per-minute auto-scroll pace,
+  pause/resume, reset, and a paced initial delay.
 
 The `/control` view should work over the local network or Tailscale. A simple
 pairing code is useful, but not required for the first local-only version.
