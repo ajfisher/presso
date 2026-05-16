@@ -9,6 +9,9 @@
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
+  const canNavigateSlides = ['deck', 'embed', 'presenter', 'control'].includes(mode);
+  const canDirectFullscreen = mode === 'deck' || mode === 'embed';
+  const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
@@ -38,11 +41,12 @@
   }
 
   function setIndex(next, source = 'local') {
+    if (!canNavigateSlides) return;
     index = clampIndex(next);
     renderActiveSlide();
     document.body.dataset.currentSlide = String(index);
     if (progress && slideCount) progress.style.width = String(((index + 1) / slideCount) * 100) + '%';
-    if ((mode === 'deck' || mode === 'embed') && slides.length) history.replaceState(null, '', '#/' + index);
+    if (canDirectFullscreen && slides.length) history.replaceState(null, '', '#/' + index);
     updateStateViews();
     localStorage.setItem('presso:index', String(index));
     if (source === 'local') channel?.postMessage({ index });
@@ -235,7 +239,7 @@
   }
 
   function requestPresentationFullscreen() {
-    if (mode === 'deck' || mode === 'embed') {
+    if (canDirectFullscreen) {
       if (document.fullscreenElement) {
         showFullscreenPrompt('exit');
       } else {
@@ -243,7 +247,7 @@
       }
       return;
     }
-    if (!serverSync) return;
+    if (!serverSync || !canRemoteControlFullscreen) return;
     if (presentationFullscreen) return;
     postCommand({ type: 'presentation-fullscreen-enter' });
   }
@@ -319,7 +323,7 @@
   }
 
   function updateFullscreenViews() {
-    const active = mode === 'deck' || mode === 'embed' ? Boolean(document.fullscreenElement) : presentationFullscreen;
+    const active = canDirectFullscreen ? Boolean(document.fullscreenElement) : presentationFullscreen;
     document.body.dataset.presentationFullscreen = presentationFullscreen ? 'true' : 'false';
     document.querySelectorAll('button[data-action="fullscreen"]').forEach((button) => {
       const remoteControl = mode === 'control' || mode === 'presenter';
@@ -347,7 +351,7 @@
   }
 
   function postState(next, extra = {}) {
-    if (!serverSync) return Promise.resolve();
+    if (!serverSync || !canNavigateSlides) return Promise.resolve();
     setSyncStatus('Syncing');
     return fetch('/state', {
       method: 'POST',
@@ -387,11 +391,12 @@
     events.addEventListener('open', () => setSyncStatus('Synced'));
     events.addEventListener('state', (event) => {
       setSyncStatus('Synced');
+      if (!canNavigateSlides) return;
       applyServerState(JSON.parse(event.data), 'remote');
     });
     events.addEventListener('command', (event) => {
       const command = JSON.parse(event.data);
-      if (!(mode === 'deck' || mode === 'embed')) return;
+      if (!canDirectFullscreen) return;
       if (command.type === 'presentation-fullscreen-enter') {
         showFullscreenPrompt('enter');
       }
@@ -436,14 +441,17 @@
   document.addEventListener('keydown', (event) => {
     if (isEditableTarget(event.target)) return;
     if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
+      if (!canNavigateSlides) return;
       event.preventDefault();
       go(1);
     }
     if (['ArrowLeft', 'PageUp'].includes(event.key)) {
+      if (!canNavigateSlides) return;
       event.preventDefault();
       go(-1);
     }
     if (event.key === 'f') {
+      if (!(canDirectFullscreen || canRemoteControlFullscreen)) return;
       event.preventDefault();
       requestPresentationFullscreen();
     }
@@ -452,6 +460,7 @@
       openRoute('presenter');
     }
     if (event.key === 'n') {
+      if (!(mode === 'deck' || mode === 'embed')) return;
       event.preventDefault();
       toggleNotes();
     }
@@ -464,7 +473,7 @@
 
   document.addEventListener('fullscreenchange', () => {
     document.body.dataset.fullscreen = document.fullscreenElement ? 'true' : 'false';
-    if (mode === 'deck' || mode === 'embed') {
+    if (canDirectFullscreen) {
       presentationFullscreen = Boolean(document.fullscreenElement);
       hideFullscreenPrompt();
       updateFullscreenViews();
@@ -513,9 +522,11 @@
     if (next !== undefined) setIndex(next);
   });
 
-  channel?.addEventListener('message', (event) => setIndex(Number(event.data.index), 'remote'));
+  channel?.addEventListener('message', (event) => {
+    if (canNavigateSlides) setIndex(Number(event.data.index), 'remote');
+  });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
-  setIndex(index, 'init');
+  if (canNavigateSlides) setIndex(index, 'init');
   updateFullscreenViews();
   handleWakeLockUnavailable();
   if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
