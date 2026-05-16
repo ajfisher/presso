@@ -629,7 +629,7 @@
 
     > section:first-child {
       display: grid;
-      grid-template-rows: auto minmax(0, 1fr);
+      grid-template-rows: auto .2rem minmax(0, 1fr);
       gap: .75rem;
       background: #111;
       padding: 1rem;
@@ -654,6 +654,20 @@
           color: white;
           font-size: 1rem;
           font-weight: 600;
+        }
+      }
+
+      [data-notes-progress] {
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 10%);
+
+        span {
+          display: block;
+          width: 0;
+          height: 100%;
+          border-radius: inherit;
+          background: rgb(255 255 255 / 34%);
         }
       }
     }

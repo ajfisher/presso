@@ -48,7 +48,7 @@ Open `/presenter` and use the controls row:
 - `Reset scroll`: return the current slide notes to the top.
 - `A-` / `A+`: adjust presenter notes text size.
 
-The teleprompter defaults to `140 wpm`, clamps between `80 wpm` and `220 wpm`, and stores the current pace for the browser session. When you move to a new slide, the notes reset to the top and keep running if the prompter is enabled. Scrolling starts after a short paced delay based on the first notes paragraph, capped at 8 seconds, so the text does not move before you have started speaking.
+The teleprompter defaults to `160 wpm`, clamps between `80 wpm` and `220 wpm`, and stores the current pace for the browser session. When you move to a new slide, the notes reset to the top and keep running if the prompter is enabled. Scrolling starts after a short paced delay based on the first notes paragraph, capped at 8 seconds, so the text does not move before you have started speaking. A subtle progress bar above the notes shows how far through the current slide notes you are.
 
 ## Phone Controller And Keep Awake
 

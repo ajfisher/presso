@@ -117,6 +117,7 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-action="teleprompter-faster"');
     expect(html).toContain('data-action="teleprompter-reset"');
     expect(html).toContain('data-teleprompter-wpm');
+    expect(html).toContain('data-notes-progress');
     expect(html).toContain('data-action="controller-open"');
     expect(html).toContain('data-controller-popover');
     expect(html).toContain('data-controller-url-open');
