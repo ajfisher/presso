@@ -285,12 +285,21 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
     const preview = (name: string, frameSelector: string, slideSelector: string) => {
       const frame = document.querySelector(frameSelector);
       if (!(frame instanceof HTMLElement)) throw new Error(`Missing ${name} preview frame`);
+      const section = frame.closest('section');
+      if (!(section instanceof HTMLElement)) throw new Error(`Missing ${name} preview section`);
       const slide = frame.querySelector(slideSelector);
       if (!(slide instanceof HTMLElement)) throw new Error(`Missing ${name} preview slide`);
+      const heading = section.querySelector('h3');
+      if (!(heading instanceof HTMLElement)) throw new Error(`Missing ${name} preview heading`);
       const frameRect = frame.getBoundingClientRect();
+      const headingRect = heading.getBoundingClientRect();
+      const sectionRect = section.getBoundingClientRect();
       const slideRect = slide.getBoundingClientRect();
       return {
         name,
+        frameTop: frameRect.top,
+        headingBottom: headingRect.bottom,
+        sectionBottom: sectionRect.bottom,
         frameHeight: frameRect.height,
         frameWidth: frameRect.width,
         slideBottom: slideRect.bottom - frameRect.bottom,
@@ -298,7 +307,8 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
         slideLeft: slideRect.left - frameRect.left,
         slideRight: slideRect.right - frameRect.right,
         slideTop: slideRect.top - frameRect.top,
-        slideWidth: slideRect.width
+        slideWidth: slideRect.width,
+        viewportHeight: window.innerHeight
       };
     };
     return [
@@ -308,8 +318,9 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
   });
 
   for (const preview of previews) {
-    expect(preview.frameWidth / preview.frameHeight, `${preview.name} preview frame ratio`).toBeCloseTo(16 / 9, 1);
     expect(preview.slideWidth / preview.slideHeight, `${preview.name} preview slide ratio`).toBeCloseTo(16 / 9, 1);
+    expect(preview.frameTop, `${preview.name} preview frame below heading`).toBeGreaterThanOrEqual(preview.headingBottom);
+    expect(preview.sectionBottom, `${preview.name} preview section visible`).toBeLessThanOrEqual(preview.viewportHeight + 1);
     expect(preview.slideWidth, `${preview.name} preview width`).toBeLessThanOrEqual(preview.frameWidth + 1);
     expect(preview.slideHeight, `${preview.name} preview height`).toBeLessThanOrEqual(preview.frameHeight + 1);
     expect(preview.slideLeft, `${preview.name} preview left`).toBeGreaterThanOrEqual(-1);

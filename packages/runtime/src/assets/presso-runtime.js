@@ -247,6 +247,8 @@
       if (!frameRect.width || !frameRect.height || !slideWidth || !slideHeight) return;
       const scale = Math.min(frameRect.width / slideWidth, frameRect.height / slideHeight);
       frame.style.setProperty('--presenter-preview-scale', String(scale));
+      frame.style.setProperty('--presenter-preview-x', `${(frameRect.width - slideWidth * scale) / 2}px`);
+      frame.style.setProperty('--presenter-preview-y', `${(frameRect.height - slideHeight * scale) / 2}px`);
     });
   }
 
