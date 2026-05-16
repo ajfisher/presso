@@ -66,6 +66,15 @@ browserDescribe('browser smoke', () => {
         await expectActiveSlide(page);
       }
 
+      await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
+      await expectProgress(page, 0);
+      await page.goto(`${staticServer.origin}/#/5`, { waitUntil: 'networkidle' });
+      await expectProgress(page, (5 / 9) * 100);
+      await page.goto(`${staticServer.origin}/#/9`, { waitUntil: 'networkidle' });
+      await expectProgress(page, 100);
+      await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
+      await expectActiveSlide(page);
+
       await expectText(page, '[data-next-title]', 'A tiny vertical slice');
       await expectText(page, '[data-next-preview]', 'A tiny vertical slice');
       await expectText(page, '[data-current-notes]', 'Opening notes for the basic fixture.');
@@ -222,6 +231,11 @@ async function expectRenderedSlides(page: Page): Promise<void> {
   await page.waitForSelector('.presso-slide');
   expect(await page.locator('.presso-slide').count()).toBeGreaterThan(0);
   expect(await page.locator('.presso-slide').first().evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+}
+
+async function expectProgress(page: Page, expectedPercent: number): Promise<void> {
+  const value = await page.locator('.presso-progress > span').evaluate((progress) => Number.parseFloat((progress as HTMLElement).style.width));
+  expect(value).toBeCloseTo(expectedPercent, 2);
 }
 
 async function expectRuntimeAssets(page: Page): Promise<void> {
