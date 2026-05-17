@@ -29,20 +29,70 @@
       </dl>
     </section>
     <section aria-label="Controls">
-      <button data-action="prev" type="button">Back</button>
-      <button data-action="next" type="button">Next</button>
-      <button data-action="controller-open" type="button">Phone controller</button>
-      <button data-action="fullscreen" type="button">Full screen</button>
-      <button data-action="timer-reset" type="button">Reset timer</button>
-      <button data-action="font-minus" type="button">A-</button>
-      <button data-action="font-plus" type="button">A+</button>
-      <button data-action="teleprompter-toggle" type="button" data-teleprompter-toggle>Prompter</button>
-      <button data-action="teleprompter-pause" type="button" data-teleprompter-pause>Pause</button>
-      <button data-action="teleprompter-slower" type="button">Slower</button>
-      <span data-teleprompter-wpm>160 wpm</span>
-      <button data-action="teleprompter-faster" type="button">Faster</button>
-      <button data-action="teleprompter-reset" type="button">Reset scroll</button>
-      <button data-action="shortcuts" type="button">?</button>
+      <div role="group" aria-label="Slide navigation">
+        <button data-action="prev" type="button" title="Previous slide">
+          <svg aria-hidden="true"><use href="#presso-icon-chevron-left"></use></svg>
+          <span data-control-label>Back</span>
+        </button>
+        <button data-action="next" type="button" title="Next slide">
+          <svg aria-hidden="true"><use href="#presso-icon-chevron-right"></use></svg>
+          <span data-control-label>Next</span>
+        </button>
+      </div>
+      <div role="group" aria-label="Presenter setup">
+        <button data-action="controller-open" type="button" title="Open phone controller">
+          <svg aria-hidden="true"><use href="#presso-icon-smartphone"></use></svg>
+          <span data-control-label>Phone</span>
+        </button>
+        <button data-action="fullscreen" type="button" title="Toggle full screen">
+          <svg aria-hidden="true"><use href="#presso-icon-expand"></use></svg>
+          <span data-control-label>Full screen</span>
+        </button>
+        <button data-action="timer-reset" type="button" title="Reset timer">
+          <svg aria-hidden="true"><use href="#presso-icon-reset"></use></svg>
+          <span data-control-label>Timer</span>
+        </button>
+        <button data-action="shortcuts" type="button" title="Show shortcuts">
+          <svg aria-hidden="true"><use href="#presso-icon-help"></use></svg>
+          <span data-control-label>Help</span>
+        </button>
+      </div>
+      <div role="group" aria-label="Notes display">
+        <button data-action="font-minus" type="button" title="Reduce notes size">
+          <svg aria-hidden="true"><use href="#presso-icon-minus"></use></svg>
+          <span data-control-label>A-</span>
+        </button>
+        <button data-action="font-plus" type="button" title="Increase notes size">
+          <svg aria-hidden="true"><use href="#presso-icon-plus"></use></svg>
+          <span data-control-label>A+</span>
+        </button>
+      </div>
+      <div role="group" aria-label="Teleprompter">
+        <button data-action="teleprompter-toggle" type="button" data-teleprompter-toggle title="Toggle teleprompter">
+          <svg aria-hidden="true"><use href="#presso-icon-scroll-text"></use></svg>
+          <span data-control-label>Prompter</span>
+        </button>
+        <button data-action="teleprompter-pause" type="button" data-teleprompter-pause title="Pause teleprompter">
+          <svg aria-hidden="true"><use href="#presso-icon-pause"></use></svg>
+          <span data-control-label>Pause</span>
+        </button>
+        <button data-action="teleprompter-slower" type="button" title="Slow teleprompter">
+          <svg aria-hidden="true"><use href="#presso-icon-rewind"></use></svg>
+          <span data-control-label>Slower</span>
+        </button>
+        <span data-teleprompter-wpm>
+          <svg aria-hidden="true"><use href="#presso-icon-gauge"></use></svg>
+          <span data-control-label>160 wpm</span>
+        </span>
+        <button data-action="teleprompter-faster" type="button" title="Speed up teleprompter">
+          <svg aria-hidden="true"><use href="#presso-icon-fast-forward"></use></svg>
+          <span data-control-label>Faster</span>
+        </button>
+        <button data-action="teleprompter-reset" type="button" title="Reset teleprompter scroll">
+          <svg aria-hidden="true"><use href="#presso-icon-reset"></use></svg>
+          <span data-control-label>Reset</span>
+        </button>
+      </div>
     </section>
     <section aria-label="Current slide">
       <h2>Current</h2>
@@ -57,4 +107,5 @@
   </aside>
   {{previews}}
   {{controllerPopover}}
+  {{icons}}
 </main>

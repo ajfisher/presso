@@ -627,6 +627,13 @@
     overflow: hidden;
     padding: 1rem;
 
+    [data-presenter-icons] {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+    }
+
     > section:first-child {
       display: grid;
       grid-template-rows: auto .2rem minmax(0, 1fr);
@@ -711,15 +718,27 @@
       }
 
       > section:nth-child(2) {
-        display: flex;
-        align-items: center;
-        gap: .5rem;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: .55rem;
+
+        > [role="group"] {
+          display: flex;
+          align-items: center;
+          gap: .45rem;
+          min-width: 0;
+          flex-wrap: wrap;
+        }
 
         button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: .45rem;
           padding: .7rem .85rem;
           background: rgb(255 255 255 / 12%);
           color: white;
+          min-height: 2.75rem;
 
           &:disabled {
             background: rgb(255 255 255 / 8%);
@@ -739,7 +758,25 @@
           }
         }
 
+        svg {
+          width: 1.1em;
+          height: 1.1em;
+          flex: none;
+        }
+
+        > [role="group"]:first-child button {
+          flex: 1 1 8rem;
+          font-size: 1.05rem;
+        }
+
+        > [role="group"]:nth-child(3) button {
+          min-width: 3.6rem;
+        }
+
         [data-teleprompter-wpm] {
+          display: inline-flex;
+          align-items: center;
+          gap: .4rem;
           padding: .7rem .5rem;
           color: white;
           font-size: .95rem;
