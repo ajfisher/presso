@@ -355,6 +355,7 @@ async function expectTeleprompter(page: Page): Promise<void> {
   }, undefined, { timeout: 6000 });
   const runningScroll = await notesScrollTop(page);
   expect(runningScroll).toBeGreaterThan(0);
+  await page.waitForFunction(() => Number(document.querySelector('[data-notes-progress]')?.getAttribute('aria-valuenow')) > 0);
   expect(await notesProgress(page)).toBeGreaterThan(0);
 
   await page.locator('[data-action="teleprompter-pause"]').click();
