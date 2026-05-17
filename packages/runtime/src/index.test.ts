@@ -103,6 +103,71 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-notes-visible="true"');
   });
 
+  it('renders print PDF layouts with local notes and public privacy boundaries', () => {
+    expect(renderPage(deck, 'print-slides')).toContain('data-mode="print-slides"');
+    expect(renderPage(deck, 'print-slides')).not.toContain('Speaker notes');
+
+    const notes = renderPage(deck, 'print-notes');
+    expect(notes).toContain('data-mode="print-notes"');
+    expect(notes).toContain('Slide 1/2');
+    expect(notes).toContain('Speaker notes');
+    expect(notes).toContain('No speaker notes');
+
+    const speaker = renderPage(deck, 'print-speaker');
+    expect(speaker).toContain('presso-print-slide-page');
+    expect(speaker).toContain('presso-print-notes-page');
+
+    const handout = renderPage(deck, 'print-handout');
+    expect(handout).toContain('presso-print-handout-page');
+    expect(handout).toContain('presso-print-handout-slide-scale');
+    expect(handout).toContain('data-handout-part="1"');
+    expect(handout).toContain('Speaker notes');
+    expect(renderPage(deck, 'print-notes-pages')).toContain('data-mode="print-speaker"');
+    expect(renderPage(deck, 'print-notes-side')).toContain('data-mode="print-handout"');
+
+    const publicPrivate = renderPage(deckWithNotesPolicy(false), 'print-speaker', { public: true });
+    expect(publicPrivate).not.toContain('<p>Speaker notes</p>');
+  });
+
+  it('splits long handout notes into repeated slide context pages', () => {
+    const longNotes = Array.from({ length: 9 }, (_, index) => (
+      `<p>Long speaker note ${index + 1}. ${'This block gives the handout renderer enough text to require another notes page. '.repeat(4)}</p>`
+    )).join('\n');
+    const html = renderPage({
+      ...deck,
+      slides: [{
+        ...deck.slides[0]!,
+        notesHtml: longNotes
+      }]
+    }, 'print-handout');
+
+    expect(html.match(/presso-print-handout-page/g)?.length).toBeGreaterThan(1);
+    expect(html.match(/<h1>One<\/h1>/g)?.length).toBeGreaterThan(1);
+    expect(html).toContain('data-handout-part="2"');
+    expect(html).toContain('notes 2/');
+  });
+
+  it('splits long full notes pages instead of relying on browser continuation', () => {
+    const longNotes = Array.from({ length: 9 }, (_, index) => (
+      `<p>Long speaker note ${index + 1}. ${'This block gives the full notes renderer enough text to require another page. '.repeat(4)}</p>`
+    )).join('\n');
+    const longDeck = {
+      ...deck,
+      slides: [{
+        ...deck.slides[0]!,
+        notesHtml: longNotes
+      }]
+    };
+
+    const notes = renderPage(longDeck, 'print-notes');
+    const speaker = renderPage(longDeck, 'print-speaker');
+
+    expect(notes.match(/presso-print-notes-page/g)?.length).toBeGreaterThan(1);
+    expect(notes).toContain('notes 2/');
+    expect(speaker.match(/presso-print-notes-page/g)?.length).toBeGreaterThan(1);
+    expect(speaker).toContain('notes 2/');
+  });
+
   it('renders presenter timing controls and next slide preview templates', () => {
     const html = renderPage(deck, 'presenter', { controlUrls: ['http://192.0.2.1:3030/control'], server: true });
     const config = runtimeConfig(html);
