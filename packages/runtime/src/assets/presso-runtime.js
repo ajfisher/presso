@@ -401,7 +401,7 @@
     const value = scrollMax > 0 ? notes.scrollTop / scrollMax : 1;
     const percent = clampNumber(value, 0, 1) * 100;
     bar.style.width = `${percent}%`;
-    progress.setAttribute('aria-valuenow', percent.toFixed(1).replace(/\.0$/, ''));
+    progress.setAttribute('aria-valuenow', percent.toFixed(2).replace(/\.?0+$/, ''));
   }
 
   function firstNotesBlockText(notes) {
