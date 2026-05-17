@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import { startDevServer } from './server.js';
-import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportTranscript, orderAppend, orderCheck, orderInit } from './commands.js';
+import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, orderAppend, orderCheck, orderInit } from './commands.js';
+import { resolvePdfLayout } from '@presso/export';
 
 const [, , command, ...args] = process.argv;
 
@@ -29,9 +30,12 @@ async function main(command = 'help', args: string[]): Promise<void> {
     return;
   }
   if (command === 'pdf') {
-    const cwd = resolveDeckDir(args);
-    const mode = args.includes('--notes-side') ? 'print-notes-side' : args.includes('--notes-pages') ? 'print-notes-pages' : 'print-slides';
-    console.log(await exportPdf(cwd, mode));
+    const options = parsePdfArgs(args);
+    if (options.all) {
+      console.log((await exportPdfs(options.cwd)).join('\n'));
+    } else {
+      console.log(await exportPdf(options.cwd, options.layout, options.outFile));
+    }
     return;
   }
   if (command === 'transcript') {
@@ -79,11 +83,64 @@ function resolveDeckDir(args: string[], startIndex = 0): string {
   return dir ? path.resolve(dir) : process.cwd();
 }
 
+function parsePdfArgs(args: string[]): { all: boolean; cwd: string; layout: string; outFile?: string } {
+  let all = false;
+  let layout = 'slides';
+  let layoutExplicit = false;
+  let outFile: string | undefined;
+  const positionals: string[] = [];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg === '--all') {
+      all = true;
+    } else if (arg === '--layout') {
+      layout = requireValue(args, ++i, '--layout');
+      layoutExplicit = true;
+    } else if (arg.startsWith('--layout=')) {
+      layout = arg.slice('--layout='.length);
+      layoutExplicit = true;
+    } else if (arg === '--out') {
+      outFile = requireValue(args, ++i, '--out');
+    } else if (arg.startsWith('--out=')) {
+      outFile = arg.slice('--out='.length);
+    } else if (arg === '--notes-side') {
+      layout = 'handout';
+      layoutExplicit = true;
+    } else if (arg === '--notes-pages') {
+      layout = 'speaker';
+      layoutExplicit = true;
+    } else if (arg === '--notes') {
+      layout = 'notes';
+      layoutExplicit = true;
+    } else if (arg.startsWith('--')) {
+      throw new Error(`Unknown pdf option: ${arg}`);
+    } else {
+      positionals.push(arg);
+    }
+  }
+
+  if (all && outFile) throw new Error('presso pdf --all cannot be used with --out.');
+  if (all && layoutExplicit) throw new Error('presso pdf --all cannot be used with --layout or notes layout aliases.');
+  return {
+    all,
+    cwd: positionals[0] ? path.resolve(positionals[0]) : process.cwd(),
+    layout: resolvePdfLayout(layout),
+    outFile
+  };
+}
+
+function requireValue(args: string[], index: number, flag: string): string {
+  const value = args[index];
+  if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value.`);
+  return value;
+}
+
 function printHelp(): void {
   console.log(`Presso commands:
   presso dev [deckDir] [--port=3030]
   presso build [deckDir]
-  presso pdf [deckDir] [--notes-side|--notes-pages]
+  presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
   presso transcript [deckDir]
   presso deploy [deckDir] [--yes]
   presso slide add [deckDir]

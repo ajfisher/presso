@@ -2,6 +2,7 @@
 
 DECK ?= examples/basic
 PORT ?= 3030
+PDF_ARGS ?=
 PRESSO := node packages/server/dist/cli.js
 
 help:
@@ -21,7 +22,7 @@ help:
 	@echo "  make tailnet-reset"
 	@echo "  make deck-build [DECK=examples/basic]"
 	@echo "  make transcript [DECK=examples/basic]"
-	@echo "  make pdf [DECK=examples/basic]"
+	@echo "  make pdf [DECK=examples/basic] [PDF_ARGS=\"--layout=speaker\"]"
 	@echo "  make deploy [DECK=examples/basic]"
 	@echo ""
 	@echo "Authoring helpers:"
@@ -66,7 +67,7 @@ transcript: build
 	$(PRESSO) transcript $(DECK)
 
 pdf: build
-	$(PRESSO) pdf $(DECK)
+	$(PRESSO) pdf $(DECK) $(PDF_ARGS)
 
 deploy: build
 	$(PRESSO) deploy $(DECK)

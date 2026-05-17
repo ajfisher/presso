@@ -1,7 +1,28 @@
 import fs from 'node:fs/promises';
+import http from 'node:http';
+import type { AddressInfo } from 'node:net';
+import os from 'node:os';
 import path from 'node:path';
 import { compileDeck, copyDir, pathExists } from '@presso/core';
 import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode } from '@presso/runtime';
+
+export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
+export type PdfLayout = typeof PDF_LAYOUTS[number];
+
+interface StaticBuildResult {
+  deck: Awaited<ReturnType<typeof compileDeck>>;
+  dest: string;
+}
+
+interface PdfJob {
+  layout: PdfLayout;
+  outFile?: string;
+}
+
+interface StaticServer {
+  close: () => Promise<void>;
+  origin: string;
+}
 
 const ROUTES: Array<[string, RenderMode]> = [
   ['index.html', 'deck'],
@@ -10,14 +31,44 @@ const ROUTES: Array<[string, RenderMode]> = [
   ['presenter/index.html', 'presenter'],
   ['control/index.html', 'control'],
   ['print/slides/index.html', 'print-slides'],
-  ['print/notes-side/index.html', 'print-notes-side'],
-  ['print/notes-pages/index.html', 'print-notes-pages'],
+  ['print/notes/index.html', 'print-notes'],
+  ['print/speaker/index.html', 'print-speaker'],
+  ['print/handout/index.html', 'print-handout'],
+  ['print/notes-side/index.html', 'print-handout'],
+  ['print/notes-pages/index.html', 'print-speaker'],
   ['transcript/index.html', 'transcript']
 ];
 
 const RUNTIME_ASSET_DIR = '_presso';
+const PDF_LAYOUT_CONFIG: Record<PdfLayout, { fileName: string; route: string }> = {
+  slides: { fileName: 'slides.pdf', route: '/print/slides/' },
+  notes: { fileName: 'notes.pdf', route: '/print/notes/' },
+  speaker: { fileName: 'speaker.pdf', route: '/print/speaker/' },
+  handout: { fileName: 'handout.pdf', route: '/print/handout/' }
+};
+const PDF_LAYOUT_ALIASES = new Map<string, PdfLayout>([
+  ['slides', 'slides'],
+  ['print-slides', 'slides'],
+  ['notes', 'notes'],
+  ['print-notes', 'notes'],
+  ['speaker', 'speaker'],
+  ['print-speaker', 'speaker'],
+  ['interleaved', 'speaker'],
+  ['combined', 'speaker'],
+  ['notes-pages', 'speaker'],
+  ['print-notes-pages', 'speaker'],
+  ['handout', 'handout'],
+  ['print-handout', 'handout'],
+  ['side', 'handout'],
+  ['notes-side', 'handout'],
+  ['print-notes-side', 'handout']
+]);
 
 export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise<string> {
+  return (await writeStaticBuild(cwd, outDir, true)).dest;
+}
+
+async function writeStaticBuild(cwd: string, outDir: string, publicBuild: boolean): Promise<StaticBuildResult> {
   const deck = await compileDeck(cwd);
   const dest = path.resolve(cwd, outDir);
   await fs.rm(dest, { recursive: true, force: true });
@@ -30,11 +81,11 @@ export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise
   for (const [file, mode] of ROUTES) {
     const output = path.join(dest, file);
     await fs.mkdir(path.dirname(output), { recursive: true });
-    await fs.writeFile(output, renderPage(deck, mode, { public: true }), 'utf8');
+    await fs.writeFile(output, renderPage(deck, mode, { public: publicBuild }), 'utf8');
   }
 
-  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicDeck(deck), null, 2), 'utf8');
-  await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck, { includeNotes: deck.config.notes.public !== false }), 'utf8');
+  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicBuild ? publicDeck(deck) : deck, null, 2), 'utf8');
+  await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck, { includeNotes: !publicBuild || deck.config.notes.public !== false }), 'utf8');
   await fs.writeFile(path.join(dest, 'metadata.json'), JSON.stringify(buildMetadata(deck), null, 2), 'utf8');
   const runtimeDir = path.join(dest, RUNTIME_ASSET_DIR);
   await fs.mkdir(runtimeDir, { recursive: true });
@@ -42,7 +93,7 @@ export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise
     await fs.writeFile(path.join(runtimeDir, assetName), readRuntimeAsset(assetName).content, 'utf8');
   }
 
-  return dest;
+  return { deck, dest };
 }
 
 async function copyTheme(deck: Awaited<ReturnType<typeof compileDeck>>, dest: string): Promise<void> {
@@ -62,35 +113,167 @@ function isLocalPath(value: string): boolean {
 export async function exportTranscript(cwd = process.cwd(), outFile = 'transcript.md'): Promise<string> {
   const deck = await compileDeck(cwd);
   const dest = path.resolve(cwd, outFile);
-  await fs.writeFile(dest, renderTranscriptMarkdown(deck), 'utf8');
+  await fs.writeFile(dest, renderTranscriptMarkdown(deck, { includeNotes: deck.config.notes.public !== false }), 'utf8');
   return dest;
 }
 
-export async function exportPdf(cwd = process.cwd(), mode: RenderMode = 'print-slides', outFile = 'slides.pdf'): Promise<string> {
-  const deck = await compileDeck(cwd);
-  const html = renderPage(deck, mode);
+export async function exportPdf(cwd = process.cwd(), layoutInput: string = 'slides', outFile?: string): Promise<string> {
+  const [output] = await exportPdfJobs(cwd, [{ layout: resolvePdfLayout(layoutInput), outFile }]);
+  return output!;
+}
+
+export async function exportPdfs(cwd = process.cwd(), layoutInputs: string[] = [...PDF_LAYOUTS]): Promise<string[]> {
+  return exportPdfJobs(cwd, layoutInputs.map((layout) => ({ layout: resolvePdfLayout(layout) })));
+}
+
+export function resolvePdfLayout(value = 'slides'): PdfLayout {
+  const layout = PDF_LAYOUT_ALIASES.get(value.trim().toLowerCase());
+  if (!layout) {
+    throw new Error(`Unknown PDF layout "${value}". Expected one of: ${PDF_LAYOUTS.join(', ')}.`);
+  }
+  return layout;
+}
+
+export function pdfOutputFile(layout: PdfLayout): string {
+  return PDF_LAYOUT_CONFIG[layout].fileName;
+}
+
+async function exportPdfJobs(cwd: string, jobs: PdfJob[]): Promise<string[]> {
+  const staticRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pdf-'));
+  try {
+    const { deck, dest } = await writeStaticBuild(cwd, staticRoot, false);
+    const server = await serveStatic(dest);
+    const browser = await launchBrowser();
+    try {
+      const outputs: string[] = [];
+      for (const job of jobs) {
+        outputs.push(await renderPdfJob(cwd, deck, server, browser, job));
+      }
+      return outputs;
+    } finally {
+      await browser.close();
+      await server.close();
+    }
+  } finally {
+    await fs.rm(staticRoot, { recursive: true, force: true });
+  }
+}
+
+async function renderPdfJob(
+  cwd: string,
+  deck: Awaited<ReturnType<typeof compileDeck>>,
+  server: StaticServer,
+  browser: import('playwright').Browser,
+  job: PdfJob
+): Promise<string> {
+  const config = PDF_LAYOUT_CONFIG[job.layout];
+  const outputPath = path.resolve(cwd, job.outFile ?? config.fileName);
+  await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  const page = await browser.newPage({ viewport: deck.config.size });
+  try {
+    await page.emulateMedia({ media: 'print' });
+    await page.goto(`${server.origin}${config.route}`, { waitUntil: 'networkidle' });
+    await page.pdf({
+      height: `${deck.config.size.height}px`,
+      path: outputPath,
+      printBackground: true,
+      width: `${deck.config.size.width}px`
+    });
+    return outputPath;
+  } finally {
+    await page.close();
+  }
+}
+
+async function launchBrowser(): Promise<import('playwright').Browser> {
   const playwright = await import('playwright').catch(() => undefined);
   if (!playwright) {
     throw new Error('Playwright is not installed. Run npm install before exporting PDF.');
   }
-  const browser = await playwright.chromium.launch();
+  const executablePath = process.env.PRESSO_PLAYWRIGHT_EXECUTABLE ?? localChromePath();
   try {
-    const page = await browser.newPage({ viewport: deck.config.size });
-    await page.setContent(html, { waitUntil: 'networkidle' });
-    const dest = path.resolve(cwd, outFile);
-    await page.pdf({
-      path: dest,
-      width: `${deck.config.size.width}px`,
-      height: `${deck.config.size.height}px`,
-      printBackground: true
-    });
-    return dest;
-  } finally {
-    await browser.close();
+    return executablePath
+      ? await playwright.chromium.launch({ executablePath })
+      : await playwright.chromium.launch();
+  } catch (error) {
+    const detail = error instanceof Error ? ` ${error.message}` : '';
+    throw new Error(`Playwright Chromium is not available. Run "npm exec playwright install chromium" or set PRESSO_PLAYWRIGHT_EXECUTABLE.${detail}`);
   }
 }
 
-function buildMetadata(deck: Awaited<ReturnType<typeof compileDeck>>) {
+function localChromePath(): string | undefined {
+  const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  return process.platform === 'darwin' ? chromePath : undefined;
+}
+
+async function serveStatic(root: string): Promise<StaticServer> {
+  const server = http.createServer(async (req, res) => {
+    try {
+      const url = new URL(req.url ?? '/', 'http://localhost');
+      const filePath = await resolveStaticFile(root, url.pathname);
+      if (!filePath) {
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      res.writeHead(200, { 'content-type': contentType(filePath) });
+      res.end(await fs.readFile(filePath));
+    } catch (error) {
+      res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' });
+      res.end(error instanceof Error ? error.stack : String(error));
+    }
+  });
+
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
+  const address = server.address() as AddressInfo | null;
+  if (!address) throw new Error('PDF export static server did not bind to a port.');
+  return {
+    close: () => new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve())),
+    origin: `http://127.0.0.1:${address.port}`
+  };
+}
+
+async function resolveStaticFile(root: string, pathname: string): Promise<string | undefined> {
+  const clean = decodeURIComponent(pathname).replace(/^\/+/, '');
+  const candidate = path.resolve(root, clean);
+  if (!isInside(root, candidate)) return undefined;
+
+  const stat = await fs.stat(candidate).catch(() => undefined);
+  if (stat?.isDirectory()) {
+    return resolveStaticFile(root, path.join(pathname, 'index.html'));
+  }
+  if (stat?.isFile()) return candidate;
+  if (!path.extname(candidate)) {
+    const indexPath = path.join(candidate, 'index.html');
+    const indexStat = await fs.stat(indexPath).catch(() => undefined);
+    if (indexStat?.isFile() && isInside(root, indexPath)) return indexPath;
+  }
+  return undefined;
+}
+
+function isInside(root: string, file: string): boolean {
+  const relative = path.relative(path.resolve(root), file);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+function contentType(file: string): string {
+  if (file.endsWith('.css')) return 'text/css; charset=utf-8';
+  if (file.endsWith('.js')) return 'text/javascript; charset=utf-8';
+  if (file.endsWith('.json')) return 'application/json; charset=utf-8';
+  if (file.endsWith('.svg')) return 'image/svg+xml';
+  if (file.endsWith('.png')) return 'image/png';
+  if (file.endsWith('.jpg') || file.endsWith('.jpeg')) return 'image/jpeg';
+  if (file.endsWith('.webp')) return 'image/webp';
+  return 'text/html; charset=utf-8';
+}
+
+export function buildMetadata(deck: Awaited<ReturnType<typeof compileDeck>>) {
   return {
     title: deck.config.title,
     event: deck.config.event,
