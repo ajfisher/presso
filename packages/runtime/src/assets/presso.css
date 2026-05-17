@@ -722,7 +722,8 @@
 
         strong {
           margin: 0;
-          font-size: 1.2rem;
+          font-size: 1.35rem;
+          line-height: 1.1;
           font-weight: 400;
           font-variant-numeric: tabular-nums;
         }
@@ -831,6 +832,15 @@
         > [role="group"]:first-child button {
           flex: 1 1 8rem;
           font-size: 1.05rem;
+        }
+
+        > [role="group"]:nth-child(2) {
+          display: grid;
+          grid-template-columns: repeat(5, minmax(0, 1fr));
+
+          button[data-icon-only] {
+            width: auto;
+          }
         }
 
         [data-control-row="teleprompter"] {
