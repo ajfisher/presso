@@ -56,6 +56,7 @@ const templates = {
   notesPrivate: readTemplate('notes-private.html'),
   notesSection: readTemplate('notes-section.html'),
   presenter: readTemplate('presenter.html'),
+  presenterIcons: readTemplate('presenter-icons.html'),
   presenterPreviewTemplate: readTemplate('presenter-preview-template.html'),
   printHandout: readTemplate('print-handout.html'),
   printHandoutPage: readTemplate('print-handout-page.html'),
@@ -323,9 +324,10 @@ function renderPresenter(deck: Deck, context: RenderContext): string {
   return renderTemplate('presenter', {
     controllerPopover: renderTemplate('controllerPopover'),
     deck: renderDeck(deck, { ...context, mode: 'presenter' }),
+    icons: renderTemplate('presenterIcons'),
     previews: deck.slides.map((slide) => renderTemplate('presenterPreviewTemplate', {
-      bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
       index: String(slide.index),
+      slideHtml: renderSlide(slide, context),
       title: escapeAttr(slide.title)
     })).join('\n')
   });

@@ -92,12 +92,20 @@ browserDescribe('browser smoke', () => {
       await expectText(page, '[data-current-notes]', 'Opening notes for the basic fixture.');
       await expectText(page, '[data-current-position]', '1');
       await expectText(page, '[data-slide-count]', '10');
+      await expectPresenterLayout(page);
+      for (const index of [5, 7]) {
+        await page.goto(`${staticServer.origin}/presenter/#/${index}`, { waitUntil: 'networkidle' });
+        await expectActiveSlide(page, index);
+        await expectPresenterPreviewsFit(page);
+      }
+      await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       const initialNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
-      await page.locator('[data-action="font-plus"]').click();
+      for (let i = 0; i < 7; i++) await page.locator('[data-action="font-plus"]').click();
       const largerNotesSize = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim());
       expect(largerNotesSize).not.toBe(initialNotesSize);
       await page.reload({ waitUntil: 'networkidle' });
       expect(await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--presenter-notes-size').trim())).toBe(largerNotesSize);
+      await expectTeleprompter(page);
 
       await page.goto(`${staticServer.origin}/notes/`, { waitUntil: 'networkidle' });
       await expectRuntimeAssets(page);
@@ -300,6 +308,143 @@ async function expectActiveLayout(page: Page, layout: { id: string; layout: stri
   const bodyBox = await slide.locator(':scope > .presso-slide-body').boundingBox();
   expect(bodyBox?.width ?? 0).toBeGreaterThan(20);
   expect(bodyBox?.height ?? 0).toBeGreaterThan(20);
+}
+
+async function expectPresenterLayout(page: Page): Promise<void> {
+  const layout = await page.evaluate(() => {
+    const box = (selector: string) => {
+      const el = document.querySelector(selector);
+      if (!(el instanceof HTMLElement)) throw new Error(`Missing ${selector}`);
+      const rect = el.getBoundingClientRect();
+      return { height: rect.height, width: rect.width };
+    };
+    return {
+      current: box('aside > section[aria-label="Current slide"]'),
+      next: box('aside > section[aria-label="Next slide"]'),
+      notes: box('main > section[aria-label="Speaker notes"]')
+    };
+  });
+  const notesArea = layout.notes.width * layout.notes.height;
+  const currentArea = layout.current.width * layout.current.height;
+  const nextArea = layout.next.width * layout.next.height;
+  expect(notesArea).toBeGreaterThan(currentArea * 2);
+  expect(Math.abs(currentArea - nextArea) / Math.max(currentArea, nextArea)).toBeLessThan(0.25);
+}
+
+async function expectPresenterPreviewsFit(page: Page): Promise<void> {
+  const previews = await page.evaluate(() => {
+    const preview = (name: string, frameSelector: string, slideSelector: string) => {
+      const frame = document.querySelector(frameSelector);
+      if (!(frame instanceof HTMLElement)) throw new Error(`Missing ${name} preview frame`);
+      const section = frame.closest('section');
+      if (!(section instanceof HTMLElement)) throw new Error(`Missing ${name} preview section`);
+      const slide = frame.querySelector(slideSelector);
+      if (!(slide instanceof HTMLElement)) throw new Error(`Missing ${name} preview slide`);
+      const heading = section.querySelector('h3');
+      if (!(heading instanceof HTMLElement)) throw new Error(`Missing ${name} preview heading`);
+      const frameRect = frame.getBoundingClientRect();
+      const headingRect = heading.getBoundingClientRect();
+      const sectionRect = section.getBoundingClientRect();
+      const slideRect = slide.getBoundingClientRect();
+      return {
+        name,
+        frameBackground: getComputedStyle(frame).backgroundColor,
+        frameTop: frameRect.top,
+        headingBottom: headingRect.bottom,
+        sectionBottom: sectionRect.bottom,
+        frameHeight: frameRect.height,
+        frameWidth: frameRect.width,
+        slideBottom: slideRect.bottom - frameRect.bottom,
+        slideHeight: slideRect.height,
+        slideLeft: slideRect.left - frameRect.left,
+        slideRight: slideRect.right - frameRect.right,
+        slideTop: slideRect.top - frameRect.top,
+        slideWidth: slideRect.width,
+        viewportHeight: window.innerHeight
+      };
+    };
+    return [
+      preview('current', 'aside > section[aria-label="Current slide"] .presso-stage', '.presso-slide.is-active'),
+      preview('next', 'aside > section[aria-label="Next slide"] [data-next-preview]', '.presso-slide')
+    ];
+  });
+
+  for (const preview of previews) {
+    expect(preview.slideWidth / preview.slideHeight, `${preview.name} preview slide ratio`).toBeCloseTo(16 / 9, 1);
+    expect(preview.frameTop, `${preview.name} preview frame below heading`).toBeGreaterThanOrEqual(preview.headingBottom);
+    expect(preview.sectionBottom, `${preview.name} preview section visible`).toBeLessThanOrEqual(preview.viewportHeight + 1);
+    expect(preview.slideWidth, `${preview.name} preview width`).toBeLessThanOrEqual(preview.frameWidth + 1);
+    expect(preview.slideHeight, `${preview.name} preview height`).toBeLessThanOrEqual(preview.frameHeight + 1);
+    expect(preview.slideLeft, `${preview.name} preview left`).toBeGreaterThanOrEqual(-1);
+    expect(preview.slideTop, `${preview.name} preview top`).toBeGreaterThanOrEqual(-1);
+    expect(preview.slideRight, `${preview.name} preview right`).toBeLessThanOrEqual(1);
+    expect(preview.slideBottom, `${preview.name} preview bottom`).toBeLessThanOrEqual(1);
+  }
+  expect(previews[0]?.frameBackground, 'preview frame backgrounds').toBe(previews[1]?.frameBackground);
+}
+
+async function expectTeleprompter(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const notes = document.querySelector('[data-current-notes]');
+    return notes instanceof HTMLElement && notes.scrollHeight > notes.clientHeight;
+  }, undefined, { timeout: 5000 });
+
+  await expectText(page, '[data-teleprompter-wpm]', '160 wpm');
+  await page.locator('[data-action="teleprompter-faster"]').click();
+  await expectText(page, '[data-teleprompter-wpm]', '170 wpm');
+  await page.locator('[data-action="teleprompter-slower"]').click();
+  await expectText(page, '[data-teleprompter-wpm]', '160 wpm');
+  for (let i = 0; i < 6; i++) await page.locator('[data-action="teleprompter-faster"]').click();
+  await expectText(page, '[data-teleprompter-wpm]', '220 wpm');
+  expect(await page.evaluate(() => sessionStorage.getItem('presso:teleprompter-wpm'))).toBe('220');
+
+  await page.locator('[data-action="teleprompter-toggle"]').click();
+  expect(await page.locator('body').getAttribute('data-teleprompter')).toBe('running');
+  await page.waitForTimeout(250);
+  expect(await notesScrollTop(page)).toBe(0);
+  await page.waitForFunction(() => {
+    const notes = document.querySelector('[data-current-notes]');
+    return notes instanceof HTMLElement && notes.scrollTop > 0;
+  }, undefined, { timeout: 6000 });
+  const runningScroll = await notesScrollTop(page);
+  expect(runningScroll).toBeGreaterThan(0);
+  await page.waitForFunction(() => Number(document.querySelector('[data-notes-progress]')?.getAttribute('aria-valuenow')) > 0);
+  expect(await notesProgress(page)).toBeGreaterThan(0);
+
+  await page.locator('[data-action="teleprompter-pause"]').click();
+  await page.waitForTimeout(100);
+  const pausedScroll = await notesScrollTop(page);
+  await page.waitForTimeout(900);
+  expect(await notesScrollTop(page)).toBe(pausedScroll);
+
+  await page.locator('[data-action="teleprompter-pause"]').click();
+  await page.waitForFunction((previous) => {
+    const notes = document.querySelector('[data-current-notes]');
+    return notes instanceof HTMLElement && notes.scrollTop > Number(previous);
+  }, pausedScroll, { timeout: 4000 });
+
+  await page.locator('[data-action="teleprompter-reset"]').click();
+  expect(await notesScrollTop(page)).toBe(0);
+  expect(await notesProgress(page)).toBe(0);
+
+  await page.locator('[data-action="next"]').click();
+  await expectCurrentSlide(page, 1);
+  expect(await page.locator('body').getAttribute('data-teleprompter')).toBe('running');
+  expect(await notesScrollTop(page)).toBe(0);
+  await page.waitForTimeout(250);
+  expect(await notesScrollTop(page)).toBe(0);
+  await page.waitForFunction(() => {
+    const notes = document.querySelector('[data-current-notes]');
+    return notes instanceof HTMLElement && notes.scrollTop > 0;
+  }, undefined, { timeout: 6000 });
+}
+
+async function notesScrollTop(page: Page): Promise<number> {
+  return page.locator('[data-current-notes]').evaluate((notes) => Math.round(notes.scrollTop));
+}
+
+async function notesProgress(page: Page): Promise<number> {
+  return page.locator('[data-notes-progress]').evaluate((progress) => Number(progress.getAttribute('aria-valuenow')));
 }
 
 async function expectRenderedSlides(page: Page): Promise<void> {
