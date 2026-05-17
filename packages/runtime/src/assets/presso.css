@@ -914,7 +914,12 @@
           font-size: 1.1rem;
         }
 
-        .presso-stage {
+        > .presso-stage,
+        > article {
+          background: #2d2d2d;
+        }
+
+        > .presso-stage {
           position: relative;
           width: 100%;
           height: 100%;
@@ -927,12 +932,11 @@
           display: none;
         }
 
-        article {
+        > article {
           position: relative;
           width: 100%;
           height: 100%;
           overflow: hidden;
-          background: #2d2d2d;
         }
 
         .presso-slide {
