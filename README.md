@@ -71,6 +71,27 @@ If automatic detection is not available, set `PRESSO_CONTROL_URLS` to a comma-se
 
 Use `make tailnet-reset` to clear the temporary Tailscale Serve mapping.
 
+## PDF And Transcript Export
+
+`presso pdf` exports slide-sized PDFs from the same print routes used in browser previews.
+
+```bash
+make pdf
+make pdf PDF_ARGS="--layout=notes"
+make pdf PDF_ARGS="--layout=speaker"
+make pdf PDF_ARGS="--layout=handout"
+make pdf PDF_ARGS="--all"
+```
+
+PDF layouts are:
+
+- `slides`: full slides only, written to `slides.pdf`.
+- `notes`: speaker notes only, written to `notes.pdf`.
+- `speaker`: interleaved full slide then notes page, written to `speaker.pdf`.
+- `handout`: shrunken slide and notes on the same page, written to `handout.pdf`.
+
+Compatibility flags `--notes-pages` and `--notes-side` map to `speaker` and `handout`. Use `--out=custom.pdf` with a single layout. Local PDF exports include speaker notes even when `notes.public` is `false`; public static builds still omit private notes.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:
@@ -96,7 +117,7 @@ Presso is aiming for a small, maintainable core. The current direction is:
 - Keep browser-facing runtime code as real web files. CSS lives in `.css`, browser JavaScript lives in `.js`, and renderable HTML lives in `.html` templates.
 - Avoid long inline CSS, JavaScript, or HTML template literals in TypeScript. Small single-line DOM/config injections are fine when they are the narrowest way to bind runtime data.
 - Prefer plain modern platform features before adding dependencies.
-- Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, `make transcript`, and `make browser-smoke`.
+- Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, `make transcript`, `make pdf`, and `make browser-smoke`.
 
 ### CSS And DOM
 

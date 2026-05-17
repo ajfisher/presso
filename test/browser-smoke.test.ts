@@ -5,7 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildStatic } from '@presso/export';
+import { buildStatic, exportPdfs } from '@presso/export';
 import type { Browser, Page } from 'playwright';
 
 const runBrowserSmoke = process.env.PRESSO_BROWSER_SMOKE === '1';
@@ -119,10 +119,10 @@ browserDescribe('browser smoke', () => {
       await expectRuntimeAssets(page);
       await expectText(page, 'h1', 'Presso Basic Example');
 
-      for (const route of ['/print/slides/', '/print/notes-side/', '/print/notes-pages/']) {
+      for (const route of ['/print/slides/', '/print/notes/', '/print/speaker/', '/print/handout/', '/print/notes-side/', '/print/notes-pages/']) {
         await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
         await expectRuntimeAssets(page);
-        await expectRenderedSlides(page);
+        await expectPrintRoute(page, route);
       }
 
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
@@ -145,7 +145,7 @@ browserDescribe('browser smoke', () => {
       await browser.close();
       await staticServer.close();
     }
-  }, 45000);
+  }, 60000);
 
   it('syncs controller state with the deck and presenter over the dev server', async () => {
     const devServer = await startDevServer();
@@ -223,13 +223,64 @@ browserDescribe('browser smoke', () => {
       await browser?.close();
       await devServer.close();
     }
-  }, 30000);
+  }, 60000);
+
+  it('exports all PDF layouts from real print routes', async () => {
+    const deck = await createPdfSmokeDeck();
+    const outputs = await exportPdfs(deck);
+
+    expect(outputs.map((file) => path.basename(file))).toEqual([
+      'slides.pdf',
+      'notes.pdf',
+      'speaker.pdf',
+      'handout.pdf'
+    ]);
+    for (const file of outputs) {
+      const header = await fs.readFile(file, 'utf8');
+      expect(header.startsWith('%PDF')).toBe(true);
+    }
+  }, 60000);
 });
 
 async function buildExampleDeck(): Promise<string> {
   const dist = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-browser-'));
   tmpRoots.push(dist);
   return buildStatic(path.resolve('examples/basic'), dist);
+}
+
+async function createPdfSmokeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pdf-smoke-'));
+  tmpRoots.push(root);
+  await fs.mkdir(path.join(root, 'slides'), { recursive: true });
+  await fs.mkdir(path.join(root, 'assets'), { recursive: true });
+  await fs.writeFile(path.join(root, 'theme.css'), ':root { --presso-accent: #007d8f; }\n');
+  await fs.writeFile(path.join(root, 'assets/example.svg'), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><circle cx="10" cy="10" r="8"/></svg>\n');
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'PDF Smoke',
+  source: { type: 'folder', path: './slides' },
+  theme: './theme.css',
+  notes: { public: false }
+};
+`);
+  await fs.writeFile(path.join(root, 'slides/001-title.md'), `---
+id: title
+layout: image
+---
+
+![Example](./assets/example.svg)
+
+:::notes
+Private speaker notes should be available to local PDF exports.
+:::
+`);
+  await fs.writeFile(path.join(root, 'slides/002-empty.md'), `---
+id: empty
+layout: statement
+---
+
+## Empty notes slide
+`);
+  return root;
 }
 
 async function launchBrowser(chromium: typeof import('playwright').chromium): Promise<Browser> {
@@ -400,6 +451,107 @@ async function expectRenderedSlides(page: Page): Promise<void> {
   await page.waitForSelector('.presso-slide');
   expect(await page.locator('.presso-slide').count()).toBeGreaterThan(0);
   expect(await page.locator('.presso-slide').first().evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+}
+
+async function expectPrintRoute(page: Page, route: string): Promise<void> {
+  if (route === '/print/notes/') {
+    await page.waitForSelector('.presso-print-notes-page');
+    await expectText(page, '.presso-print-notes-page header p', 'Speaker notes');
+    await expectNotesOverflowPages(page);
+    return;
+  }
+  if (route === '/print/handout/' || route === '/print/notes-side/') {
+    await page.waitForSelector('.presso-print-handout-page .presso-slide');
+    await expectPrintedSlideKeepsTheme(page, '.presso-print-handout-page .presso-slide');
+    await expectHandoutSlidePreview(page);
+    await expectHandoutOverflowKeepsSlideContext(page);
+    await expectHandoutNotesPanel(page);
+    return;
+  }
+  if (route === '/print/speaker/' || route === '/print/notes-pages/') {
+    await page.waitForSelector('.presso-print-slide-page .presso-slide');
+    await page.waitForSelector('.presso-print-notes-page');
+    await expectPrintedSlideKeepsTheme(page, '.presso-print-slide-page .presso-slide');
+    await expectText(page, '.presso-print-notes-page header p', 'Speaker notes');
+    await expectNotesOverflowPages(page);
+    return;
+  }
+  await expectRenderedSlides(page);
+  await expectPrintedSlideKeepsTheme(page, '.presso-slide');
+}
+
+async function expectPrintedSlideKeepsTheme(page: Page, selector: string): Promise<void> {
+  const style = await page.locator(selector).first().evaluate((slide) => {
+    const computed = getComputedStyle(slide);
+    return {
+      backgroundColor: computed.backgroundColor,
+      color: computed.color
+    };
+  });
+  expect(style.backgroundColor).not.toBe('rgb(255, 255, 255)');
+  expect(style.color).not.toBe('rgb(17, 17, 17)');
+}
+
+async function expectHandoutNotesPanel(page: Page): Promise<void> {
+  const style = await page.locator('.presso-print-handout-page .presso-print-notes-page').first().evaluate((panel) => {
+    const computed = getComputedStyle(panel);
+    const notes = panel.querySelector('.presso-print-notes');
+    if (!(notes instanceof HTMLElement)) throw new Error('Handout notes body was not rendered.');
+    return {
+      borderLeftWidth: parseFloat(computed.borderLeftWidth),
+      notesFontSize: parseFloat(getComputedStyle(notes).fontSize)
+    };
+  });
+  expect(style.borderLeftWidth).toBeGreaterThan(4);
+  expect(style.notesFontSize).toBeLessThan(15);
+}
+
+async function expectHandoutSlidePreview(page: Page): Promise<void> {
+  const metrics = await page.locator('.presso-print-handout-page').first().evaluate((pageEl) => {
+    const well = pageEl.querySelector('.presso-print-handout-slide');
+    const preview = pageEl.querySelector('.presso-print-handout-slide-scale');
+    if (!(well instanceof HTMLElement) || !(preview instanceof HTMLElement)) {
+      throw new Error('Handout slide preview was not rendered.');
+    }
+    const wellRect = well.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    return {
+      centerDelta: Math.abs((wellRect.top + wellRect.height / 2) - (previewRect.top + previewRect.height / 2)),
+      previewHeight: previewRect.height,
+      previewWidth: previewRect.width,
+      wellHeight: wellRect.height,
+      wellWidth: wellRect.width
+    };
+  });
+  expect(metrics.previewWidth).toBeLessThan(metrics.wellWidth);
+  expect(metrics.previewHeight).toBeLessThan(metrics.wellHeight);
+  expect(metrics.centerDelta).toBeLessThan(2);
+}
+
+async function expectHandoutOverflowKeepsSlideContext(page: Page): Promise<void> {
+  const metrics = await page.evaluate(() => {
+    const pages = Array.from(document.querySelectorAll('.presso-print-handout-page'));
+    return {
+      continuationPages: pages.filter((pageEl) => Number((pageEl as HTMLElement).dataset.handoutParts ?? '1') > 1).length,
+      missingPreviewCount: pages.filter((pageEl) => !pageEl.querySelector('.presso-print-handout-slide-scale .presso-slide')).length,
+      pageCount: pages.length
+    };
+  });
+  expect(metrics.pageCount).toBeGreaterThan(starterLayouts.length);
+  expect(metrics.continuationPages).toBeGreaterThan(1);
+  expect(metrics.missingPreviewCount).toBe(0);
+}
+
+async function expectNotesOverflowPages(page: Page): Promise<void> {
+  const metrics = await page.evaluate(() => {
+    const notesPages = Array.from(document.querySelectorAll('.presso-print-notes-page'));
+    return {
+      continuationLabels: notesPages.filter((pageEl) => pageEl.querySelector('header p')?.textContent?.includes('notes 2/')).length,
+      notesPageCount: notesPages.length
+    };
+  });
+  expect(metrics.notesPageCount).toBeGreaterThan(starterLayouts.length);
+  expect(metrics.continuationLabels).toBeGreaterThan(0);
 }
 
 async function expectProgress(page: Page, expectedPercent: number): Promise<void> {

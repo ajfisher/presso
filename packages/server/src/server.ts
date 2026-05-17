@@ -30,10 +30,16 @@ const ROUTE_MODES = new Map<string, RenderMode>([
   ['/transcript/', 'transcript'],
   ['/print/slides', 'print-slides'],
   ['/print/slides/', 'print-slides'],
-  ['/print/notes-side', 'print-notes-side'],
-  ['/print/notes-side/', 'print-notes-side'],
-  ['/print/notes-pages', 'print-notes-pages'],
-  ['/print/notes-pages/', 'print-notes-pages']
+  ['/print/notes', 'print-notes'],
+  ['/print/notes/', 'print-notes'],
+  ['/print/speaker', 'print-speaker'],
+  ['/print/speaker/', 'print-speaker'],
+  ['/print/handout', 'print-handout'],
+  ['/print/handout/', 'print-handout'],
+  ['/print/notes-side', 'print-handout'],
+  ['/print/notes-side/', 'print-handout'],
+  ['/print/notes-pages', 'print-speaker'],
+  ['/print/notes-pages/', 'print-speaker']
 ]);
 
 export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<void> {

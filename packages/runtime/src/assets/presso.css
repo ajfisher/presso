@@ -1123,11 +1123,10 @@
 }
 
 @layer presso.print {
-  body[data-mode="print-slides"],
-  body[data-mode="print-notes-side"],
-  body[data-mode="print-notes-pages"] {
+  body[data-mode^="print-"] {
     background: white;
     color: #111;
+    width: var(--presso-slide-width);
 
     .presso-stage {
       display: block;
@@ -1136,22 +1135,157 @@
 
     .presso-slide {
       display: grid;
+      width: var(--presso-slide-width);
+      height: var(--presso-slide-height);
       box-shadow: none;
-      page-break-after: always;
-      color: #111;
-      background-color: white;
+      color: var(--presso-fg);
+      background-color: #2d2d2d;
     }
   }
 
-  body[data-mode="print-notes-side"] .presso-print-page {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
+  body[data-mode="print-slides"] .presso-slide,
+  .presso-print-slide-page {
     page-break-after: always;
+    break-after: page;
   }
 
-  body[data-mode="print-notes-pages"] .presso-print-notes {
+  .presso-print-slide-page,
+  .presso-print-handout-page,
+  .presso-print-notes-page {
+    width: var(--presso-slide-width);
+    min-height: var(--presso-slide-height);
+    background: white;
+    color: #111;
     page-break-after: always;
-    padding: 2rem;
+    break-after: page;
+  }
+
+  .presso-print-slide-page {
+    height: var(--presso-slide-height);
+
+    .presso-slide {
+      page-break-after: auto;
+      break-after: auto;
+    }
+  }
+
+  .presso-print-notes-page {
+    display: grid;
+    align-content: start;
+    gap: 1.25rem;
+    padding: 4rem;
+
+    > header {
+      border-bottom: 2px solid #ddd;
+      padding-bottom: 1rem;
+
+      > p {
+        margin: 0 0 .4rem;
+        color: #666;
+        font-size: 1rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+      }
+
+      > h2 {
+        margin: 0;
+        color: #111;
+        font-size: 2.5rem;
+        line-height: 1.08;
+      }
+    }
+  }
+
+  .presso-print-notes {
+    font-size: 1.45rem;
+    line-height: 1.45;
+
+    > :first-child {
+      margin-top: 0;
+    }
+
+    > :last-child {
+      margin-bottom: 0;
+    }
+
+    pre {
+      white-space: pre-wrap;
+    }
+  }
+
+  .presso-print-notes-empty {
+    color: #777;
+    font-style: italic;
+  }
+
+  .presso-print-handout-page {
+    --presso-handout-scale: .6;
+    display: grid;
+    grid-template-columns: minmax(0, 1.72fr) minmax(20rem, .95fr);
+    gap: 1rem;
+    align-items: start;
+    padding: 1rem;
+  }
+
+  .presso-print-handout-slide {
+    display: grid;
+    place-items: center;
+    min-width: 0;
+    height: calc(var(--presso-slide-height) - 2rem);
+  }
+
+  .presso-print-handout-slide-scale {
+    width: calc(var(--presso-slide-width) * var(--presso-handout-scale));
+    height: calc(var(--presso-slide-height) * var(--presso-handout-scale));
+    overflow: hidden;
+    outline: 1px solid #ddd;
+    background: #2d2d2d;
+
+    .presso-slide {
+      transform: scale(var(--presso-handout-scale));
+      transform-origin: top left;
+      page-break-after: auto;
+      break-after: auto;
+    }
+  }
+
+  .presso-print-handout-page .presso-print-notes-page {
+    width: auto;
+    min-height: calc(var(--presso-slide-height) - 2rem);
+    border: 2px solid #ddd;
+    border-left: .45rem solid var(--presso-accent);
+    border-radius: .35rem;
+    padding: 1rem 1.1rem;
+    page-break-after: auto;
+    break-after: auto;
+
+    > header {
+      padding-bottom: .65rem;
+
+      > p {
+        font-size: .68rem;
+      }
+
+      > h2 {
+        font-size: 1.25rem;
+        line-height: 1.12;
+      }
+    }
+
+    .presso-print-notes {
+      font-size: .82rem;
+      line-height: 1.32;
+
+      p,
+      ul,
+      ol {
+        margin-block: .55rem;
+      }
+
+      li + li {
+        margin-top: .25rem;
+      }
+    }
   }
 
   @media print {

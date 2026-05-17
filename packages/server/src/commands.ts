@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { compileDeck, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@presso/core';
-import { buildStatic, exportPdf, exportTranscript } from '@presso/export';
+import { buildStatic, exportPdf, exportPdfs, exportTranscript } from '@presso/export';
 import { createDeck } from '@presso/create';
 
 export async function addSlide(cwd = process.cwd()): Promise<string> {
@@ -63,7 +63,7 @@ export async function deploy(cwd = process.cwd(), dryRun = true): Promise<void> 
   }
 }
 
-export { buildStatic, createDeck, exportPdf, exportTranscript };
+export { buildStatic, createDeck, exportPdf, exportPdfs, exportTranscript };
 
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
