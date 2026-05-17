@@ -1,0 +1,44 @@
+name: Publish npm Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Run npm publish in dry-run mode.
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate release readiness
+        run: make release-check
+
+      - name: Publish packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            npm publish --workspaces --access public --dry-run
+          else
+            npm publish --workspaces --access public
+          fi

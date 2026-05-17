@@ -1,0 +1,47 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "node",
+  "bootstrap-sha": "58f5b2af4a7a251a4d09fbe93b3cf5ab8f535cd3",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": true,
+  "pull-request-title-pattern": "chore${scope}: release ${component} ${version}",
+  "packages": {
+    "packages/core": {
+      "package-name": "@presso/core",
+      "component": "@presso/core"
+    },
+    "packages/runtime": {
+      "package-name": "@presso/runtime",
+      "component": "@presso/runtime"
+    },
+    "packages/export": {
+      "package-name": "@presso/export",
+      "component": "@presso/export"
+    },
+    "packages/create": {
+      "package-name": "@presso/create",
+      "component": "@presso/create"
+    },
+    "packages/server": {
+      "package-name": "@presso/server",
+      "component": "@presso/server"
+    }
+  },
+  "plugins": [
+    {
+      "type": "node-workspace",
+      "merge": false
+    },
+    {
+      "type": "linked-versions",
+      "groupName": "Presso packages",
+      "components": [
+        "@presso/core",
+        "@presso/runtime",
+        "@presso/export",
+        "@presso/create",
+        "@presso/server"
+      ]
+    }
+  ]
+}

@@ -1,8 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-const PRESSO_VERSION = '0.1.0';
-
 export interface CreateDeckOptions {
   cwd?: string;
   serverDependency?: string;
@@ -42,14 +40,20 @@ export async function createDeck(targetDir: string, options: CreateDeckOptions =
 async function resolveServerDependency(targetDir: string, cwd: string): Promise<string> {
   const workspaceRoot = await findWorkspaceRoot(cwd);
   if (!workspaceRoot) {
-    return `^${PRESSO_VERSION}`;
+    return `^${await packageVersion()}`;
   }
   const serverPackage = path.join(workspaceRoot, 'packages/server');
   const stat = await fs.stat(serverPackage).catch(() => undefined);
   if (!stat?.isDirectory()) {
-    return `^${PRESSO_VERSION}`;
+    return `^${await packageVersion()}`;
   }
   return `file:${toPackageRelativePath(path.relative(targetDir, serverPackage))}`;
+}
+
+async function packageVersion(): Promise<string> {
+  const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
+  if (!packageJson.version) throw new Error('@presso/create package.json must define a version.');
+  return packageJson.version;
 }
 
 async function findWorkspaceRoot(startDir: string): Promise<string | undefined> {

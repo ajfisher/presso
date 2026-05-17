@@ -1,7 +1,15 @@
 {
   "name": "@presso/create",
   "version": "0.1.0",
+  "description": "Starter deck scaffolder for Presso.",
+  "license": "MIT",
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "create-presso": "./dist/cli.js"
   },
@@ -16,4 +24,3 @@
     "test": "vitest run"
   }
 }
-

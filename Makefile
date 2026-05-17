@@ -1,4 +1,4 @@
-.PHONY: help install clean build test browser-smoke check dev tailnet-serve tailnet-reset deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
+.PHONY: help install clean build test browser-smoke check release-check release-pack dev tailnet-serve tailnet-reset deck-build transcript pdf deploy slide-add order-init order-check order-append create presso
 
 DECK ?= examples/basic
 PORT ?= 3030
@@ -15,6 +15,8 @@ help:
 	@echo "  make test                            Run test suite"
 	@echo "  make browser-smoke                   Run Playwright route smoke tests"
 	@echo "  make check                           Build and test"
+	@echo "  make release-check                   Validate publish-ready packages"
+	@echo "  make release-pack                    Dry-run npm package contents"
 	@echo "  make clean                           Remove local build artifacts"
 	@echo ""
 	@echo "Deck targets:"
@@ -51,6 +53,14 @@ browser-smoke: build
 	PRESSO_BROWSER_SMOKE=1 npm run test:browser
 
 check: build test
+
+release-check: build
+	npm run release:check
+	npm run release:pack
+	npm run release:smoke-deck
+
+release-pack: build
+	npm run release:pack:write
 
 dev: build
 	$(PRESSO) dev $(DECK) --port=$(PORT)
