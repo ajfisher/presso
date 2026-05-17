@@ -712,7 +712,8 @@
           background: rgb(255 255 255 / 14%);
         }
 
-        span {
+        article > span,
+        button > span {
           margin: 0 0 .25rem;
           color: var(--presso-muted);
           font-size: .75rem;
