@@ -297,6 +297,7 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
       const slideRect = slide.getBoundingClientRect();
       return {
         name,
+        frameBackground: getComputedStyle(frame).backgroundColor,
         frameTop: frameRect.top,
         headingBottom: headingRect.bottom,
         sectionBottom: sectionRect.bottom,
@@ -328,6 +329,7 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
     expect(preview.slideRight, `${preview.name} preview right`).toBeLessThanOrEqual(1);
     expect(preview.slideBottom, `${preview.name} preview bottom`).toBeLessThanOrEqual(1);
   }
+  expect(previews[0]?.frameBackground, 'preview frame backgrounds').toBe(previews[1]?.frameBackground);
 }
 
 async function expectTeleprompter(page: Page): Promise<void> {

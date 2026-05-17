@@ -368,15 +368,16 @@
     if (mode !== 'presenter') return;
     document.body.dataset.teleprompter = teleprompterEnabled ? teleprompterPaused ? 'paused' : 'running' : 'off';
     document.querySelectorAll('[data-teleprompter-toggle]').forEach((button) => {
-      button.textContent = teleprompterEnabled ? 'Prompter on' : 'Prompter';
+      setControlLabel(button, teleprompterEnabled ? 'Prompter on' : 'Prompter');
       button.setAttribute('aria-pressed', teleprompterEnabled ? 'true' : 'false');
     });
     document.querySelectorAll('[data-teleprompter-pause]').forEach((button) => {
-      button.textContent = teleprompterPaused ? 'Resume' : 'Pause';
+      setControlLabel(button, teleprompterPaused ? 'Resume' : 'Pause');
+      setControlIcon(button, teleprompterPaused ? '#presso-icon-play' : '#presso-icon-pause');
       button.disabled = !teleprompterEnabled;
     });
     document.querySelectorAll('[data-teleprompter-wpm]').forEach((el) => {
-      el.textContent = `${teleprompterWpm} wpm`;
+      setControlLabel(el, `${teleprompterWpm} wpm`);
     });
   }
 
@@ -502,11 +503,22 @@
     document.body.dataset.presentationFullscreen = presentationFullscreen ? 'true' : 'false';
     document.querySelectorAll('button[data-action="fullscreen"]').forEach((button) => {
       const remoteControl = mode === 'control' || mode === 'presenter';
-      button.textContent = active
+      setControlLabel(button, active
         ? remoteControl ? 'Full screen active' : 'Exit full screen'
-        : 'Full screen';
+        : 'Full screen');
       button.disabled = remoteControl && active;
     });
+  }
+
+  function setControlLabel(el, label) {
+    const controlLabel = el.querySelector('[data-control-label]');
+    if (controlLabel) controlLabel.textContent = label;
+    else el.textContent = label;
+  }
+
+  function setControlIcon(el, href) {
+    const icon = el.querySelector('use');
+    if (icon) icon.setAttribute('href', href);
   }
 
   function updateWakeLockViews(label) {

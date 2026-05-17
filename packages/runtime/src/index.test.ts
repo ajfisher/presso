@@ -122,6 +122,13 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-controller-popover');
     expect(html).toContain('data-controller-url-open');
     expect(html).toContain('data-controller-url-list');
+    expect(html).toContain('aria-label="Slide navigation"');
+    expect(html).toContain('aria-label="Presenter setup"');
+    expect(html).toContain('aria-label="Teleprompter"');
+    expect(html).toContain('data-tooltip="Reset elapsed timer"');
+    expect(html).toContain('data-icon-only');
+    expect(html).toContain('data-presenter-icons');
+    expect(html).toContain('#presso-icon-chevron-right');
     expect(html.indexOf('aria-label="Speaker notes"')).toBeLessThan(html.indexOf('aria-label="Current slide"'));
     expect(html).toContain('data-next-preview');
     expect(html).toContain('data-slide-preview-template="1"');
