@@ -440,6 +440,16 @@
 
   document.addEventListener('keydown', (event) => {
     if (isEditableTarget(event.target)) return;
+    if (event.key === 'Home') {
+      if (!canNavigateSlides) return;
+      event.preventDefault();
+      setIndex(0);
+    }
+    if (event.key === 'End') {
+      if (!canNavigateSlides) return;
+      event.preventDefault();
+      setIndex(slideCount - 1);
+    }
     if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
       if (!canNavigateSlides) return;
       event.preventDefault();

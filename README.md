@@ -29,6 +29,8 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 
 - `Space`, `ArrowRight`, `PageDown`: next slide
 - `ArrowLeft`, `PageUp`: previous slide
+- `Home`: first slide
+- `End`: last slide
 - `f`: toggle fullscreen
 - `p`: open speaker view
 - `n`: toggle notes when public notes are enabled
