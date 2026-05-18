@@ -92,6 +92,28 @@ PDF layouts are:
 
 Compatibility flags `--notes-pages` and `--notes-side` map to `speaker` and `handout`. Use `--out=custom.pdf` with a single layout. Local PDF exports include speaker notes even when `notes.public` is `false`; public static builds still omit private notes.
 
+## Static Metadata
+
+`presso build` writes `dist/metadata.json` for site integration. Required fields are always present:
+
+- `title`
+- `author`
+- `tags`
+
+Optional fields are omitted when unset rather than emitted as empty strings. Supported optional fields are:
+
+- `event`
+- `date`
+- `excerpt`
+- `featureImage`
+- `baseUrl`
+- `canonicalUrl`
+- `embedUrl`
+- `pdfUrl`
+- `transcriptUrl`
+
+`featureImage` is emitted exactly as configured so the consuming site can choose how to resolve or transform it. When `baseUrl` is configured, Presso normalises the trailing slash and derives `canonicalUrl`, `embedUrl`, `pdfUrl`, and `transcriptUrl`.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:

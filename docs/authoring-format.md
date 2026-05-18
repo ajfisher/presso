@@ -443,6 +443,9 @@ export default {
   event: 'Web Directions Code Leaders 2024',
   date: '2024-06-19',
   author: 'Andrew Fisher',
+  excerpt: 'A conference talk about moving from practice leadership to broader enterprise leadership.',
+  tags: ['strategy', 'business', 'leadership', 'presentation'],
+  featureImage: './assets/leader-perspective.webp',
   baseUrl: 'https://wdcl2024.ajf.io',
   aspectRatio: '16:9',
   size: {
@@ -464,6 +467,11 @@ export default {
   }
 };
 ```
+
+Static builds emit `dist/metadata.json` from these deck-level fields. Required
+metadata is `title`, `author`, and `tags`; optional fields such as `event`,
+`date`, `excerpt`, `featureImage`, `baseUrl`, and derived public URLs are
+omitted when unset.
 
 For a single-file deck:
 

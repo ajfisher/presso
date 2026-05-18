@@ -78,6 +78,7 @@ describe('static export', () => {
 
     expect(metadata).toMatchObject({
       author: 'ajfisher',
+      baseUrl: 'https://talk.example.test',
       canonicalUrl: 'https://talk.example.test',
       date: '2026-05-17',
       embedUrl: 'https://talk.example.test/embed/',
@@ -86,12 +87,26 @@ describe('static export', () => {
       featureImage: './assets/example.svg',
       pdfUrl: 'https://talk.example.test/slides.pdf',
       tags: ['export', 'presso'],
+      title: 'Export Test',
+      transcriptUrl: 'https://talk.example.test/transcript/'
+    });
+  });
+
+  it('omits unset optional metadata fields', async () => {
+    const root = await createDeck(false, { includeMetadata: false });
+    const dest = await buildStatic(root, path.join(root, 'dist'));
+    const metadata = JSON.parse(await fs.readFile(path.join(dest, 'metadata.json'), 'utf8'));
+
+    expect(metadata).toEqual({
+      author: 'ajfisher',
+      tags: [],
       title: 'Export Test'
     });
   });
 });
 
-async function createDeck(publicNotes: false | 'toggle'): Promise<string> {
+async function createDeck(publicNotes: false | 'toggle', options: { includeMetadata?: boolean } = {}): Promise<string> {
+  const includeMetadata = options.includeMetadata ?? true;
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-export-'));
   tmpRoots.push(root);
   await fs.mkdir(path.join(root, 'slides'), { recursive: true });
@@ -100,12 +115,13 @@ async function createDeck(publicNotes: false | 'toggle'): Promise<string> {
   await fs.writeFile(path.join(root, 'assets/example.svg'), '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><rect width="10" height="10"/></svg>\n');
   await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
   title: 'Export Test',
-  event: 'ExportConf',
+${includeMetadata ? `  event: 'ExportConf',
   date: '2026-05-17',
   excerpt: 'Export test excerpt',
   tags: ['export', 'presso'],
   featureImage: './assets/example.svg',
-  baseUrl: 'https://talk.example.test',
+  baseUrl: 'https://talk.example.test/',
+` : ''}
   source: { type: 'folder', path: './slides' },
   theme: './theme.css',
   notes: { public: ${publicNotes === false ? 'false' : `'${publicNotes}'`} }
