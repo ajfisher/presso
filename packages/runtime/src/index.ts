@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import type { Deck, NotesPublicPolicy, Slide } from '@presso/core';
+export { renderTranscriptMarkdown, resolveTranscriptProfile, TRANSCRIPT_PROFILES, type TranscriptMarkdownOptions, type TranscriptProfile } from './transcript.js';
 
 export type RenderMode =
   | 'deck'
@@ -104,24 +105,6 @@ export function renderPage(deck: Deck, mode: RenderMode, options: RenderOptions 
     renderModeControls(context.notesPublic)
   ].filter(Boolean).join('\n');
   return renderDocument(deck, mode, body, context);
-}
-
-export function renderTranscriptMarkdown(deck: Deck, options: { includeNotes?: boolean } = {}): string {
-  const includeNotes = options.includeNotes ?? true;
-  const lines = [`# ${deck.config.title}`, ''];
-  for (const slide of deck.slides) {
-    lines.push(`## ${slide.title}`, '');
-    if (slide.bodyMarkdown) {
-      lines.push(slide.bodyMarkdown, '');
-    }
-    if (includeNotes && slide.notesMarkdown) {
-      lines.push(slide.notesMarkdown, '');
-    }
-  }
-  if (deck.config.baseUrl) {
-    lines.push(`[View slides](${deck.config.baseUrl})`, '');
-  }
-  return lines.join('\n').trimEnd() + '\n';
 }
 
 function renderDocument(deck: Deck, mode: RenderMode, body: string, context: RenderContext): string {

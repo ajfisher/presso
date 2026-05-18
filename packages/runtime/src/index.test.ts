@@ -222,9 +222,59 @@ describe('runtime renderer', () => {
   });
 
   it('uses real newlines for transcript markdown', () => {
-    const transcript = renderTranscriptMarkdown(deck);
+    const transcript = renderTranscriptMarkdown(deck, { profile: 'full' });
     expect(transcript).toContain('# Runtime Test\n\n## One');
     expect(transcript).not.toContain('\\n');
+  });
+
+  it('renders transcript profiles with portable markdown and slide overrides', () => {
+    const transcriptDeck: Deck = {
+      ...deck,
+      config: {
+        ...deck.config,
+        baseUrl: 'https://talk.example.test'
+      },
+      slides: [
+        {
+          ...deck.slides[0]!,
+          bodyMarkdown: '# One\n\n:::columns\n![Diagram](./assets/diagram.svg)\n\nImportant body text.\n:::\n\n::iframe{src="./demo/" title="Live demo"}',
+          metadata: {}
+        },
+        {
+          ...deck.slides[1]!,
+          layout: 'statement',
+          bodyMarkdown: '## Money in - Money out = Profit',
+          notesMarkdown: 'Explain the simple statement.',
+          metadata: { transcriptBody: 'statement' }
+        },
+        {
+          ...deck.slides[1]!,
+          id: 'skip',
+          index: 2,
+          title: 'Skip',
+          bodyMarkdown: '## Skip',
+          notesMarkdown: 'Skip notes',
+          metadata: { transcript: false }
+        }
+      ]
+    };
+
+    const full = renderTranscriptMarkdown(transcriptDeck, { profile: 'full' });
+    expect(full).toContain('[View slides](https://talk.example.test) · [Download slides PDF](https://talk.example.test/slides.pdf)');
+    expect(full).toContain('![Diagram](https://talk.example.test/assets/diagram.svg)');
+    expect(full).toContain('[Live demo](https://talk.example.test/demo/)');
+    expect(full).not.toContain(':::columns');
+    expect(full).not.toContain('# One\n\n:::columns');
+    expect(full).not.toContain('## Skip');
+
+    const notes = renderTranscriptMarkdown(transcriptDeck, { fragment: true, profile: 'notes' });
+    expect(notes).toContain('## One\n\nSpeaker notes');
+    expect(notes).not.toContain('Important body text.');
+    expect(notes).not.toContain('Money in - Money out = Profit');
+
+    const notesVisuals = renderTranscriptMarkdown(transcriptDeck, { fragment: true, profile: 'notes-visuals' });
+    expect(notesVisuals).toContain('## One\n\n![Diagram](https://talk.example.test/assets/diagram.svg)\n\nSpeaker notes');
+    expect(notesVisuals).toContain('## Two\n\nMoney in - Money out = Profit\n\nExplain the simple statement.');
   });
 });
 
