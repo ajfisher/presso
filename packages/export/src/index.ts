@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { compileDeck, copyDir, pathExists } from '@presso/core';
-import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode } from '@presso/runtime';
+import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@presso/runtime';
 
 export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
 export type PdfLayout = typeof PDF_LAYOUTS[number];
@@ -17,6 +17,11 @@ interface StaticBuildResult {
 interface PdfJob {
   layout: PdfLayout;
   outFile?: string;
+}
+
+interface TranscriptExportOptions {
+  fragment?: boolean;
+  profile?: TranscriptProfile;
 }
 
 interface StaticServer {
@@ -127,10 +132,14 @@ function isLocalPath(value: string): boolean {
   return !/^(?:[a-z]+:|\/|#)/i.test(value);
 }
 
-export async function exportTranscript(cwd = process.cwd(), outFile = 'transcript.md'): Promise<string> {
+export async function exportTranscript(cwd = process.cwd(), outFile = 'transcript.md', options: TranscriptExportOptions = {}): Promise<string> {
   const deck = await compileDeck(cwd);
   const dest = path.resolve(cwd, outFile);
-  await fs.writeFile(dest, renderTranscriptMarkdown(deck, { includeNotes: deck.config.notes.public !== false }), 'utf8');
+  await fs.writeFile(dest, renderTranscriptMarkdown(deck, {
+    fragment: options.fragment,
+    includeNotes: deck.config.notes.public !== false,
+    profile: options.profile
+  }), 'utf8');
   return dest;
 }
 

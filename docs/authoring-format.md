@@ -258,6 +258,28 @@ Notes should not render in the main slide deck by default. They render in:
 - Transcript exports.
 - Public notes-enabled modes when configured.
 
+Transcript export supports three Markdown profiles:
+
+- `notes-visuals`: slide titles, speaker notes, and useful visuals or short
+  statement slides.
+- `notes`: slide titles and speaker notes only.
+- `full`: slide titles, normalized slide body Markdown, and speaker notes.
+
+Slide frontmatter can tune transcript output when the default heuristics are not
+right:
+
+```yaml
+transcript: false              # omit the slide
+transcriptVisual: ./assets/map.png
+transcriptVisual: false
+transcriptBody: true
+transcriptBody: statement
+```
+
+The default `notes-visuals` profile includes primary Markdown images,
+background images, and statement slides. It deliberately skips logo slides unless
+`transcriptVisual` is set.
+
 `notes.public` controls public/static output:
 
 - `false`: omit notes from public HTML, `deck.json`, and transcript output.

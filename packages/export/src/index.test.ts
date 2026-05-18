@@ -71,6 +71,18 @@ describe('static export', () => {
     expect(await fs.readFile(transcript, 'utf8')).not.toContain('SECRET_PRIVATE_NOTE');
   });
 
+  it('exports transcript profiles for ajfisher.me fragments', async () => {
+    const root = await createDeck('toggle');
+    const full = await exportTranscript(root, 'full.md', { profile: 'full' });
+    const notes = await exportTranscript(root, 'notes.md', { fragment: true, profile: 'notes' });
+    const visuals = await exportTranscript(root, 'visuals.md', { fragment: true, profile: 'notes-visuals' });
+
+    expect(await fs.readFile(full, 'utf8')).toContain('[Download slides PDF](https://talk.example.test/slides.pdf)');
+    expect(await fs.readFile(full, 'utf8')).toContain('![Example](https://talk.example.test/assets/example.svg)');
+    expect(await fs.readFile(notes, 'utf8')).toBe('## title\n\nSECRET_PRIVATE_NOTE\n');
+    expect(await fs.readFile(visuals, 'utf8')).toContain('![Example](https://talk.example.test/assets/example.svg)');
+  });
+
   it('emits ajfisher.me metadata fields', async () => {
     const root = await createDeck('toggle');
     const dest = await buildStatic(root, path.join(root, 'dist'));

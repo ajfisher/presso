@@ -3,6 +3,7 @@
 DECK ?= examples/basic
 PORT ?= 3030
 PDF_ARGS ?=
+TRANSCRIPT_ARGS ?=
 PRESSO := node packages/server/dist/cli.js
 
 help:
@@ -21,7 +22,7 @@ help:
 	@echo "  make tailnet-serve [PORT=3030]"
 	@echo "  make tailnet-reset"
 	@echo "  make deck-build [DECK=examples/basic]"
-	@echo "  make transcript [DECK=examples/basic]"
+	@echo "  make transcript [DECK=examples/basic] [TRANSCRIPT_ARGS=\"--profile=notes\"]"
 	@echo "  make pdf [DECK=examples/basic] [PDF_ARGS=\"--layout=speaker\"]"
 	@echo "  make deploy [DECK=examples/basic]"
 	@echo ""
@@ -64,7 +65,7 @@ deck-build: build
 	$(PRESSO) build $(DECK)
 
 transcript: build
-	$(PRESSO) transcript $(DECK)
+	$(PRESSO) transcript $(DECK) $(TRANSCRIPT_ARGS)
 
 pdf: build
 	$(PRESSO) pdf $(DECK) $(PDF_ARGS)

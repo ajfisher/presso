@@ -3,6 +3,7 @@ import path from 'node:path';
 import { startDevServer } from './server.js';
 import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, orderAppend, orderCheck, orderInit } from './commands.js';
 import { resolvePdfLayout } from '@presso/export';
+import { resolveTranscriptProfile, type TranscriptProfile } from '@presso/runtime';
 
 const [, , command, ...args] = process.argv;
 
@@ -39,8 +40,11 @@ async function main(command = 'help', args: string[]): Promise<void> {
     return;
   }
   if (command === 'transcript') {
-    const cwd = resolveDeckDir(args);
-    console.log(await exportTranscript(cwd));
+    const options = parseTranscriptArgs(args);
+    console.log(await exportTranscript(options.cwd, options.outFile, {
+      fragment: options.fragment,
+      profile: options.profile
+    }));
     return;
   }
   if (command === 'deploy') {
@@ -130,6 +134,39 @@ function parsePdfArgs(args: string[]): { all: boolean; cwd: string; layout: stri
   };
 }
 
+function parseTranscriptArgs(args: string[]): { cwd: string; fragment: boolean; outFile: string; profile: TranscriptProfile } {
+  let fragment = false;
+  let outFile = 'transcript.md';
+  let profile: TranscriptProfile = 'notes-visuals';
+  const positionals: string[] = [];
+
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!;
+    if (arg === '--fragment') {
+      fragment = true;
+    } else if (arg === '--profile') {
+      profile = resolveTranscriptProfile(requireValue(args, ++i, '--profile'));
+    } else if (arg.startsWith('--profile=')) {
+      profile = resolveTranscriptProfile(arg.slice('--profile='.length));
+    } else if (arg === '--out') {
+      outFile = requireValue(args, ++i, '--out');
+    } else if (arg.startsWith('--out=')) {
+      outFile = arg.slice('--out='.length);
+    } else if (arg.startsWith('--')) {
+      throw new Error(`Unknown transcript option: ${arg}`);
+    } else {
+      positionals.push(arg);
+    }
+  }
+
+  return {
+    cwd: positionals[0] ? path.resolve(positionals[0]) : process.cwd(),
+    fragment,
+    outFile,
+    profile
+  };
+}
+
 function requireValue(args: string[], index: number, flag: string): string {
   const value = args[index];
   if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value.`);
@@ -141,7 +178,7 @@ function printHelp(): void {
   presso dev [deckDir] [--port=3030]
   presso build [deckDir]
   presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
-  presso transcript [deckDir]
+  presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
   presso deploy [deckDir] [--yes]
   presso slide add [deckDir]
   presso order init|check|append [deckDir]

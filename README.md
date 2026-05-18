@@ -92,6 +92,20 @@ PDF layouts are:
 
 Compatibility flags `--notes-pages` and `--notes-side` map to `speaker` and `handout`. Use `--out=custom.pdf` with a single layout. Local PDF exports include speaker notes even when `notes.public` is `false`; public static builds still omit private notes.
 
+`presso transcript` writes paste-ready Markdown fragments for publishing talk notes. Profiles are:
+
+- `notes-visuals`: slide titles, notes, and useful visuals or short statement slides.
+- `notes`: slide titles and speaker notes only.
+- `full`: slide titles, normalized slide body Markdown, and speaker notes.
+
+```bash
+make transcript
+make transcript TRANSCRIPT_ARGS="--profile=notes"
+make transcript TRANSCRIPT_ARGS="--profile=full --fragment --out=talk-notes.md"
+```
+
+Use slide frontmatter for exceptions: `transcript: false` omits a slide, `transcriptVisual` forces or suppresses a visual, and `transcriptBody: statement` includes a short statement in `notes-visuals`.
+
 ## Static Metadata
 
 `presso build` writes `dist/metadata.json` for site integration. Required fields are always present:
