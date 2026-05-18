@@ -106,6 +106,28 @@ make transcript TRANSCRIPT_ARGS="--profile=full --fragment --out=talk-notes.md"
 
 Use slide frontmatter for exceptions: `transcript: false` omits a slide, `transcriptVisual` forces or suppresses a visual, and `transcriptBody: statement` includes a short statement in `notes-visuals`.
 
+## Static Metadata
+
+`presso build` writes `dist/metadata.json` for site integration. Required fields are always present:
+
+- `title`
+- `author`
+- `tags`
+
+Optional fields are omitted when unset rather than emitted as empty strings. Supported optional fields are:
+
+- `event`
+- `date`
+- `excerpt`
+- `featureImage`
+- `baseUrl`
+- `canonicalUrl`
+- `embedUrl`
+- `pdfUrl`
+- `transcriptUrl`
+
+`featureImage` is emitted exactly as configured so the consuming site can choose how to resolve or transform it. When `baseUrl` is configured, Presso normalises the trailing slash and derives `canonicalUrl`, `embedUrl`, `pdfUrl`, and `transcriptUrl`.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:

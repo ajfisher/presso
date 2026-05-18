@@ -29,6 +29,23 @@ interface StaticServer {
   origin: string;
 }
 
+export interface DeckMetadata {
+  title: string;
+  author: string;
+  tags: string[];
+  event?: string;
+  date?: string;
+  excerpt?: string;
+  featureImage?: string;
+  baseUrl?: string;
+  canonicalUrl?: string;
+  embedUrl?: string;
+  pdfUrl?: string;
+  transcriptUrl?: string;
+}
+
+type OptionalMetadataKey = Exclude<keyof DeckMetadata, 'title' | 'author' | 'tags'>;
+
 const ROUTES: Array<[string, RenderMode]> = [
   ['index.html', 'deck'],
   ['embed/index.html', 'embed'],
@@ -282,19 +299,43 @@ function contentType(file: string): string {
   return 'text/html; charset=utf-8';
 }
 
-export function buildMetadata(deck: Awaited<ReturnType<typeof compileDeck>>) {
-  return {
+export function buildMetadata(deck: Awaited<ReturnType<typeof compileDeck>>): DeckMetadata {
+  const baseUrl = normaliseBaseUrl(deck.config.baseUrl);
+  const metadata: DeckMetadata = {
     title: deck.config.title,
-    event: deck.config.event,
-    date: deck.config.date,
     author: deck.config.author,
-    excerpt: deck.config.excerpt,
-    tags: deck.config.tags,
-    featureImage: deck.config.featureImage,
-    canonicalUrl: deck.config.baseUrl,
-    embedUrl: deck.config.baseUrl ? `${deck.config.baseUrl.replace(/\/$/, '')}/embed/` : undefined,
-    pdfUrl: deck.config.baseUrl ? `${deck.config.baseUrl.replace(/\/$/, '')}/slides.pdf` : undefined
+    tags: deck.config.tags.map((tag) => tag.trim()).filter(Boolean)
   };
+
+  setOptionalMetadata(metadata, 'event', deck.config.event);
+  setOptionalMetadata(metadata, 'date', deck.config.date);
+  setOptionalMetadata(metadata, 'excerpt', deck.config.excerpt);
+  setOptionalMetadata(metadata, 'featureImage', deck.config.featureImage);
+
+  if (baseUrl) {
+    metadata.baseUrl = baseUrl;
+    metadata.canonicalUrl = baseUrl;
+    metadata.embedUrl = `${baseUrl}/embed/`;
+    metadata.pdfUrl = `${baseUrl}/slides.pdf`;
+    metadata.transcriptUrl = `${baseUrl}/transcript/`;
+  }
+
+  return metadata;
+}
+
+function setOptionalMetadata(metadata: DeckMetadata, key: OptionalMetadataKey, value?: string): void {
+  const clean = meaningfulString(value);
+  if (clean) metadata[key] = clean;
+}
+
+function meaningfulString(value?: string): string | undefined {
+  const clean = value?.trim();
+  return clean || undefined;
+}
+
+function normaliseBaseUrl(value?: string): string | undefined {
+  const clean = meaningfulString(value);
+  return clean?.replace(/\/+$/, '') || undefined;
 }
 
 function publicDeck(deck: Awaited<ReturnType<typeof compileDeck>>) {
