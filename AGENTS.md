@@ -30,6 +30,8 @@ These notes exist to keep future agent work aligned with the project direction.
 - Run `make check` before committing. For runtime/browser changes, also run `make deck-build` and smoke-test `make dev`.
 - Release-facing changes should also run `make release-check`.
 - Publishable package dependencies between `@ajfisher/presso-*` packages must use semver ranges, not `file:` or `workspace:` specs.
+- npm publishing uses trusted publishing through GitHub Actions OIDC. Keep `permissions.id-token: write`, do not reintroduce `NODE_AUTH_TOKEN` or `NPM_TOKEN` in `.github/workflows/publish-npm.yml`, and keep release workflow caching disabled.
+- Publishable package manifests must keep `repository.url` aligned to `https://github.com/ajfisher/presso.git` with the correct `repository.directory`; npm validates this for trusted publishing.
 - Do not manually edit generated Release Please PR outputs unless you are deliberately correcting release notes or package metadata.
 
 ## Public Output Safety

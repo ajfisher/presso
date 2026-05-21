@@ -4,6 +4,11 @@
   "description": "Presso CLI, dev server, controller sync, and authoring helpers.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/server"
+  },
   "files": [
     "dist"
   ],

@@ -61,14 +61,27 @@ Tarballs are written under `.presso/packages/`.
 
 ## npm Publishing
 
-npm publishing is manual until the release flow has been exercised safely.
+npm publishing uses npm trusted publishing through GitHub Actions OIDC. Each `@ajfisher/presso-*` package must have a trusted publisher configured on npm with:
 
-1. Add an npm automation token as the `NPM_TOKEN` repository secret.
-2. Open the `Publish npm Packages` workflow.
-3. Run it once with `dry_run: true`.
-4. If the dry run is clean, run it again with `dry_run: false`.
+- Provider: GitHub Actions
+- Organization/user: `ajfisher`
+- Repository: `presso`
+- Workflow filename: `publish-npm.yml`
+- Environment name: blank
+- Allowed actions: `npm publish`
 
-The workflow runs `make release-check` before publishing and publishes all workspaces with public scoped-package access.
+The `Publish npm Packages` workflow is still manual. It grants `id-token: write`, does not use `NPM_TOKEN` or `NODE_AUTH_TOKEN`, disables package-manager caching for the release build, runs `make release-check`, and then publishes all workspaces with public scoped-package access.
+
+To publish a release:
+
+1. Open the `Publish npm Packages` workflow.
+2. Run it once with `dry_run: true`.
+3. If the dry run is clean, run it again with `dry_run: false`.
+4. Verify npm shows the new versions and provenance/trusted-publishing metadata.
+
+Keep the old npm automation token only while proving the first OIDC publish. After one successful trusted-publishing release, revoke that npm token and delete the GitHub `NPM_TOKEN` secret. Do not reintroduce token publishing unless trusted publishing is deliberately removed from every package.
+
+Trusted publishing requires the workflow filename configured in npm to match exactly, `permissions.id-token: write`, and each published package's `repository.url` to match `https://github.com/ajfisher/presso.git`. See the npm trusted publishers docs: <https://docs.npmjs.com/trusted-publishers/>.
 
 ## Consumer Install Path
 
