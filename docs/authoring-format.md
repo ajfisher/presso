@@ -235,7 +235,7 @@ pipeline:
 | --- | --- | --- |
 | `id` | Stable slug such as `where-are-we` | URLs, controller state, writeback, analytics |
 | `title` | Human-readable text | Presenter view, transcript headings, metadata |
-| `layout` | `title`, `section`, `statement`, `bullets`, `image`, `image-title`, `two-column`, `quote-image`, `logos`, `code`, `demo`, `blank`, or a custom theme layout | Runtime CSS |
+| `layout` | `title`, `section`, `statement`, `bullets`, `image`, `image-title`, `two-column`, `logos`, `code`, `demo`, `blank`, or a custom theme layout | Runtime CSS |
 | `class` | String or YAML list | Runtime CSS hooks |
 | `background` | Deck-relative asset path or theme-supported background token | Runtime rendering, transcript visuals |
 | `backgroundFit` | `cover`, `contain`, `tile`, or a theme value | Runtime background sizing |
@@ -355,7 +355,6 @@ Expected starter layouts:
 - `image`
 - `image-title`
 - `two-column`
-- `quote-image`
 - `logos`
 - `code`
 - `demo`

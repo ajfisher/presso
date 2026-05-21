@@ -258,6 +258,14 @@ browserDescribe('browser smoke', () => {
       expect(await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8')).toBe(originalFile);
 
       await page.locator('[data-edit-metadata]').fill('id: original\nlayout: statement\ncustom: retained');
+      await page.locator('[data-edit-tab="layout"]').click();
+      await expectText(page, '[data-edit-layout-current]', 'Current: statement');
+      await page.locator('[data-edit-layout-custom-input]').fill('feature-split');
+      await page.locator('[data-action="edit-layout-custom"]').click();
+      await expectText(page, '[data-edit-layout-current]', 'Current custom layout: feature-split');
+      await page.locator('[data-edit-layout-option="bullets"]').click();
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await expectFieldValue(page, '[data-edit-metadata]', 'id: original\nlayout: bullets\ncustom: retained');
       await page.locator('[data-edit-tab="body"]').click();
       await page.locator('[data-edit-body]').fill('## Edited heading\n\nUpdated line one\nUpdated line two.');
       await page.locator('[data-edit-tab="notes"]').click();
@@ -269,6 +277,7 @@ browserDescribe('browser smoke', () => {
 
       const updatedFile = await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8');
       expect(updatedFile).toContain('custom: retained');
+      expect(updatedFile).toContain('layout: bullets');
       expect(updatedFile).toContain('## Edited heading');
       expect(updatedFile).toContain('Updated line one\nUpdated line two.');
       expect(updatedFile).toContain('Edited note one\nEdited **note two**.');

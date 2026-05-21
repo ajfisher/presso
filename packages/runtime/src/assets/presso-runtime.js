@@ -26,6 +26,7 @@
   const teleprompterMaxWpm = 220;
   const teleprompterStepWpm = 10;
   const teleprompterMaxLagMs = 8000;
+  const builtInLayouts = ['title', 'section', 'statement', 'bullets', 'image', 'image-title', 'two-column', 'logos', 'code', 'demo', 'blank'];
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
   let presentationFullscreen = false;
@@ -220,6 +221,7 @@
       setEditValue('[data-edit-metadata]', data.metadataYaml || '');
       setEditValue('[data-edit-body]', data.bodyMarkdown || '');
       setEditValue('[data-edit-notes]', data.notesMarkdown || '');
+      syncEditLayoutViews();
       captureEditInitialValues();
       const source = overlay.querySelector('[data-edit-source]');
       if (source) source.textContent = `${data.sourcePath || 'Slide source'} - slide ${editCurrentIndex + 1}`;
@@ -314,6 +316,7 @@
     const overlay = editOverlay();
     if (!overlay) return;
     overlay.dataset.editActiveTab = name;
+    if (name === 'layout') syncEditLayoutViews();
     overlay.querySelectorAll('[data-edit-tab]').forEach((button) => {
       const selected = button.dataset.editTab === name;
       button.setAttribute('aria-selected', selected ? 'true' : 'false');
@@ -327,6 +330,18 @@
   }
 
   function focusEditTabField(name) {
+    if (name === 'layout') {
+      const selected = document.querySelector('[data-edit-layout-option][aria-checked="true"]');
+      const custom = document.querySelector('[data-edit-layout-custom-input]');
+      if (!selected && custom instanceof HTMLInputElement && custom.value) {
+        custom.focus();
+        return;
+      }
+      const fallback = document.querySelector('[data-edit-layout-option]');
+      const target = selected instanceof HTMLElement ? selected : fallback;
+      target?.focus();
+      return;
+    }
     const field = document.querySelector(`[data-edit-${name}]`);
     if (field instanceof HTMLTextAreaElement) field.focus();
   }
@@ -345,6 +360,107 @@
     const button = document.querySelector('[data-action="edit-help"]');
     if (help instanceof HTMLElement) help.hidden = !open;
     if (button instanceof HTMLElement) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function selectEditLayout(layout) {
+    const next = normaliseLayoutName(layout);
+    if (!next) {
+      setEditError('Layout names must start with a letter and use letters, numbers, underscores, or hyphens.');
+      return;
+    }
+    const current = editValue('[data-edit-metadata]');
+    const updated = updateMetadataLayout(current, next);
+    if (!updated.ok) {
+      setEditError(updated.error);
+      setEditTab('metadata');
+      return;
+    }
+    setEditValue('[data-edit-metadata]', updated.value);
+    setEditError('');
+    syncEditLayoutViews();
+  }
+
+  function selectCustomEditLayout() {
+    const input = document.querySelector('[data-edit-layout-custom-input]');
+    if (input instanceof HTMLInputElement) selectEditLayout(input.value);
+  }
+
+  function syncEditLayoutViews() {
+    const layout = currentEditLayout();
+    const builtIn = builtInLayouts.includes(layout);
+    document.querySelectorAll('[data-edit-layout-option]').forEach((button) => {
+      const selected = button.dataset.editLayoutOption === layout;
+      button.setAttribute('aria-checked', selected ? 'true' : 'false');
+      button.tabIndex = selected || (!builtIn && button.dataset.editLayoutOption === builtInLayouts[0]) ? 0 : -1;
+      button.dataset.selected = selected ? 'true' : 'false';
+    });
+    const customInput = document.querySelector('[data-edit-layout-custom-input]');
+    if (customInput instanceof HTMLInputElement) customInput.value = builtIn ? '' : layout;
+    const current = document.querySelector('[data-edit-layout-current]');
+    if (current) current.textContent = builtIn ? `Current: ${layout}` : `Current custom layout: ${layout}`;
+  }
+
+  function moveEditLayoutOption(delta) {
+    const options = [...document.querySelectorAll('[data-edit-layout-option]')];
+    if (!options.length) return;
+    const current = options.findIndex((option) => option === document.activeElement);
+    const next = (current + delta + options.length) % options.length;
+    focusEditLayoutOption(next);
+  }
+
+  function focusEditLayoutOption(index) {
+    const options = [...document.querySelectorAll('[data-edit-layout-option]')];
+    const option = index < 0 ? options[options.length - 1] : options[index];
+    if (option instanceof HTMLElement) option.focus();
+  }
+
+  function currentEditLayout() {
+    const metadata = editValue('[data-edit-metadata]');
+    const match = metadata.match(/^layout\s*:\s*(.*?)\s*$/m);
+    const value = match ? unquoteYamlScalar(match[1] || '') : '';
+    return normaliseLayoutName(value) || 'statement';
+  }
+
+  function updateMetadataLayout(metadata, layout) {
+    if (looksInvalidMetadata(metadata)) {
+      return { ok: false, error: 'Metadata YAML needs fixing before the layout can be changed.' };
+    }
+    const line = `layout: ${quoteYamlScalar(layout)}`;
+    const lines = metadata.split(/\r?\n/);
+    const index = lines.findIndex((value) => /^layout\s*:/.test(value));
+    if (index >= 0) {
+      lines[index] = line;
+      return { ok: true, value: lines.join('\n') };
+    }
+    const clean = metadata.replace(/(?:\r?\n)+$/, '');
+    return { ok: true, value: clean ? `${clean}\n${line}` : line };
+  }
+
+  function looksInvalidMetadata(metadata) {
+    const flowOpen = (metadata.match(/[\[{]/g) || []).length;
+    const flowClose = (metadata.match(/[\]}]/g) || []).length;
+    if (flowOpen !== flowClose) return true;
+    return metadata.split(/\r?\n/).some((line) => {
+      const clean = line.trim();
+      return clean && !clean.startsWith('#') && !line.startsWith(' ') && !line.includes(':');
+    });
+  }
+
+  function normaliseLayoutName(value) {
+    const clean = String(value || '').trim();
+    return /^[a-zA-Z][\w-]*$/.test(clean) ? clean : '';
+  }
+
+  function quoteYamlScalar(value) {
+    return /^[a-zA-Z][\w-]*$/.test(value) ? value : JSON.stringify(value);
+  }
+
+  function unquoteYamlScalar(value) {
+    const clean = String(value || '').trim();
+    if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+      return clean.slice(1, -1);
+    }
+    return clean;
   }
 
   function isEditHelpOpen() {
@@ -827,9 +943,9 @@
   document.addEventListener('keydown', (event) => {
     if (isEditOpen()) {
       if (trapEditFocus(event)) return;
-      if ((event.metaKey || event.ctrlKey) && ['1', '2', '3'].includes(event.key)) {
+      if ((event.metaKey || event.ctrlKey) && ['1', '2', '3', '4'].includes(event.key)) {
         event.preventDefault();
-        setEditTab(['body', 'notes', 'metadata'][Number(event.key) - 1]);
+        setEditTab(['body', 'notes', 'layout', 'metadata'][Number(event.key) - 1]);
         return;
       }
       if (event.key === 'Escape') {
@@ -844,6 +960,11 @@
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
         event.preventDefault();
         saveSlideEditor();
+        return;
+      }
+      if (event.target instanceof Element && event.target.matches('[data-edit-layout-custom-input]') && event.key === 'Enter') {
+        event.preventDefault();
+        selectCustomEditLayout();
         return;
       }
       if (event.target instanceof Element && event.target.closest('[data-edit-tab]')) {
@@ -862,6 +983,24 @@
         if (event.key === 'End') {
           event.preventDefault();
           setEditTab('metadata');
+        }
+      }
+      if (event.target instanceof Element && event.target.closest('[data-edit-layout-option]')) {
+        if (['ArrowRight', 'ArrowDown'].includes(event.key)) {
+          event.preventDefault();
+          moveEditLayoutOption(1);
+        }
+        if (['ArrowLeft', 'ArrowUp'].includes(event.key)) {
+          event.preventDefault();
+          moveEditLayoutOption(-1);
+        }
+        if (event.key === 'Home') {
+          event.preventDefault();
+          focusEditLayoutOption(0);
+        }
+        if (event.key === 'End') {
+          event.preventDefault();
+          focusEditLayoutOption(-1);
         }
       }
       return;
@@ -955,6 +1094,11 @@
       setEditHelp(true);
     }
     if (action === 'edit-help-close') setEditHelp(false);
+    if (action === 'edit-layout') {
+      const option = target?.closest('[data-edit-layout-option]');
+      if (option instanceof HTMLElement && option.dataset.editLayoutOption) selectEditLayout(option.dataset.editLayoutOption);
+    }
+    if (action === 'edit-layout-custom') selectCustomEditLayout();
     if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
     if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
     if (action === 'timer-reset') resetPresenterTimer();

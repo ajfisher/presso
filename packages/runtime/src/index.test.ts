@@ -210,6 +210,8 @@ describe('runtime renderer', () => {
     expect(html).toContain('Frontmatter keys');
     expect(html).toContain('role="tablist"');
     expect(html).toContain('data-edit-tab="body"');
+    expect(html).toContain('data-edit-tab="layout"');
+    expect(html).toContain('data-edit-layout-option="two-column"');
     expect(config.editing).toEqual({
       enabled: true,
       slideEndpoint: '/edit/slide'
