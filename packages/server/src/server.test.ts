@@ -127,6 +127,58 @@ describe('dev server slide editing', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({ error: expect.stringContaining('folder decks only') });
   });
+
+  it('creates folder slides through the dev edit endpoint', async () => {
+    const root = await createFolderDeck();
+    const server = await startTestServer(root);
+
+    const created = await postJson(server, '/edit/slides', { afterIndex: 0 });
+
+    expect(created).toMatchObject({
+      index: 1,
+      id: 'untitled-002',
+      sourcePath: 'slides/002-untitled.md',
+      bodyMarkdown: '## Untitled',
+      notesMarkdown: 'Add speaker notes here.'
+    });
+    expect(created.metadataYaml).toContain('layout: statement');
+    expect(await fs.readFile(path.join(root, 'slides/002-untitled.md'), 'utf8')).toContain('id: untitled-002');
+    expect(await getJson(server, '/state')).toMatchObject({ index: 1 });
+  });
+
+  it('returns actionable JSON errors for invalid create requests', async () => {
+    const root = await createFolderDeck();
+    const server = await startTestServer(root);
+
+    const invalidPayload = await fetch(`${server.origin}/edit/slides`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ afterIndex: 'nope' })
+    });
+    expect(invalidPayload.status).toBe(400);
+    expect(await invalidPayload.json()).toMatchObject({ error: expect.stringContaining('afterIndex') });
+
+    const invalidIndex = await fetch(`${server.origin}/edit/slides`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ afterIndex: 99 })
+    });
+    expect(invalidIndex.status).toBe(400);
+    expect(await invalidIndex.json()).toMatchObject({ error: expect.stringContaining('Slide index 99 does not exist') });
+  });
+
+  it('rejects single-file decks for local slide creation', async () => {
+    const root = await createSingleFileDeck();
+    const server = await startTestServer(root);
+
+    const response = await fetch(`${server.origin}/edit/slides`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ afterIndex: 0 })
+    });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toMatchObject({ error: expect.stringContaining('folder decks only') });
+  });
 });
 
 async function startTestServer(root: string): Promise<DevServer> {
@@ -144,6 +196,16 @@ async function getJson(server: DevServer, route: string): Promise<Record<string,
 async function putJson(server: DevServer, route: string, body: unknown): Promise<Record<string, string>> {
   const response = await fetch(`${server.origin}${route}`, {
     method: 'PUT',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  expect(response.ok).toBe(true);
+  return await response.json() as Record<string, string>;
+}
+
+async function postJson(server: DevServer, route: string, body: unknown): Promise<Record<string, string>> {
+  const response = await fetch(`${server.origin}${route}`, {
+    method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body)
   });

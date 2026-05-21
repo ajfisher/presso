@@ -212,6 +212,7 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-edit-tab="body"');
     expect(html).toContain('data-edit-tab="layout"');
     expect(html).toContain('data-edit-layout-option="two-column"');
+    expect(html).toContain('data-action="edit-new-slide"');
     expect(config.editing).toEqual({
       enabled: true,
       slideEndpoint: '/edit/slide'
@@ -223,6 +224,7 @@ describe('runtime renderer', () => {
     const staticHtml = renderPage(deck, 'deck', { public: true });
     expect(staticHtml).not.toContain('data-edit-overlay');
     expect(staticHtml).not.toContain('/edit/slide');
+    expect(staticHtml).not.toContain('/edit/slides');
     expect(runtimeConfig(staticHtml).editing).toEqual({
       enabled: false
     });

@@ -5,7 +5,7 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, pathExists, readFolderSlideSource, writeFolderSlideSource, type EditableSlideInput } from '@ajfisher/presso-core';
+import { compileDeck, createFolderSlideSource, pathExists, readFolderSlideSource, writeFolderSlideSource, type CreateFolderSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
@@ -54,6 +54,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   let clientId = 0;
   const clients = new Map<number, Client>();
   let controlUrlCache: { expiresAt: number; urls: string[] } | undefined;
+  let suppressReloadUntil = 0;
 
   const controlUrls = async (): Promise<string[]> => {
     if (controlUrlCache && Date.now() < controlUrlCache.expiresAt) return controlUrlCache.urls;
@@ -68,6 +69,17 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      if (url.pathname === '/edit/slides') {
+        suppressReloadUntil = Date.now() + 500;
+        await handleCreateSlide(cwd, req, res, (slideIndex) => {
+          currentIndex = slideIndex;
+          broadcast(clients, 'state', { fullscreen: currentFullscreen, index: currentIndex });
+        }, () => {
+          suppressReloadUntil = 0;
+          broadcast(clients, 'reload', {});
+        });
+        return;
+      }
       if (url.pathname === '/edit/slide') {
         await handleEditSlide(cwd, req, res, url);
         return;
@@ -152,6 +164,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
   const watcher = watch(cwd, { recursive: true }, (_event, fileName) => {
     if (fileName && String(fileName).includes('node_modules')) return;
+    if (Date.now() < suppressReloadUntil) return;
     broadcast(clients, 'reload', {});
   });
 
@@ -208,6 +221,28 @@ function sendHtml(res: ServerResponse, html: string): void {
   res.end(html);
 }
 
+async function handleCreateSlide(
+  cwd: string,
+  req: http.IncomingMessage,
+  res: ServerResponse,
+  onCreated: (index: number) => void,
+  afterResponse: () => void
+): Promise<void> {
+  try {
+    if (req.method !== 'POST') {
+      sendJson(res, { error: 'Create slide endpoint supports POST only.' }, 405);
+      return;
+    }
+    const input = parseCreateSlideInput(parseJsonObject(await readBody(req)));
+    const created = await createFolderSlideSource(cwd, input);
+    onCreated(created.index);
+    sendJson(res, created);
+    setTimeout(afterResponse, 50);
+  } catch (error) {
+    sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
+  }
+}
+
 async function handleEditSlide(cwd: string, req: http.IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   try {
     const index = parseSlideIndex(url);
@@ -234,6 +269,14 @@ function parseSlideIndex(url: URL): number {
     throw new Error('A valid non-negative slide index is required.');
   }
   return index;
+}
+
+function parseCreateSlideInput(value: Record<string, unknown>): CreateFolderSlideOptions {
+  if (value.afterIndex === undefined || value.afterIndex === null) return {};
+  if (typeof value.afterIndex !== 'number' || !Number.isInteger(value.afterIndex) || value.afterIndex < 0) {
+    throw new Error('Create slide payload requires afterIndex to be a non-negative integer when provided.');
+  }
+  return { afterIndex: value.afterIndex };
 }
 
 function parseEditInput(value: Record<string, unknown>): EditableSlideInput {

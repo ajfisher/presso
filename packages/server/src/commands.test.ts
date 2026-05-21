@@ -19,5 +19,17 @@ describe('CLI command helpers', () => {
     const result = JSON.parse(await orderCheck(dir));
     expect(result).toEqual({ missing: [], duplicate: [], orphaned: [] });
   });
-});
 
+  it('adds new slides to existing order files', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-order-add-'));
+    await createDeck(dir);
+    await orderInit(dir);
+
+    const newSlide = await addSlide(dir);
+
+    expect(path.basename(newSlide)).toBe('004-untitled.md');
+    expect(await fs.readFile(path.join(dir, 'slides.order'), 'utf8')).toContain('slides/004-untitled.md');
+    const result = JSON.parse(await orderCheck(dir));
+    expect(result).toEqual({ missing: [], duplicate: [], orphaned: [] });
+  });
+});

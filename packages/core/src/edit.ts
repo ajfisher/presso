@@ -2,6 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
 import { compileDeck } from './deck.js';
+import { listMarkdownFiles, pathExists, toPosixPath } from './fs.js';
 import { extractNotes } from './markdown.js';
 import type { Slide } from './types.js';
 
@@ -19,6 +20,10 @@ export interface EditableSlideInput {
   metadataYaml: string;
   bodyMarkdown: string;
   notesMarkdown: string;
+}
+
+export interface CreateFolderSlideOptions {
+  afterIndex?: number;
 }
 
 export async function readFolderSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
@@ -47,6 +52,46 @@ export async function writeFolderSlideSource(cwd = process.cwd(), index: number,
   return readFolderSlideSource(cwd, index);
 }
 
+export async function createFolderSlideSource(cwd = process.cwd(), options: CreateFolderSlideOptions = {}): Promise<EditableSlideSource> {
+  const deck = await compileDeck(cwd);
+  if (deck.config.source.type !== 'folder') {
+    throw new Error('Local slide creation currently supports folder decks only.');
+  }
+  if (options.afterIndex !== undefined && (!Number.isInteger(options.afterIndex) || options.afterIndex < 0)) {
+    throw new Error('A valid non-negative slide index is required.');
+  }
+  const activeSlide = options.afterIndex === undefined ? undefined : deck.slides[options.afterIndex];
+  if (options.afterIndex !== undefined && !activeSlide) {
+    throw new Error(`Slide index ${options.afterIndex} does not exist.`);
+  }
+
+  const root = path.resolve(deck.config.rootDir);
+  const slideDir = path.resolve(root, deck.config.source.path);
+  if (!isInside(root, slideDir)) {
+    throw new Error(`Slide source folder is outside the deck root: ${deck.config.source.path}`);
+  }
+  await fs.mkdir(slideDir, { recursive: true });
+
+  const files = await listMarkdownFiles(slideDir).catch(() => []);
+  const next = await nextNumericSlidePrefix(slideDir, files);
+  const filePath = path.join(slideDir, `${next}-untitled.md`);
+  const sourcePath = toPosixPath(path.relative(root, filePath));
+  await fs.writeFile(filePath, newSlideContent(next), 'utf8');
+
+  const orderPath = path.join(root, 'slides.order');
+  if (await pathExists(orderPath)) {
+    const order = await fs.readFile(orderPath, 'utf8');
+    await fs.writeFile(orderPath, insertOrderEntry(order, root, activeSlide?.sourcePath, sourcePath), 'utf8');
+  }
+
+  const updated = await compileDeck(cwd);
+  const created = updated.slides.find((slide) => slide.sourcePath === sourcePath);
+  if (!created) {
+    throw new Error(`Created slide was not found in the compiled deck: ${sourcePath}`);
+  }
+  return readFolderSlideSource(cwd, created.index);
+}
+
 async function resolveFolderSlide(cwd: string, index: number): Promise<{ slide: Slide; filePath: string }> {
   const deck = await compileDeck(cwd);
   if (deck.config.source.type !== 'folder') {
@@ -64,6 +109,49 @@ async function resolveFolderSlide(cwd: string, index: number): Promise<{ slide: 
   }
 
   return { slide, filePath };
+}
+
+async function nextNumericSlidePrefix(slideDir: string, files: string[]): Promise<string> {
+  let nextNumber = files.reduce((highest, file) => {
+    const match = path.basename(file).match(/^(\d+)/);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0) + 1;
+  let next = String(nextNumber).padStart(3, '0');
+  while (await pathExists(path.join(slideDir, `${next}-untitled.md`))) {
+    nextNumber += 1;
+    next = String(nextNumber).padStart(3, '0');
+  }
+  return next;
+}
+
+function newSlideContent(prefix: string): string {
+  return `---
+id: untitled-${prefix}
+layout: statement
+---
+
+## Untitled
+
+:::notes
+Add speaker notes here.
+:::
+`;
+}
+
+function insertOrderEntry(content: string, root: string, afterSourcePath: string | undefined, newSourcePath: string): string {
+  const lines = content.split(/\r?\n/);
+  if (lines.at(-1) === '') lines.pop();
+  const insertAt = afterSourcePath ? findOrderLineIndex(lines, root, afterSourcePath) : -1;
+  lines.splice(insertAt >= 0 ? insertAt + 1 : lines.length, 0, newSourcePath);
+  return `${lines.join('\n')}\n`;
+}
+
+function findOrderLineIndex(lines: string[], root: string, sourcePath: string): number {
+  const resolvedSource = path.resolve(root, sourcePath);
+  return lines.findIndex((line) => {
+    const clean = line.trim();
+    return clean !== '' && !clean.startsWith('#') && path.resolve(root, clean) === resolvedSource;
+  });
 }
 
 function metadataToYaml(metadata: Record<string, unknown>): string {

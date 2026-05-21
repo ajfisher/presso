@@ -1,22 +1,13 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { compileDeck, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@ajfisher/presso-core';
+import { compileDeck, createFolderSlideSource, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@ajfisher/presso-core';
 import { buildStatic, exportPdf, exportPdfs, exportTranscript } from '@ajfisher/presso-export';
 import { createDeck } from '@ajfisher/presso-create';
 
 export async function addSlide(cwd = process.cwd()): Promise<string> {
-  const slideDir = path.join(cwd, 'slides');
-  await fs.mkdir(slideDir, { recursive: true });
-  const files = await listMarkdownFiles(slideDir).catch(() => []);
-  const max = files.reduce((highest, file) => {
-    const match = path.basename(file).match(/^(\d+)/);
-    return match ? Math.max(highest, Number(match[1])) : highest;
-  }, 0);
-  const next = String(max + 1).padStart(3, '0');
-  const filePath = path.join(slideDir, `${next}-untitled.md`);
-  await fs.writeFile(filePath, `---\nid: untitled-${next}\nlayout: statement\n---\n\n## Untitled\n\n:::notes\nAdd speaker notes here.\n:::\n`);
-  return filePath;
+  const source = await createFolderSlideSource(cwd);
+  return path.join(cwd, source.sourcePath);
 }
 
 export async function orderInit(cwd = process.cwd()): Promise<string> {

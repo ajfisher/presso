@@ -21,6 +21,7 @@
   const teleprompterEnabledKey = 'presso:teleprompter-enabled';
   const teleprompterPausedKey = 'presso:teleprompter-paused';
   const teleprompterWpmKey = 'presso:teleprompter-wpm';
+  const editPendingOpenKey = 'presso:edit-open-index';
   const teleprompterDefaultWpm = 160;
   const teleprompterMinWpm = 80;
   const teleprompterMaxWpm = 220;
@@ -49,6 +50,7 @@
   let editInitialValues = null;
   let editReturnFocus = null;
   let editSaving = false;
+  let editCreating = false;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -203,7 +205,7 @@
   }
 
   async function openSlideEditor() {
-    if (!canEditSlides || editSaving) return;
+    if (!canEditSlides || editSaving || editCreating) return;
     const overlay = editOverlay();
     if (!overlay) return;
     editReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -234,7 +236,7 @@
   }
 
   function closeSlideEditor(force = false) {
-    if (editSaving && !force) return;
+    if ((editSaving || editCreating) && !force) return;
     if (!force && editHasChanges() && !window.confirm('Discard unsaved slide edits?')) return;
     const overlay = editOverlay();
     if (overlay) overlay.hidden = true;
@@ -248,7 +250,7 @@
   }
 
   async function saveSlideEditor() {
-    if (!canEditSlides || editSaving || editCurrentIndex === null) return;
+    if (!canEditSlides || editSaving || editCreating || editCurrentIndex === null) return;
     setEditSaving(true);
     setEditError('');
     try {
@@ -271,10 +273,40 @@
     }
   }
 
+  async function createSlideFromEditor() {
+    if (!canEditSlides || editSaving || editCreating) return;
+    if (editHasChanges() && !window.confirm('Create a new slide and discard unsaved edits?')) return;
+    setEditCreating(true);
+    setEditError('');
+    try {
+      const response = await fetch(editSlidesUrl(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ afterIndex: index })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide could not be created.');
+      const createdIndex = Number(data.index);
+      if (Number.isFinite(createdIndex)) {
+        sessionStorage.setItem(editPendingOpenKey, String(createdIndex));
+        history.replaceState(null, '', '#/' + createdIndex);
+      }
+      location.reload();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+      setEditCreating(false);
+    }
+  }
+
   function editSlideUrl(slideIndex) {
     const url = new URL(editing.slideEndpoint, location.href);
     url.searchParams.set('index', String(slideIndex));
     return url;
+  }
+
+  function editSlidesUrl() {
+    const endpoint = String(editing.slideEndpoint || '').replace(/\/slide$/, '/slides');
+    return new URL(endpoint, location.href);
   }
 
   function editOverlay() {
@@ -492,9 +524,22 @@
 
   function setEditSaving(saving) {
     editSaving = saving;
+    refreshEditActionStates();
+  }
+
+  function setEditCreating(creating) {
+    editCreating = creating;
+    refreshEditActionStates();
+  }
+
+  function refreshEditActionStates() {
     document.querySelectorAll('[data-edit-save]').forEach((button) => {
-      button.disabled = saving;
-      setControlLabel(button, saving ? 'Saving...' : 'Save');
+      button.disabled = editSaving || editCreating;
+      setControlLabel(button, editSaving ? 'Saving...' : 'Save');
+    });
+    document.querySelectorAll('[data-edit-new-slide]').forEach((button) => {
+      button.disabled = editSaving || editCreating;
+      setControlLabel(button, editCreating ? 'Creating...' : 'New slide');
     });
   }
 
@@ -940,6 +985,16 @@
     }
   }
 
+  function openPendingSlideEditor() {
+    if (!canEditSlides) return;
+    const raw = sessionStorage.getItem(editPendingOpenKey);
+    if (raw === null) return;
+    sessionStorage.removeItem(editPendingOpenKey);
+    const pendingIndex = Number(raw);
+    if (Number.isFinite(pendingIndex)) setIndex(pendingIndex, 'init');
+    window.setTimeout(() => openSlideEditor(), 0);
+  }
+
   document.addEventListener('keydown', (event) => {
     if (isEditOpen()) {
       if (trapEditFocus(event)) return;
@@ -1088,6 +1143,7 @@
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
     if (action === 'shortcuts-close') toggleShortcuts(false);
+    if (action === 'edit-new-slide') createSlideFromEditor();
     if (action === 'edit-cancel') closeSlideEditor();
     if (action === 'edit-help') {
       setEditTab('metadata', false);
@@ -1144,6 +1200,7 @@
   });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   if (canNavigateSlides) setIndex(index, 'init');
+  openPendingSlideEditor();
   updateFullscreenViews();
   updateTeleprompterViews();
   handleWakeLockUnavailable();

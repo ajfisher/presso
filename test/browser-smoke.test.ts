@@ -69,6 +69,7 @@ browserDescribe('browser smoke', () => {
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
       expect(await page.locator('[data-edit-overlay]').count()).toBe(0);
       expect(await page.content()).not.toContain('/edit/slide');
+      expect(await page.content()).not.toContain('/edit/slides');
       await page.mouse.move(24, 24);
       await expectPresentationControlsVisible(page);
       await page.waitForTimeout(2200);
@@ -256,6 +257,15 @@ browserDescribe('browser smoke', () => {
       await page.locator('[data-edit-save]').click();
       await expectText(page, '[data-edit-error]', 'Invalid slide metadata');
       expect(await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8')).toBe(originalFile);
+      let dismissedCreate = false;
+      page.once('dialog', async (dialog) => {
+        expect(dialog.message()).toContain('discard unsaved edits');
+        dismissedCreate = true;
+        await dialog.dismiss();
+      });
+      await page.locator('[data-action="edit-new-slide"]').click();
+      expect(dismissedCreate).toBe(true);
+      expect(existsSync(path.join(deck, 'slides/003-untitled.md'))).toBe(false);
 
       await page.locator('[data-edit-metadata]').fill('id: original\nlayout: statement\ncustom: retained');
       await page.locator('[data-edit-tab="layout"]').click();
@@ -283,8 +293,28 @@ browserDescribe('browser smoke', () => {
       expect(updatedFile).toContain('Edited note one\nEdited **note two**.');
       expect(await fs.readFile(path.join(deck, 'slides/002-untouched.md'), 'utf8')).toContain('Untouched slide');
 
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await page.locator('[data-action="edit-new-slide"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-edit-source]')?.textContent?.includes('slides/003-untitled.md'));
+      await expectActiveSlide(page, 2);
+      await expectFieldValue(page, '[data-edit-body]', '## Untitled');
+      await page.locator('[data-edit-body]').fill('## Created slide\n\nCreated body line.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Add speaker notes here.');
+      await page.locator('[data-edit-notes]').fill('Created notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Created slide');
+      await expectText(page, '.presso-slide.is-active', 'Created body line');
+
+      const createdFile = await fs.readFile(path.join(deck, 'slides/003-untitled.md'), 'utf8');
+      expect(createdFile).toContain('id: untitled-003');
+      expect(createdFile).toContain('layout: statement');
+      expect(createdFile).toContain('## Created slide');
+      expect(createdFile).toContain('Created notes.');
+
       await page.goto(`${devServer.origin}/presenter`, { waitUntil: 'domcontentloaded' });
-      await expectText(page, '[data-current-notes]', 'Edited note one');
+      await expectText(page, '[data-current-notes]', 'Created notes.');
     } finally {
       await browser?.close();
       await devServer.close();

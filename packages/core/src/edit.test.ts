@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { compileDeck, readFolderSlideSource, writeFolderSlideSource } from './index.js';
+import { compileDeck, createFolderSlideSource, readFolderSlideSource, writeFolderSlideSource } from './index.js';
 
 const tmpRoots: string[] = [];
 
@@ -102,6 +102,89 @@ describe('folder slide editing', () => {
     await fs.writeFile(path.join(root, 'slides.md'), '::slide\n---\nid: one\n---\n# One\n');
 
     await expect(readFolderSlideSource(root, 0)).rejects.toThrow('folder decks only');
+  });
+
+  it('creates the next numeric slide in folder decks', async () => {
+    const root = await createFolderDeck();
+
+    const source = await createFolderSlideSource(root, { afterIndex: 1 });
+
+    expect(source).toMatchObject({
+      index: 2,
+      id: 'untitled-003',
+      sourcePath: 'slides/003-untitled.md',
+      title: 'Untitled',
+      bodyMarkdown: '## Untitled',
+      notesMarkdown: 'Add speaker notes here.'
+    });
+    expect(source.metadataYaml).toContain('layout: statement');
+    expect(await fs.readFile(path.join(root, 'slides/003-untitled.md'), 'utf8')).toContain('id: untitled-003');
+    expect((await compileDeck(root)).slides.map((slide) => slide.sourcePath)).toEqual([
+      'slides/001-intro.md',
+      'slides/002-detail.md',
+      'slides/003-untitled.md'
+    ]);
+  });
+
+  it('creates slides inside a custom folder source path', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-custom-source-'));
+    tmpRoots.push(root);
+    await fs.mkdir(path.join(root, 'talk-slides'), { recursive: true });
+    await fs.writeFile(path.join(root, 'presso.config.mjs'), 'export default { source: { type: "folder", path: "./talk-slides" } };\n');
+    await fs.writeFile(path.join(root, 'talk-slides/010-existing.md'), '---\nid: existing\n---\n# Existing\n');
+
+    const source = await createFolderSlideSource(root);
+
+    expect(source.sourcePath).toBe('talk-slides/011-untitled.md');
+    expect(await fs.readFile(path.join(root, 'talk-slides/011-untitled.md'), 'utf8')).toContain('## Untitled');
+  });
+
+  it('inserts created slides into slides.order after the active slide', async () => {
+    const root = await createFolderDeck();
+    await fs.writeFile(path.join(root, 'slides.order'), [
+      '# intro comment',
+      'slides/001-intro.md',
+      '',
+      'slides/002-detail.md',
+      ''
+    ].join('\n'));
+
+    const source = await createFolderSlideSource(root, { afterIndex: 0 });
+
+    expect(source.index).toBe(1);
+    expect(source.sourcePath).toBe('slides/003-untitled.md');
+    expect(await fs.readFile(path.join(root, 'slides.order'), 'utf8')).toBe([
+      '# intro comment',
+      'slides/001-intro.md',
+      'slides/003-untitled.md',
+      '',
+      'slides/002-detail.md',
+      ''
+    ].join('\n'));
+    expect((await compileDeck(root)).slides.map((slide) => slide.sourcePath)).toEqual([
+      'slides/001-intro.md',
+      'slides/003-untitled.md',
+      'slides/002-detail.md'
+    ]);
+  });
+
+  it('appends created slides to slides.order when no active slide is provided', async () => {
+    const root = await createFolderDeck();
+    await fs.writeFile(path.join(root, 'slides.order'), '# ordered slides\nslides/001-intro.md\nslides/002-detail.md\n');
+
+    const source = await createFolderSlideSource(root);
+
+    expect(source.index).toBe(2);
+    expect(await fs.readFile(path.join(root, 'slides.order'), 'utf8')).toBe('# ordered slides\nslides/001-intro.md\nslides/002-detail.md\nslides/003-untitled.md\n');
+  });
+
+  it('rejects single-file decks for slide creation', async () => {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-create-file-'));
+    tmpRoots.push(root);
+    await fs.writeFile(path.join(root, 'presso.config.mjs'), 'export default { source: { type: "file", path: "./slides.md" } };\n');
+    await fs.writeFile(path.join(root, 'slides.md'), '::slide\n---\nid: one\n---\n# One\n');
+
+    await expect(createFolderSlideSource(root)).rejects.toThrow('folder decks only');
   });
 });
 
