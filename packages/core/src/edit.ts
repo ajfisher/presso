@@ -33,8 +33,8 @@ export async function readFolderSlideSource(cwd = process.cwd(), index: number):
     title: slide.title,
     sourcePath: slide.sourcePath,
     metadataYaml: metadataToYaml(parsed.data as Record<string, unknown>),
-    bodyMarkdown: markdown.bodyMarkdown.trim(),
-    notesMarkdown: markdown.notesMarkdown.trim()
+    bodyMarkdown: editableMarkdown(markdown.bodyMarkdown),
+    notesMarkdown: editableMarkdown(markdown.notesMarkdown)
   };
 }
 
@@ -91,10 +91,22 @@ function parseMetadataYaml(metadataYaml: string): Record<string, unknown> {
 }
 
 function composeSlideMarkdown(bodyMarkdown: string, notesMarkdown: string): string {
-  const body = bodyMarkdown.trimEnd();
-  const notes = notesMarkdown.trim();
-  if (!notes) return body;
+  const body = trimTrailingBlankLines(bodyMarkdown);
+  const notes = trimBoundaryBlankLines(notesMarkdown);
+  if (!notes.trim()) return body;
   return [body, `:::notes\n${notes}\n:::`].filter(Boolean).join('\n\n');
+}
+
+function editableMarkdown(value: string): string {
+  return trimBoundaryBlankLines(value);
+}
+
+function trimBoundaryBlankLines(value: string): string {
+  return trimTrailingBlankLines(value.replace(/^\r?\n/, ''));
+}
+
+function trimTrailingBlankLines(value: string): string {
+  return value.replace(/(?:\r?\n)+$/, '');
 }
 
 function ensureTrailingNewline(value: string): string {

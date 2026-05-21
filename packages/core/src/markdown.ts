@@ -6,7 +6,7 @@ const CONTAINER_DIRECTIVE_RE = /^:::(columns|logos|quote-image|fragment)\s*\n([\
 
 marked.use({
   gfm: true,
-  breaks: false
+  breaks: true
 });
 
 export interface RenderedMarkdown {
@@ -40,7 +40,7 @@ export function extractNotes(markdown: string): { bodyMarkdown: string; notesMar
     return { bodyMarkdown: markdown, notesMarkdown: '' };
   }
   const notesMarkdown = match[1] ?? '';
-  const bodyMarkdown = markdown.replace(match[0], '').trim();
+  const bodyMarkdown = markdown.replace(match[0], '');
   return { bodyMarkdown, notesMarkdown };
 }
 

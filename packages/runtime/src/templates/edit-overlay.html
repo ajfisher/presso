@@ -8,18 +8,33 @@
         </div>
         <button data-action="edit-cancel" type="button" aria-label="Close editor">Close</button>
       </header>
-      <label>
-        <span>Metadata</span>
-        <textarea data-edit-metadata spellcheck="false"></textarea>
-      </label>
-      <label>
-        <span>Body</span>
-        <textarea data-edit-body spellcheck="false"></textarea>
-      </label>
-      <label>
-        <span>Notes</span>
-        <textarea data-edit-notes spellcheck="false"></textarea>
-      </label>
+      <div data-edit-field="metadata">
+        <label for="presso-edit-metadata">Metadata</label>
+        <textarea id="presso-edit-metadata" data-edit-metadata spellcheck="false"></textarea>
+        <details data-edit-cheatsheet>
+          <summary>Frontmatter keys</summary>
+          <dl>
+            <dt>id</dt><dd>Stable slide identifier</dd>
+            <dt>title</dt><dd>Presenter and transcript title</dd>
+            <dt>layout</dt><dd>title, section, statement, bullets, image, image-title, two-column, quote-image, logos, code, demo, blank</dd>
+            <dt>class</dt><dd>Extra slide classes</dd>
+            <dt>background</dt><dd>Slide background asset</dd>
+            <dt>backgroundFit</dt><dd>cover, contain, tile, or a theme value</dd>
+            <dt>time</dt><dd>Timing marker, for example "6:00"</dd>
+            <dt>transcript</dt><dd>false omits the slide</dd>
+            <dt>transcriptVisual</dt><dd>Image path, true, or false</dd>
+            <dt>transcriptBody</dt><dd>true, false, or statement</dd>
+          </dl>
+        </details>
+      </div>
+      <div data-edit-field="body">
+        <label for="presso-edit-body">Body</label>
+        <textarea id="presso-edit-body" data-edit-body spellcheck="false"></textarea>
+      </div>
+      <div data-edit-field="notes">
+        <label for="presso-edit-notes">Notes</label>
+        <textarea id="presso-edit-notes" data-edit-notes spellcheck="false"></textarea>
+      </div>
       <p data-edit-error role="alert" hidden></p>
       <footer>
         <button data-action="edit-cancel" type="button">Cancel</button>

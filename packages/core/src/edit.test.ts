@@ -47,6 +47,25 @@ describe('folder slide editing', () => {
     expect(deck.slides[0]!.notesMarkdown).toBe('Changed notes.');
   });
 
+  it('preserves internal body and notes line breaks through writeback', async () => {
+    const root = await createFolderDeck();
+    const metadata = (await readFolderSlideSource(root, 0)).metadataYaml;
+
+    await writeFolderSlideSource(root, 0, {
+      metadataYaml: metadata,
+      bodyMarkdown: 'Line one\nLine two\n\nLine four',
+      notesMarkdown: 'Note one\nNote two\n\nNote four'
+    });
+
+    const source = await readFolderSlideSource(root, 0);
+    expect(source.bodyMarkdown).toBe('Line one\nLine two\n\nLine four');
+    expect(source.notesMarkdown).toBe('Note one\nNote two\n\nNote four');
+
+    const file = await fs.readFile(path.join(root, 'slides/001-intro.md'), 'utf8');
+    expect(file).toContain('Line one\nLine two\n\nLine four');
+    expect(file).toContain('Note one\nNote two\n\nNote four');
+  });
+
   it('can remove notes without leaving an empty notes block', async () => {
     const root = await createFolderDeck();
     const source = await readFolderSlideSource(root, 0);

@@ -252,20 +252,22 @@ browserDescribe('browser smoke', () => {
       expect(await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8')).toBe(originalFile);
 
       await page.locator('[data-edit-metadata]').fill('id: original\nlayout: statement\ncustom: retained');
-      await page.locator('[data-edit-body]').fill('## Edited heading\n\nUpdated body.');
-      await page.locator('[data-edit-notes]').fill('Edited **notes**.');
+      await page.locator('[data-edit-body]').fill('## Edited heading\n\nUpdated line one\nUpdated line two.');
+      await page.locator('[data-edit-notes]').fill('Edited note one\nEdited **note two**.');
       await page.locator('[data-edit-save]').click();
       await expectText(page, '.presso-slide.is-active', 'Edited heading');
-      await expectText(page, '.presso-slide.is-active', 'Updated body.');
+      await expectText(page, '.presso-slide.is-active', 'Updated line one');
+      expect(await page.locator('.presso-slide.is-active p').first().innerHTML()).toContain('<br>');
 
       const updatedFile = await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8');
       expect(updatedFile).toContain('custom: retained');
       expect(updatedFile).toContain('## Edited heading');
-      expect(updatedFile).toContain('Edited **notes**.');
+      expect(updatedFile).toContain('Updated line one\nUpdated line two.');
+      expect(updatedFile).toContain('Edited note one\nEdited **note two**.');
       expect(await fs.readFile(path.join(deck, 'slides/002-untouched.md'), 'utf8')).toContain('Untouched slide');
 
       await page.goto(`${devServer.origin}/presenter`, { waitUntil: 'domcontentloaded' });
-      await expectText(page, '[data-current-notes]', 'Edited notes.');
+      await expectText(page, '[data-current-notes]', 'Edited note one');
     } finally {
       await browser?.close();
       await devServer.close();
