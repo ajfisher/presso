@@ -242,8 +242,14 @@ browserDescribe('browser smoke', () => {
       await page.locator('.presso-slide.is-active').dblclick();
       await page.waitForSelector('[data-edit-overlay]:not([hidden])');
       await expectText(page, '[data-edit-source]', 'slides/001-original.md');
+      expect(await page.locator('[data-edit-tab="body"]').getAttribute('aria-selected')).toBe('true');
       await expectFieldValue(page, '[data-edit-body]', '# Original slide');
+      await page.locator('[data-edit-tab="notes"]').click();
       await expectFieldValue(page, '[data-edit-notes]', 'Original notes.');
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await page.locator('[data-action="edit-help"]').click();
+      await expectText(page, '[data-edit-help]', 'backgroundFit');
+      await page.locator('[data-action="edit-help-close"]').click();
 
       const originalFile = await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8');
       await page.locator('[data-edit-metadata]').fill('id: [');
@@ -252,7 +258,9 @@ browserDescribe('browser smoke', () => {
       expect(await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8')).toBe(originalFile);
 
       await page.locator('[data-edit-metadata]').fill('id: original\nlayout: statement\ncustom: retained');
+      await page.locator('[data-edit-tab="body"]').click();
       await page.locator('[data-edit-body]').fill('## Edited heading\n\nUpdated line one\nUpdated line two.');
+      await page.locator('[data-edit-tab="notes"]').click();
       await page.locator('[data-edit-notes]').fill('Edited note one\nEdited **note two**.');
       await page.locator('[data-edit-save]').click();
       await expectText(page, '.presso-slide.is-active', 'Edited heading');

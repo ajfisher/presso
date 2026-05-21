@@ -45,6 +45,8 @@
   let teleprompterEndScroll = 0;
   let teleprompterDurationMs = 0;
   let editCurrentIndex = null;
+  let editInitialValues = null;
+  let editReturnFocus = null;
   let editSaving = false;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
@@ -203,7 +205,10 @@
     if (!canEditSlides || editSaving) return;
     const overlay = editOverlay();
     if (!overlay) return;
+    editReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setEditError('');
+    setEditHelp(false);
+    setEditTab('body', false);
     overlay.hidden = false;
     document.body.dataset.editing = 'true';
     setEditSaving(true);
@@ -215,9 +220,10 @@
       setEditValue('[data-edit-metadata]', data.metadataYaml || '');
       setEditValue('[data-edit-body]', data.bodyMarkdown || '');
       setEditValue('[data-edit-notes]', data.notesMarkdown || '');
+      captureEditInitialValues();
       const source = overlay.querySelector('[data-edit-source]');
       if (source) source.textContent = `${data.sourcePath || 'Slide source'} - slide ${editCurrentIndex + 1}`;
-      overlay.querySelector('[data-edit-body]')?.focus();
+      focusEditTabField('body');
     } catch (error) {
       setEditError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -227,11 +233,16 @@
 
   function closeSlideEditor(force = false) {
     if (editSaving && !force) return;
+    if (!force && editHasChanges() && !window.confirm('Discard unsaved slide edits?')) return;
     const overlay = editOverlay();
     if (overlay) overlay.hidden = true;
     delete document.body.dataset.editing;
     editCurrentIndex = null;
+    editInitialValues = null;
+    setEditHelp(false);
     setEditError('');
+    editReturnFocus?.focus();
+    editReturnFocus = null;
   }
 
   async function saveSlideEditor() {
@@ -277,6 +288,90 @@
   function setEditValue(selector, value) {
     const field = document.querySelector(selector);
     if (field instanceof HTMLTextAreaElement) field.value = String(value);
+  }
+
+  function editValues() {
+    return {
+      metadataYaml: editValue('[data-edit-metadata]'),
+      bodyMarkdown: editValue('[data-edit-body]'),
+      notesMarkdown: editValue('[data-edit-notes]')
+    };
+  }
+
+  function captureEditInitialValues() {
+    editInitialValues = editValues();
+  }
+
+  function editHasChanges() {
+    if (!editInitialValues) return false;
+    const current = editValues();
+    return current.metadataYaml !== editInitialValues.metadataYaml
+      || current.bodyMarkdown !== editInitialValues.bodyMarkdown
+      || current.notesMarkdown !== editInitialValues.notesMarkdown;
+  }
+
+  function setEditTab(name, focus = true) {
+    const overlay = editOverlay();
+    if (!overlay) return;
+    overlay.dataset.editActiveTab = name;
+    overlay.querySelectorAll('[data-edit-tab]').forEach((button) => {
+      const selected = button.dataset.editTab === name;
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+      button.tabIndex = selected ? 0 : -1;
+    });
+    overlay.querySelectorAll('[data-edit-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.editPanel !== name;
+    });
+    if (name !== 'metadata') setEditHelp(false);
+    if (focus) focusEditTabField(name);
+  }
+
+  function focusEditTabField(name) {
+    const field = document.querySelector(`[data-edit-${name}]`);
+    if (field instanceof HTMLTextAreaElement) field.focus();
+  }
+
+  function moveEditTab(delta) {
+    const tabs = [...document.querySelectorAll('[data-edit-tab]')];
+    if (!tabs.length) return;
+    const current = tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+    const next = (current + delta + tabs.length) % tabs.length;
+    const name = tabs[next]?.dataset.editTab;
+    if (name) setEditTab(name);
+  }
+
+  function setEditHelp(open) {
+    const help = document.querySelector('[data-edit-help]');
+    const button = document.querySelector('[data-action="edit-help"]');
+    if (help instanceof HTMLElement) help.hidden = !open;
+    if (button instanceof HTMLElement) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function isEditHelpOpen() {
+    const help = document.querySelector('[data-edit-help]');
+    return help instanceof HTMLElement && !help.hidden;
+  }
+
+  function trapEditFocus(event) {
+    if (event.key !== 'Tab') return false;
+    const overlay = editOverlay();
+    if (!overlay) return false;
+    const focusable = [...overlay.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => el instanceof HTMLElement && !el.disabled && !el.closest('[hidden]'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) return false;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
   }
 
   function setEditSaving(saving) {
@@ -731,8 +826,18 @@
 
   document.addEventListener('keydown', (event) => {
     if (isEditOpen()) {
+      if (trapEditFocus(event)) return;
+      if ((event.metaKey || event.ctrlKey) && ['1', '2', '3'].includes(event.key)) {
+        event.preventDefault();
+        setEditTab(['body', 'notes', 'metadata'][Number(event.key) - 1]);
+        return;
+      }
       if (event.key === 'Escape') {
         event.preventDefault();
+        if (isEditHelpOpen()) {
+          setEditHelp(false);
+          return;
+        }
         closeSlideEditor();
         return;
       }
@@ -741,6 +846,25 @@
         saveSlideEditor();
         return;
       }
+      if (event.target instanceof Element && event.target.closest('[data-edit-tab]')) {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          moveEditTab(1);
+        }
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          moveEditTab(-1);
+        }
+        if (event.key === 'Home') {
+          event.preventDefault();
+          setEditTab('body');
+        }
+        if (event.key === 'End') {
+          event.preventDefault();
+          setEditTab('metadata');
+        }
+      }
+      return;
     }
     if (isEditableTarget(event.target)) return;
     if (event.key === 'Home') {
@@ -826,6 +950,11 @@
     if (action === 'shortcuts') toggleShortcuts();
     if (action === 'shortcuts-close') toggleShortcuts(false);
     if (action === 'edit-cancel') closeSlideEditor();
+    if (action === 'edit-help') {
+      setEditTab('metadata', false);
+      setEditHelp(true);
+    }
+    if (action === 'edit-help-close') setEditHelp(false);
     if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
     if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
     if (action === 'timer-reset') resetPresenterTimer();
@@ -834,6 +963,11 @@
     if (action === 'teleprompter-slower') setTeleprompterWpm(teleprompterWpm - teleprompterStepWpm);
     if (action === 'teleprompter-faster') setTeleprompterWpm(teleprompterWpm + teleprompterStepWpm);
     if (action === 'teleprompter-reset') resetTeleprompterScroll();
+    const tab = target?.closest('[data-edit-tab]');
+    if (tab instanceof HTMLElement && tab.dataset.editTab) {
+      event.preventDefault();
+      setEditTab(tab.dataset.editTab);
+    }
   });
 
   document.addEventListener('dblclick', (event) => {

@@ -208,6 +208,8 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-edit-overlay');
     expect(html).toContain('data-edit-metadata');
     expect(html).toContain('Frontmatter keys');
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain('data-edit-tab="body"');
     expect(config.editing).toEqual({
       enabled: true,
       slideEndpoint: '/edit/slide'

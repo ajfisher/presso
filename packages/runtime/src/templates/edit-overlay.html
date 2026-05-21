@@ -6,13 +6,37 @@
           <p data-edit-source></p>
           <h2 id="presso-edit-title">Edit slide</h2>
         </div>
-        <button data-action="edit-cancel" type="button" aria-label="Close editor">Close</button>
+        <div data-edit-actions>
+          <button data-action="edit-cancel" type="button" aria-label="Close editor">Close</button>
+          <button data-edit-save type="submit">Save</button>
+        </div>
       </header>
-      <div data-edit-field="metadata">
-        <label for="presso-edit-metadata">Metadata</label>
-        <textarea id="presso-edit-metadata" data-edit-metadata spellcheck="false"></textarea>
-        <details data-edit-cheatsheet>
-          <summary>Frontmatter keys</summary>
+      <nav data-edit-tabs role="tablist" aria-label="Slide edit sections">
+        <button id="presso-edit-tab-body" data-edit-tab="body" type="button" role="tab" aria-controls="presso-edit-panel-body" aria-selected="true">Body</button>
+        <button id="presso-edit-tab-notes" data-edit-tab="notes" type="button" role="tab" aria-controls="presso-edit-panel-notes" aria-selected="false" tabindex="-1">Notes</button>
+        <button id="presso-edit-tab-metadata" data-edit-tab="metadata" type="button" role="tab" aria-controls="presso-edit-panel-metadata" aria-selected="false" tabindex="-1">Metadata</button>
+      </nav>
+      <div data-edit-panels>
+        <section id="presso-edit-panel-body" data-edit-panel="body" role="tabpanel" aria-labelledby="presso-edit-tab-body">
+          <label for="presso-edit-body">Body</label>
+          <textarea id="presso-edit-body" data-edit-body spellcheck="false"></textarea>
+        </section>
+        <section id="presso-edit-panel-notes" data-edit-panel="notes" role="tabpanel" aria-labelledby="presso-edit-tab-notes" hidden>
+          <label for="presso-edit-notes">Notes</label>
+          <textarea id="presso-edit-notes" data-edit-notes spellcheck="false"></textarea>
+        </section>
+        <section id="presso-edit-panel-metadata" data-edit-panel="metadata" role="tabpanel" aria-labelledby="presso-edit-tab-metadata" hidden>
+          <div data-edit-panel-header>
+            <label for="presso-edit-metadata">Metadata</label>
+            <button data-action="edit-help" type="button" aria-controls="presso-edit-help" aria-expanded="false">Frontmatter keys</button>
+          </div>
+          <textarea id="presso-edit-metadata" data-edit-metadata spellcheck="false"></textarea>
+        </section>
+        <aside id="presso-edit-help" data-edit-help hidden>
+          <header>
+            <h3>Frontmatter keys</h3>
+            <button data-action="edit-help-close" type="button">Close</button>
+          </header>
           <dl>
             <dt>id</dt><dd>Stable slide identifier</dd>
             <dt>title</dt><dd>Presenter and transcript title</dd>
@@ -25,20 +49,11 @@
             <dt>transcriptVisual</dt><dd>Image path, true, or false</dd>
             <dt>transcriptBody</dt><dd>true, false, or statement</dd>
           </dl>
-        </details>
+        </aside>
       </div>
-      <div data-edit-field="body">
-        <label for="presso-edit-body">Body</label>
-        <textarea id="presso-edit-body" data-edit-body spellcheck="false"></textarea>
-      </div>
-      <div data-edit-field="notes">
-        <label for="presso-edit-notes">Notes</label>
-        <textarea id="presso-edit-notes" data-edit-notes spellcheck="false"></textarea>
-      </div>
-      <p data-edit-error role="alert" hidden></p>
       <footer>
+        <p data-edit-error role="alert" hidden></p>
         <button data-action="edit-cancel" type="button">Cancel</button>
-        <button data-edit-save type="submit">Save</button>
       </footer>
     </form>
   </section>
