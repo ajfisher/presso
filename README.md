@@ -128,6 +128,12 @@ Optional fields are omitted when unset rather than emitted as empty strings. Sup
 
 `featureImage` is emitted exactly as configured so the consuming site can choose how to resolve or transform it. When `baseUrl` is configured, Presso normalises the trailing slash and derives `canonicalUrl`, `embedUrl`, `pdfUrl`, and `transcriptUrl`.
 
+## Public Deck Manifest
+
+`presso build` also writes `dist/deck.json` as a public manifest for static consumers. It is not the internal compiled deck model. The manifest includes deck metadata, note-publication policy, slide identity, layout, timing, background fields, and rendered `bodyHtml`.
+
+Source-oriented and local-only fields are intentionally omitted from `deck.json`, including `rootDir`, `sourcePath`, arbitrary slide frontmatter, Markdown source, and deployment config. `notesHtml` is included only when `notes.public` is `"toggle"` or `"visible"`.
+
 ## Public Notes
 
 `notes.public` controls whether speaker notes are emitted into public/static output:
