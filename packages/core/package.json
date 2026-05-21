@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-core",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Core config, Markdown parsing, and deck model for Presso.",
   "license": "MIT",
   "type": "module",

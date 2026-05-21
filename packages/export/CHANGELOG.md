@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.4](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.3...@ajfisher/presso-export-v0.1.4) (2026-05-21)
+
+
+### Bug Fixes
+
+* **export:** harden public deck manifest ([55283fe](https://github.com/ajfisher/presso/commit/55283fe82a0da258838b66ea125119b27cf90f84))
+* **export:** harden public deck manifest ([01f6eac](https://github.com/ajfisher/presso/commit/01f6eac9406621aa79966941c4f6c6375e84dde0))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.1.3 to ^0.1.4
+    * @ajfisher/presso-runtime bumped from ^0.1.3 to ^0.1.4
+
 ## [0.1.3](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.2...@ajfisher/presso-export-v0.1.3) (2026-05-21)
 
 
