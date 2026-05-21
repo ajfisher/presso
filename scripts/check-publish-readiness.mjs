@@ -92,7 +92,7 @@ function validateBin(id, dir, bin) {
   if (!bin) return;
   for (const [name, file] of Object.entries(bin)) {
     const target = path.join(dir, file);
-    if (!file.startsWith('./dist/')) errors.push(`${id}: bin ${name} must point at dist.`);
+    if (!pointsAtDist(file)) errors.push(`${id}: bin ${name} must point at dist.`);
     if (!fileExists(target)) errors.push(`${id}: built bin is missing: ${file}. Run npm run build first.`);
   }
 }
@@ -111,4 +111,8 @@ function validateDependencies(id, dependencies, version) {
 
 function fileExists(file) {
   return existsSync(file);
+}
+
+function pointsAtDist(file) {
+  return file.startsWith('./dist/') || file.startsWith('dist/');
 }

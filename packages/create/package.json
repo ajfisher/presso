@@ -11,7 +11,7 @@
     "access": "public"
   },
   "bin": {
-    "presso-create": "./dist/cli.js"
+    "presso-create": "dist/cli.js"
   },
   "exports": {
     ".": {

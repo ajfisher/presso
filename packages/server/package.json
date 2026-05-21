@@ -11,7 +11,7 @@
     "access": "public"
   },
   "bin": {
-    "presso": "./dist/cli.js"
+    "presso": "dist/cli.js"
   },
   "exports": {
     ".": {
