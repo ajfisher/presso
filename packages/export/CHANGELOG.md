@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.3](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.2...@ajfisher/presso-export-v0.1.3) (2026-05-21)
+
+
+### Bug Fixes
+
+* **release:** use npm trusted publishing ([0ae4be8](https://github.com/ajfisher/presso/commit/0ae4be80dc2af07a8816a097fc96f0d91c043cf5))
+* **release:** use npm trusted publishing ([6ca3b2c](https://github.com/ajfisher/presso/commit/6ca3b2c81ac97703db676865f5fd0ca9e05e6f11))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.1.2 to ^0.1.3
+    * @ajfisher/presso-runtime bumped from ^0.1.2 to ^0.1.3
+
 ## [0.1.2](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.1...@ajfisher/presso-export-v0.1.2) (2026-05-21)
 
 

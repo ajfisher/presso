@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-server",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Presso CLI, dev server, controller sync, and authoring helpers.",
   "license": "MIT",
   "type": "module",
@@ -29,9 +29,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ajfisher/presso-core": "^0.1.2",
-    "@ajfisher/presso-create": "^0.1.2",
-    "@ajfisher/presso-export": "^0.1.2",
-    "@ajfisher/presso-runtime": "^0.1.2"
+    "@ajfisher/presso-core": "^0.1.3",
+    "@ajfisher/presso-create": "^0.1.3",
+    "@ajfisher/presso-export": "^0.1.3",
+    "@ajfisher/presso-runtime": "^0.1.3"
   }
 }
