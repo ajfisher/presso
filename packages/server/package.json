@@ -1,7 +1,15 @@
 {
   "name": "@presso/server",
   "version": "0.1.0",
+  "description": "Presso CLI, dev server, controller sync, and authoring helpers.",
+  "license": "MIT",
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "presso": "./dist/cli.js"
   },
@@ -16,9 +24,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@presso/core": "file:../core",
-    "@presso/create": "file:../create",
-    "@presso/export": "file:../export",
-    "@presso/runtime": "file:../runtime"
+    "@presso/core": "^0.1.0",
+    "@presso/create": "^0.1.0",
+    "@presso/export": "^0.1.0",
+    "@presso/runtime": "^0.1.0"
   }
 }

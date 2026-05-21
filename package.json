@@ -11,7 +11,11 @@
     "test": "vitest run",
     "test:browser": "vitest run test/browser-smoke.test.ts",
     "dev": "npm run build && node packages/server/dist/cli.js dev examples/basic",
-    "presso": "node packages/server/dist/cli.js"
+    "presso": "node packages/server/dist/cli.js",
+    "release:check": "node scripts/check-publish-readiness.mjs",
+    "release:pack": "node scripts/pack-workspaces.mjs --dry-run",
+    "release:pack:write": "node scripts/pack-workspaces.mjs --write",
+    "release:smoke-deck": "node scripts/smoke-generated-deck.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

@@ -144,6 +144,7 @@ Runtime files are generated under `_presso/` in static builds. Deck assets shoul
 
 - [Product shape](docs/product-shape.md)
 - [Authoring format](docs/authoring-format.md)
+- [Release process](docs/release-process.md)
 
 ## Contribution Guidelines
 
@@ -154,6 +155,7 @@ Presso is aiming for a small, maintainable core. The current direction is:
 - Avoid long inline CSS, JavaScript, or HTML template literals in TypeScript. Small single-line DOM/config injections are fine when they are the narrowest way to bind runtime data.
 - Prefer plain modern platform features before adding dependencies.
 - Use the Makefile targets for local workflows: `make check`, `make dev`, `make deck-build`, `make transcript`, `make pdf`, and `make browser-smoke`.
+- Use `make release-check` before release PRs or npm publishing; it verifies package metadata, dry-runs package contents, and smokes a generated deck.
 
 ### CSS And DOM
 
@@ -183,10 +185,12 @@ Presso should use semantic versioning once package publishing begins.
 - Minor releases: new commands, authoring features, layouts, modes, and export capabilities.
 - Major releases: breaking authoring format, config, CLI, package API, or runtime route changes.
 
-The intended release flow is:
+The intended release flow is automated through Release Please:
 
 1. Keep PR commits conventional.
-2. Generate changelog/release notes from commit history.
-3. Run `make check` and package smoke tests.
-4. Publish the scoped packages together unless a package is intentionally private/internal.
-5. Create a GitHub release with migration notes for any author-facing changes.
+2. Let the `Release` workflow open a release PR with changelogs and version bumps.
+3. Run `make release-check` on the release PR.
+4. Merge the release PR to create Git tags and GitHub Releases.
+5. Publish the scoped packages through the manual `Publish npm Packages` workflow when ready.
+
+See [Release process](docs/release-process.md) for details.

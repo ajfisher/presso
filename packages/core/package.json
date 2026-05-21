@@ -1,7 +1,15 @@
 {
   "name": "@presso/core",
   "version": "0.1.0",
+  "description": "Core config, Markdown parsing, and deck model for Presso.",
+  "license": "MIT",
   "type": "module",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -17,4 +25,3 @@
     "marked": "^17.0.0"
   }
 }
-
