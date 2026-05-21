@@ -3,7 +3,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { compileDeck, copyDir, pathExists } from '@ajfisher/presso-core';
+import { compileDeck, copyDir, pathExists, type Deck, type NotesPublicPolicy, type Slide } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
 export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
@@ -22,6 +22,36 @@ interface PdfJob {
 interface TranscriptExportOptions {
   fragment?: boolean;
   profile?: TranscriptProfile;
+}
+
+interface PublicDeckManifest {
+  schemaVersion: 1;
+  deck: DeckMetadata & {
+    aspectRatio: string;
+    size: {
+      height: number;
+      width: number;
+    };
+    theme: string;
+  };
+  notes: {
+    public: NotesPublicPolicy;
+  };
+  slides: PublicSlideManifest[];
+}
+
+interface PublicSlideManifest {
+  id: string;
+  index: number;
+  title: string;
+  layout: string;
+  class: string[];
+  bodyHtml: string;
+  background?: string;
+  backgroundFit?: string;
+  notesHtml?: string;
+  targetTimeSeconds?: number;
+  time?: string;
 }
 
 interface StaticServer {
@@ -106,7 +136,7 @@ async function writeStaticBuild(cwd: string, outDir: string, publicBuild: boolea
     await fs.writeFile(output, renderPage(deck, mode, { public: publicBuild }), 'utf8');
   }
 
-  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicBuild ? publicDeck(deck) : deck, null, 2), 'utf8');
+  await fs.writeFile(path.join(dest, 'deck.json'), JSON.stringify(publicBuild ? publicDeckManifest(deck) : deck, null, 2), 'utf8');
   await fs.writeFile(path.join(dest, 'transcript.md'), renderTranscriptMarkdown(deck, { includeNotes: !publicBuild || deck.config.notes.public !== false }), 'utf8');
   await fs.writeFile(path.join(dest, 'metadata.json'), JSON.stringify(buildMetadata(deck), null, 2), 'utf8');
   const runtimeDir = path.join(dest, RUNTIME_ASSET_DIR);
@@ -338,18 +368,45 @@ function normaliseBaseUrl(value?: string): string | undefined {
   return clean?.replace(/\/+$/, '') || undefined;
 }
 
-function publicDeck(deck: Awaited<ReturnType<typeof compileDeck>>) {
+function publicDeckManifest(deck: Deck): PublicDeckManifest {
   const includeNotes = deck.config.notes.public !== false;
   return {
-    ...deck,
-    config: {
-      ...deck.config,
-      rootDir: undefined
+    schemaVersion: 1,
+    deck: {
+      ...buildMetadata(deck),
+      aspectRatio: deck.config.aspectRatio,
+      size: {
+        height: deck.config.size.height,
+        width: deck.config.size.width
+      },
+      theme: deck.config.theme
     },
-    slides: deck.slides.map((slide) => ({
-      ...slide,
-      notesMarkdown: includeNotes ? slide.notesMarkdown : '',
-      notesHtml: includeNotes ? slide.notesHtml : ''
-    }))
+    notes: {
+      public: deck.config.notes.public
+    },
+    slides: deck.slides.map((slide) => publicSlideManifest(slide, includeNotes))
   };
+}
+
+function publicSlideManifest(slide: Slide, includeNotes: boolean): PublicSlideManifest {
+  const manifest: PublicSlideManifest = {
+    id: slide.id,
+    index: slide.index,
+    title: slide.title,
+    layout: slide.layout,
+    class: [...slide.class],
+    bodyHtml: slide.bodyHtml
+  };
+
+  setOptionalSlideField(manifest, 'background', slide.background);
+  setOptionalSlideField(manifest, 'backgroundFit', slide.backgroundFit);
+  setOptionalSlideField(manifest, 'time', slide.time);
+  if (slide.targetTimeSeconds !== undefined) manifest.targetTimeSeconds = slide.targetTimeSeconds;
+  if (includeNotes) manifest.notesHtml = slide.notesHtml;
+  return manifest;
+}
+
+function setOptionalSlideField(manifest: PublicSlideManifest, key: 'background' | 'backgroundFit' | 'time', value?: string): void {
+  const clean = meaningfulString(value);
+  if (clean) manifest[key] = clean;
 }

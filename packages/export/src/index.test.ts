@@ -36,6 +36,67 @@ describe('static export', () => {
     expect(embed).toContain('src="../assets/example.svg"');
   });
 
+  it('emits a sanitized public deck manifest without internal source fields', async () => {
+    const root = await createDeck(false, { includeSlideManifestFields: true });
+    const dest = await buildStatic(root, path.join(root, 'dist'));
+    const manifest = await readDeckManifest(dest);
+    const serialized = JSON.stringify(manifest);
+
+    expect(manifest).toMatchObject({
+      schemaVersion: 1,
+      deck: {
+        aspectRatio: '16:9',
+        author: 'ajfisher',
+        baseUrl: 'https://talk.example.test',
+        canonicalUrl: 'https://talk.example.test',
+        embedUrl: 'https://talk.example.test/embed/',
+        pdfUrl: 'https://talk.example.test/slides.pdf',
+        size: { height: 720, width: 1280 },
+        tags: ['export', 'presso'],
+        theme: './theme.css',
+        title: 'Export Test',
+        transcriptUrl: 'https://talk.example.test/transcript/'
+      },
+      notes: { public: false }
+    });
+    expect(manifest.slides).toHaveLength(1);
+    expect(manifest.slides[0]).toMatchObject({
+      id: 'title',
+      index: 0,
+      title: 'title',
+      layout: 'image',
+      class: ['featured', 'print-friendly'],
+      background: './assets/example.svg',
+      backgroundFit: 'contain',
+      time: '0:30',
+      targetTimeSeconds: 30
+    });
+    expect(manifest.slides[0].bodyHtml).toContain('src="./assets/example.svg"');
+    expect(manifest.slides[0]).not.toHaveProperty('notesHtml');
+    expect(serialized).not.toContain('SECRET_PRIVATE_NOTE');
+    expect(serialized).not.toContain('SHOULD_NOT_LEAK_METADATA');
+    expect(serialized).not.toContain('rootDir');
+    expect(serialized).not.toContain('sourcePath');
+    expect(serialized).not.toContain('metadata');
+    expect(serialized).not.toContain('bodyMarkdown');
+    expect(serialized).not.toContain('notesMarkdown');
+    expect(serialized).not.toContain('deploy');
+    expect(serialized).not.toContain('rawHtml');
+  });
+
+  it('includes rendered public notes in the public deck manifest', async () => {
+    for (const publicNotes of ['toggle', 'visible'] as const) {
+      const root = await createDeck(publicNotes);
+      const dest = await buildStatic(root, path.join(root, 'dist'));
+      const manifest = await readDeckManifest(dest);
+      const serialized = JSON.stringify(manifest);
+
+      expect(manifest.notes.public).toBe(publicNotes);
+      expect(manifest.slides[0].notesHtml).toContain('SECRET_PRIVATE_NOTE');
+      expect(serialized).not.toContain('notesMarkdown');
+    }
+  });
+
   it('emits stable print routes and compatibility aliases', async () => {
     const root = await createDeck('toggle');
     const dest = await buildStatic(root, path.join(root, 'dist'));
@@ -117,8 +178,9 @@ describe('static export', () => {
   });
 });
 
-async function createDeck(publicNotes: false | 'toggle', options: { includeMetadata?: boolean } = {}): Promise<string> {
+async function createDeck(publicNotes: false | 'toggle' | 'visible', options: { includeMetadata?: boolean; includeSlideManifestFields?: boolean } = {}): Promise<string> {
   const includeMetadata = options.includeMetadata ?? true;
+  const includeSlideManifestFields = options.includeSlideManifestFields ?? false;
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-export-'));
   tmpRoots.push(root);
   await fs.mkdir(path.join(root, 'slides'), { recursive: true });
@@ -142,6 +204,12 @@ ${includeMetadata ? `  event: 'ExportConf',
   await fs.writeFile(path.join(root, 'slides/001-title.md'), `---
 id: title
 layout: image
+${includeSlideManifestFields ? `class: featured print-friendly
+background: ./assets/example.svg
+backgroundFit: contain
+time: "0:30"
+customSecret: SHOULD_NOT_LEAK_METADATA
+` : ''}
 ---
 
 ![Example](./assets/example.svg)
@@ -151,6 +219,10 @@ SECRET_PRIVATE_NOTE
 :::
 `);
   return root;
+}
+
+async function readDeckManifest(root: string): Promise<any> {
+  return JSON.parse(await fs.readFile(path.join(root, 'deck.json'), 'utf8'));
 }
 
 async function readTextArtifacts(root: string): Promise<string> {

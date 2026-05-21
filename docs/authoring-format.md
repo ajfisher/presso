@@ -495,6 +495,17 @@ metadata is `title`, `author`, and `tags`; optional fields such as `event`,
 `date`, `excerpt`, `featureImage`, `baseUrl`, and derived public URLs are
 omitted when unset.
 
+Static builds also emit `dist/deck.json` as a sanitized public manifest. It
+contains a `schemaVersion`, public deck metadata, `notes.public`, and public
+slide entries with rendered `bodyHtml`. Public slide entries include known
+runtime fields such as `id`, `index`, `title`, `layout`, `class`, `background`,
+`backgroundFit`, `time`, and `targetTimeSeconds`.
+
+`dist/deck.json` deliberately omits local authoring fields: `rootDir`, `source`,
+`deploy`, `sourcePath`, arbitrary slide `metadata`, `bodyMarkdown`, and
+`notesMarkdown`. `notesHtml` is emitted only when `notes.public` is `"toggle"`
+or `"visible"`.
+
 For a single-file deck:
 
 ```ts
