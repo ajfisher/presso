@@ -201,6 +201,39 @@ describe('runtime renderer', () => {
     expect(config.controlUrls).toEqual(['http://192.0.2.1:3030/control']);
   });
 
+  it('renders local edit overlay only for server folder deck and presenter routes', () => {
+    const html = renderPage(deck, 'deck', { server: true });
+    const config = runtimeConfig(html);
+
+    expect(html).toContain('data-edit-overlay');
+    expect(html).toContain('data-edit-metadata');
+    expect(config.editing).toEqual({
+      enabled: true,
+      slideEndpoint: '/edit/slide'
+    });
+
+    const presenter = renderPage(deck, 'presenter', { server: true });
+    expect(presenter).toContain('data-edit-overlay');
+
+    const staticHtml = renderPage(deck, 'deck', { public: true });
+    expect(staticHtml).not.toContain('data-edit-overlay');
+    expect(staticHtml).not.toContain('/edit/slide');
+    expect(runtimeConfig(staticHtml).editing).toEqual({
+      enabled: false
+    });
+
+    const singleFileHtml = renderPage({
+      ...deck,
+      config: {
+        ...deck.config,
+        source: { type: 'file', path: './slides.md' }
+      }
+    }, 'deck', { server: true });
+    expect(singleFileHtml).not.toContain('data-edit-overlay');
+    expect(singleFileHtml).not.toContain('/edit/slide');
+    expect(runtimeConfig(singleFileHtml).editing).toEqual({ enabled: false });
+  });
+
   it('renders controller state hooks and slide metadata without notes', () => {
     const html = renderPage(deck, 'control', { server: true });
     const config = runtimeConfig(html);

@@ -9,9 +9,11 @@
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
+  const editing = config.editing || {};
   const canNavigateSlides = ['deck', 'embed', 'presenter', 'control'].includes(mode);
   const canDirectFullscreen = mode === 'deck' || mode === 'embed';
   const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
+  const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
@@ -42,6 +44,8 @@
   let teleprompterStartScroll = 0;
   let teleprompterEndScroll = 0;
   let teleprompterDurationMs = 0;
+  let editCurrentIndex = null;
+  let editSaving = false;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -193,6 +197,106 @@
       label.append(input, text, open);
       list.append(label);
     });
+  }
+
+  async function openSlideEditor() {
+    if (!canEditSlides || editSaving) return;
+    const overlay = editOverlay();
+    if (!overlay) return;
+    setEditError('');
+    overlay.hidden = false;
+    document.body.dataset.editing = 'true';
+    setEditSaving(true);
+    try {
+      const response = await fetch(editSlideUrl(index), { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide source could not be loaded.');
+      editCurrentIndex = Number(data.index);
+      setEditValue('[data-edit-metadata]', data.metadataYaml || '');
+      setEditValue('[data-edit-body]', data.bodyMarkdown || '');
+      setEditValue('[data-edit-notes]', data.notesMarkdown || '');
+      const source = overlay.querySelector('[data-edit-source]');
+      if (source) source.textContent = `${data.sourcePath || 'Slide source'} - slide ${editCurrentIndex + 1}`;
+      overlay.querySelector('[data-edit-body]')?.focus();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function closeSlideEditor(force = false) {
+    if (editSaving && !force) return;
+    const overlay = editOverlay();
+    if (overlay) overlay.hidden = true;
+    delete document.body.dataset.editing;
+    editCurrentIndex = null;
+    setEditError('');
+  }
+
+  async function saveSlideEditor() {
+    if (!canEditSlides || editSaving || editCurrentIndex === null) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const response = await fetch(editSlideUrl(editCurrentIndex), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          metadataYaml: editValue('[data-edit-metadata]'),
+          bodyMarkdown: editValue('[data-edit-body]'),
+          notesMarkdown: editValue('[data-edit-notes]')
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide source could not be saved.');
+      closeSlideEditor(true);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function editSlideUrl(slideIndex) {
+    const url = new URL(editing.slideEndpoint, location.href);
+    url.searchParams.set('index', String(slideIndex));
+    return url;
+  }
+
+  function editOverlay() {
+    const overlay = document.querySelector('[data-edit-overlay]');
+    return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function editValue(selector) {
+    const field = document.querySelector(selector);
+    return field instanceof HTMLTextAreaElement ? field.value : '';
+  }
+
+  function setEditValue(selector, value) {
+    const field = document.querySelector(selector);
+    if (field instanceof HTMLTextAreaElement) field.value = String(value);
+  }
+
+  function setEditSaving(saving) {
+    editSaving = saving;
+    document.querySelectorAll('[data-edit-save]').forEach((button) => {
+      button.disabled = saving;
+      setControlLabel(button, saving ? 'Saving...' : 'Save');
+    });
+  }
+
+  function setEditError(message) {
+    const error = document.querySelector('[data-edit-error]');
+    if (!(error instanceof HTMLElement)) return;
+    error.hidden = !message;
+    error.textContent = message;
+  }
+
+  function isEditOpen() {
+    const overlay = editOverlay();
+    return Boolean(overlay && !overlay.hidden);
   }
 
   function renderActiveSlide() {
@@ -626,6 +730,18 @@
   }
 
   document.addEventListener('keydown', (event) => {
+    if (isEditOpen()) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeSlideEditor();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        saveSlideEditor();
+        return;
+      }
+    }
     if (isEditableTarget(event.target)) return;
     if (event.key === 'Home') {
       if (!canNavigateSlides) return;
@@ -709,6 +825,7 @@
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
     if (action === 'shortcuts-close') toggleShortcuts(false);
+    if (action === 'edit-cancel') closeSlideEditor();
     if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
     if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
     if (action === 'timer-reset') resetPresenterTimer();
@@ -717,6 +834,21 @@
     if (action === 'teleprompter-slower') setTeleprompterWpm(teleprompterWpm - teleprompterStepWpm);
     if (action === 'teleprompter-faster') setTeleprompterWpm(teleprompterWpm + teleprompterStepWpm);
     if (action === 'teleprompter-reset') resetTeleprompterScroll();
+  });
+
+  document.addEventListener('dblclick', (event) => {
+    if (!canEditSlides || isEditableTarget(event.target)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('.presso-slide.is-active')) return;
+    event.preventDefault();
+    openSlideEditor();
+  });
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-edit-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    saveSlideEditor();
   });
 
   document.addEventListener('scroll', (event) => {

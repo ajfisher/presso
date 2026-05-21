@@ -26,6 +26,7 @@ interface RenderOptions {
 interface RenderContext {
   assetPrefix: string;
   controlUrls: string[];
+  editingEnabled: boolean;
   includeNotes: boolean;
   mode: RenderMode;
   notesPublic: NotesPublicPolicy;
@@ -49,6 +50,7 @@ const templates = {
   controllerPopover: readTemplate('controller-popover.html'),
   deck: readTemplate('deck.html'),
   document: readTemplate('document.html'),
+  editOverlay: readTemplate('edit-overlay.html'),
   fullscreenPrompt: readTemplate('fullscreen-prompt.html'),
   modeControls: readTemplate('mode-controls.html'),
   notesButton: readTemplate('notes-button.html'),
@@ -111,11 +113,15 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
   const printMode = mode.startsWith('print-');
   return renderTemplate('document', {
     body,
+    editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
     fullscreenPrompt: printMode ? '' : renderTemplate('fullscreenPrompt'),
     mode,
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,
+      editing: context.editingEnabled
+        ? { enabled: true, slideEndpoint: '/edit/slide' }
+        : { enabled: false },
       routes: buildRoutes(mode, context.server),
       server: context.server,
       slides: deck.slides.map((slide) => ({
@@ -354,6 +360,7 @@ function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): Ren
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
     controlUrls: options.controlUrls ?? [],
+    editingEnabled: server && deck.config.source.type === 'folder' && (mode === 'deck' || mode === 'presenter'),
     includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,
     notesPublic: deck.config.notes.public,
