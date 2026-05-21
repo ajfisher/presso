@@ -4,6 +4,11 @@
   "description": "Static, transcript, and PDF export helpers for Presso.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/export"
+  },
   "files": [
     "dist"
   ],

@@ -4,6 +4,11 @@
   "description": "Core config, Markdown parsing, and deck model for Presso.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/core"
+  },
   "files": [
     "dist"
   ],

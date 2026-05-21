@@ -20,6 +20,7 @@ if (versions.size !== 1) {
 
 const releaseConfig = await readJson(path.join(root, 'release-please-config.json'));
 const releaseManifest = await readJson(path.join(root, '.release-please-manifest.json'));
+const publishWorkflow = await fs.readFile(path.join(root, '.github/workflows/publish-npm.yml'), 'utf8');
 const releasePaths = Object.keys(releaseConfig.packages ?? {}).sort();
 const manifestPaths = Object.keys(releaseManifest).sort();
 const expectedPaths = packages.map((pkg) => path.relative(root, pkg.dir)).sort();
@@ -34,6 +35,7 @@ if (JSON.stringify(manifestPaths) !== JSON.stringify(expectedPaths)) {
 for (const pkg of packages) {
   validatePackage(pkg, packages[0]?.json.version);
 }
+validatePublishWorkflow(publishWorkflow);
 
 if (errors.length) {
   console.error(errors.map((error) => `- ${error}`).join('\n'));
@@ -64,6 +66,7 @@ function validatePackage(pkg, expectedVersion) {
   if (json.type !== 'module') errors.push(`${id}: type must be module.`);
   if (json.license !== 'MIT') errors.push(`${id}: license must be MIT.`);
   if (!json.description) errors.push(`${id}: description is required for npm.`);
+  validateRepository(id, rel, json.repository);
   if (json.publishConfig?.access !== 'public') errors.push(`${id}: publishConfig.access must be public.`);
   if (!Array.isArray(json.files) || !json.files.includes('dist')) errors.push(`${id}: files must include dist.`);
   if (!json.scripts?.build) errors.push(`${id}: build script is required.`);
@@ -73,6 +76,29 @@ function validatePackage(pkg, expectedVersion) {
   validateDependencies(id, json.dependencies ?? {}, json.version);
   validateDependencies(id, json.optionalDependencies ?? {}, json.version);
   validateDependencies(id, json.peerDependencies ?? {}, json.version);
+}
+
+function validateRepository(id, rel, repository) {
+  if (repository?.type !== 'git') errors.push(`${id}: repository.type must be git.`);
+  if (repository?.url !== 'https://github.com/ajfisher/presso.git') {
+    errors.push(`${id}: repository.url must match https://github.com/ajfisher/presso.git for npm trusted publishing.`);
+  }
+  if (repository?.directory !== rel) errors.push(`${id}: repository.directory must be ${rel}.`);
+}
+
+function validatePublishWorkflow(contents) {
+  if (!/id-token:\s*write/.test(contents)) {
+    errors.push('publish-npm.yml: permissions.id-token must be write for npm trusted publishing.');
+  }
+  if (/NODE_AUTH_TOKEN|NPM_TOKEN/.test(contents)) {
+    errors.push('publish-npm.yml: npm publishing must use trusted publishing, not NODE_AUTH_TOKEN or NPM_TOKEN.');
+  }
+  if (/cache:\s*npm/.test(contents)) {
+    errors.push('publish-npm.yml: release publishing must not enable npm cache.');
+  }
+  if (!/package-manager-cache:\s*false/.test(contents)) {
+    errors.push('publish-npm.yml: setup-node must set package-manager-cache: false for release publishing.');
+  }
 }
 
 function validateExports(id, dir, exportsField) {

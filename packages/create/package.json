@@ -4,6 +4,11 @@
   "description": "Starter deck scaffolder for Presso.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/create"
+  },
   "files": [
     "dist"
   ],

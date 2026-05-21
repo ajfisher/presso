@@ -4,6 +4,11 @@
   "description": "Browser rendering runtime and HTML templates for Presso decks.",
   "license": "MIT",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/runtime"
+  },
   "files": [
     "dist"
   ],
