@@ -36,7 +36,8 @@ describe('createDeck', () => {
     });
 
     const packageJson = JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf8'));
-    expect(packageJson.devDependencies['@presso/server']).toBe('^0.1.0');
+    const createPackageJson = JSON.parse(await fs.readFile(path.resolve('packages/create/package.json'), 'utf8'));
+    expect(packageJson.devDependencies['@presso/server']).toBe(`^${createPackageJson.version}`);
   });
 
   it('refuses to overwrite a non-empty target directory', async () => {
