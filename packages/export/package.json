@@ -1,6 +1,6 @@
 {
   "name": "@presso/export",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Static, transcript, and PDF export helpers for Presso.",
   "license": "MIT",
   "type": "module",
@@ -21,8 +21,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@presso/core": "^0.1.0",
-    "@presso/runtime": "^0.1.0"
+    "@presso/core": "^0.1.1",
+    "@presso/runtime": "^0.1.1"
   },
   "optionalDependencies": {
     "playwright": "^1.57.0"
