@@ -8,6 +8,6 @@
     "transcript": "presso transcript"
   },
   "devDependencies": {
-    "@presso/server": "file:../../packages/server"
+    "@ajfisher/presso-server": "file:../../packages/server"
   }
 }

@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1](https://github.com/ajfisher/presso/compare/@presso/server-v0.1.0...@presso/server-v0.1.1) (2026-05-21)
+## [0.1.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.1.0...@ajfisher/presso-server-v0.1.1) (2026-05-21)
 
 
 ### Features
@@ -24,7 +24,7 @@
 
 * The following workspace dependencies were updated
   * dependencies
-    * @presso/core bumped from ^0.1.0 to ^0.1.1
-    * @presso/create bumped from ^0.1.0 to ^0.1.1
-    * @presso/export bumped from ^0.1.0 to ^0.1.1
-    * @presso/runtime bumped from ^0.1.0 to ^0.1.1
+    * @ajfisher/presso-core bumped from ^0.1.0 to ^0.1.1
+    * @ajfisher/presso-create bumped from ^0.1.0 to ^0.1.1
+    * @ajfisher/presso-export bumped from ^0.1.0 to ^0.1.1
+    * @ajfisher/presso-runtime bumped from ^0.1.0 to ^0.1.1

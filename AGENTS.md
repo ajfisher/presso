@@ -29,7 +29,7 @@ These notes exist to keep future agent work aligned with the project direction.
 - Keep changes scoped and reviewable. Prefer a focused commit for docs, a focused commit for runtime structure, and a focused commit for behavioural fixes.
 - Run `make check` before committing. For runtime/browser changes, also run `make deck-build` and smoke-test `make dev`.
 - Release-facing changes should also run `make release-check`.
-- Publishable package dependencies between `@presso/*` packages must use semver ranges, not `file:` or `workspace:` specs.
+- Publishable package dependencies between `@ajfisher/presso-*` packages must use semver ranges, not `file:` or `workspace:` specs.
 - Do not manually edit generated Release Please PR outputs unless you are deliberately correcting release notes or package metadata.
 
 ## Public Output Safety

@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Deck, NotesPublicPolicy, Slide } from '@presso/core';
+import type { Deck, NotesPublicPolicy, Slide } from '@ajfisher/presso-core';
 export { renderTranscriptMarkdown, resolveTranscriptProfile, TRANSCRIPT_PROFILES, type TranscriptMarkdownOptions, type TranscriptProfile } from './transcript.js';
 
 export type RenderMode =

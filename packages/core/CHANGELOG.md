@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1](https://github.com/ajfisher/presso/compare/@presso/core-v0.1.0...@presso/core-v0.1.1) (2026-05-21)
+## [0.1.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.1.0...@ajfisher/presso-core-v0.1.1) (2026-05-21)
 
 
 ### Features

@@ -5,8 +5,8 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, pathExists } from '@presso/core';
-import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@presso/runtime';
+import { compileDeck, pathExists } from '@ajfisher/presso-core';
+import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
   id: number;

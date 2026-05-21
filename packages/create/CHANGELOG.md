@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1](https://github.com/ajfisher/presso/compare/@presso/create-v0.1.0...@presso/create-v0.1.1) (2026-05-21)
+## [0.1.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-create-v0.1.0...@ajfisher/presso-create-v0.1.1) (2026-05-21)
 
 
 ### Features

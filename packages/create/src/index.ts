@@ -26,7 +26,7 @@ export async function createDeck(targetDir: string, options: CreateDeckOptions =
       deploy: 'presso deploy'
     },
     devDependencies: {
-      '@presso/server': serverDependency
+      '@ajfisher/presso-server': serverDependency
     }
   }, null, 2) + '\n');
   await fs.writeFile(path.join(root, 'presso.config.ts'), `export default {\n  title: 'New Presso Deck',\n  author: 'ajfisher',\n  source: { type: 'folder', path: './slides' },\n  theme: './theme.css',\n  notes: { public: 'toggle', defaultPrintLayout: 'page' }\n};\n`);
@@ -52,7 +52,7 @@ async function resolveServerDependency(targetDir: string, cwd: string): Promise<
 
 async function packageVersion(): Promise<string> {
   const packageJson = JSON.parse(await fs.readFile(new URL('../package.json', import.meta.url), 'utf8')) as { version?: string };
-  if (!packageJson.version) throw new Error('@presso/create package.json must define a version.');
+  if (!packageJson.version) throw new Error('@ajfisher/presso-create package.json must define a version.');
   return packageJson.version;
 }
 

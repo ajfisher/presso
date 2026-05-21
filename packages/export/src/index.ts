@@ -3,8 +3,8 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { compileDeck, copyDir, pathExists } from '@presso/core';
-import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@presso/runtime';
+import { compileDeck, copyDir, pathExists } from '@ajfisher/presso-core';
+import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
 export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
 export type PdfLayout = typeof PDF_LAYOUTS[number];

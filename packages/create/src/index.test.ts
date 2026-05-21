@@ -22,7 +22,7 @@ describe('createDeck', () => {
       transcript: 'presso transcript',
       deploy: 'presso deploy'
     });
-    expect(packageJson.devDependencies['@presso/server']).toMatch(/^file:/);
+    expect(packageJson.devDependencies['@ajfisher/presso-server']).toMatch(/^file:/);
 
     const slides = await fs.readdir(path.join(target, 'slides'));
     expect(slides).toEqual(['001-title.md', '002-content.md', '003-notes.md']);
@@ -37,7 +37,7 @@ describe('createDeck', () => {
 
     const packageJson = JSON.parse(await fs.readFile(path.join(dir, 'package.json'), 'utf8'));
     const createPackageJson = JSON.parse(await fs.readFile(path.resolve('packages/create/package.json'), 'utf8'));
-    expect(packageJson.devDependencies['@presso/server']).toBe(`^${createPackageJson.version}`);
+    expect(packageJson.devDependencies['@ajfisher/presso-server']).toBe(`^${createPackageJson.version}`);
   });
 
   it('refuses to overwrite a non-empty target directory', async () => {

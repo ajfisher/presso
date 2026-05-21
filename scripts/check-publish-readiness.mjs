@@ -58,7 +58,7 @@ function validatePackage(pkg, expectedVersion) {
   const rel = path.relative(root, dir);
   const id = `${json.name ?? rel}`;
 
-  if (!json.name?.startsWith('@presso/')) errors.push(`${id}: package name must be scoped under @presso.`);
+  if (!json.name?.startsWith('@ajfisher/presso-')) errors.push(`${id}: package name must be scoped under @ajfisher/presso-.`);
   if (json.private) errors.push(`${id}: publishable packages must not be private.`);
   if (json.version !== expectedVersion) errors.push(`${id}: version must match ${expectedVersion}.`);
   if (json.type !== 'module') errors.push(`${id}: type must be module.`);

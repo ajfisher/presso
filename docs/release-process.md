@@ -6,13 +6,13 @@ Presso releases use semantic versioning, conventional commits, Release Please, G
 
 The publishable packages are:
 
-- `@presso/core`
-- `@presso/runtime`
-- `@presso/export`
-- `@presso/create`
-- `@presso/server`
+- `@ajfisher/presso-core`
+- `@ajfisher/presso-runtime`
+- `@ajfisher/presso-export`
+- `@ajfisher/presso-create`
+- `@ajfisher/presso-server`
 
-These packages are released as a linked set. They should share the same version, and internal `@presso/*` dependencies must use semver ranges such as `^0.2.0`, never `file:` or `workspace:` ranges. Local workspace linking is handled by npm workspaces.
+These packages are released as a linked set. They should share the same version, and internal `@ajfisher/presso-*` dependencies must use semver ranges such as `^0.2.0`, never `file:` or `workspace:` ranges. Local workspace linking is handled by npm workspaces.
 
 ## Conventional Commits
 
@@ -75,16 +75,20 @@ The workflow runs `make release-check` before publishing and publishes all works
 After packages are published, deck authors should be able to run:
 
 ```bash
-npm create @presso my-talk
+npm exec -- @ajfisher/presso-create my-talk
 cd my-talk
 npm install
 npm run dev
 ```
 
+The starter package is named `@ajfisher/presso-create` for product-name consistency.
+That means the first scaffold command uses `npm exec`; npm's `create` shorthand
+would look for `@ajfisher/create-presso` instead.
+
 Existing decks should be able to update with:
 
 ```bash
-npm update @presso/server
+npm update @ajfisher/presso-server
 ```
 
 Minor and patch releases should preserve existing authoring formats and CLI commands. Breaking authoring, config, route, or package API changes require a major release and migration notes in the GitHub Release.
