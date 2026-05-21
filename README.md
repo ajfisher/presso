@@ -144,6 +144,7 @@ Runtime files are generated under `_presso/` in static builds. Deck assets shoul
 
 - [Product shape](docs/product-shape.md)
 - [Authoring format](docs/authoring-format.md)
+- [Backgrounds and Reveal migration](docs/backgrounds-and-reveal-migration.md)
 - [Release process](docs/release-process.md)
 
 ## Contribution Guidelines
