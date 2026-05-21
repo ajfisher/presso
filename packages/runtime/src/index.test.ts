@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Deck } from '@presso/core';
+import type { Deck } from '@ajfisher/presso-core';
 import { renderPage, renderTranscriptMarkdown } from './index.js';
 
 const deck: Deck = {

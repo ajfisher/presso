@@ -7,24 +7,24 @@
   "pull-request-title-pattern": "chore${scope}: release ${component} ${version}",
   "packages": {
     "packages/core": {
-      "package-name": "@presso/core",
-      "component": "@presso/core"
+      "package-name": "@ajfisher/presso-core",
+      "component": "@ajfisher/presso-core"
     },
     "packages/runtime": {
-      "package-name": "@presso/runtime",
-      "component": "@presso/runtime"
+      "package-name": "@ajfisher/presso-runtime",
+      "component": "@ajfisher/presso-runtime"
     },
     "packages/export": {
-      "package-name": "@presso/export",
-      "component": "@presso/export"
+      "package-name": "@ajfisher/presso-export",
+      "component": "@ajfisher/presso-export"
     },
     "packages/create": {
-      "package-name": "@presso/create",
-      "component": "@presso/create"
+      "package-name": "@ajfisher/presso-create",
+      "component": "@ajfisher/presso-create"
     },
     "packages/server": {
-      "package-name": "@presso/server",
-      "component": "@presso/server"
+      "package-name": "@ajfisher/presso-server",
+      "component": "@ajfisher/presso-server"
     }
   },
   "plugins": [
@@ -36,11 +36,11 @@
       "type": "linked-versions",
       "groupName": "Presso packages",
       "components": [
-        "@presso/core",
-        "@presso/runtime",
-        "@presso/export",
-        "@presso/create",
-        "@presso/server"
+        "@ajfisher/presso-core",
+        "@ajfisher/presso-runtime",
+        "@ajfisher/presso-export",
+        "@ajfisher/presso-create",
+        "@ajfisher/presso-server"
       ]
     }
   ]

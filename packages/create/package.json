@@ -1,5 +1,5 @@
 {
-  "name": "@presso/create",
+  "name": "@ajfisher/presso-create",
   "version": "0.1.1",
   "description": "Starter deck scaffolder for Presso.",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "access": "public"
   },
   "bin": {
-    "create-presso": "./dist/cli.js"
+    "presso-create": "./dist/cli.js"
   },
   "exports": {
     ".": {

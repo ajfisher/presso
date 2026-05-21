@@ -17,7 +17,7 @@ Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CL
 To scaffold a new deck once the packages are published:
 
 ```bash
-npm create @presso my-talk
+npm exec -- @ajfisher/presso-create my-talk
 cd my-talk
 npm install
 npm run dev

@@ -1,6 +1,6 @@
 # Changelog
 
-## [0.1.1](https://github.com/ajfisher/presso/compare/@presso/runtime-v0.1.0...@presso/runtime-v0.1.1) (2026-05-21)
+## [0.1.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.1.0...@ajfisher/presso-runtime-v0.1.1) (2026-05-21)
 
 
 ### Features
@@ -42,4 +42,4 @@
 
 * The following workspace dependencies were updated
   * dependencies
-    * @presso/core bumped from ^0.1.0 to ^0.1.1
+    * @ajfisher/presso-core bumped from ^0.1.0 to ^0.1.1

@@ -1,4 +1,4 @@
-import type { Deck, Slide } from '@presso/core';
+import type { Deck, Slide } from '@ajfisher/presso-core';
 
 export const TRANSCRIPT_PROFILES = ['full', 'notes', 'notes-visuals'] as const;
 export type TranscriptProfile = typeof TRANSCRIPT_PROFILES[number];

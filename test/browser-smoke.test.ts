@@ -5,7 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildStatic, exportPdfs } from '@presso/export';
+import { buildStatic, exportPdfs } from '@ajfisher/presso-export';
 import type { Browser, Page } from 'playwright';
 
 const runBrowserSmoke = process.env.PRESSO_BROWSER_SMOKE === '1';

@@ -2,8 +2,8 @@
 import path from 'node:path';
 import { startDevServer } from './server.js';
 import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, orderAppend, orderCheck, orderInit } from './commands.js';
-import { resolvePdfLayout } from '@presso/export';
-import { resolveTranscriptProfile, type TranscriptProfile } from '@presso/runtime';
+import { resolvePdfLayout } from '@ajfisher/presso-export';
+import { resolveTranscriptProfile, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
 const [, , command, ...args] = process.argv;
 
