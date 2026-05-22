@@ -19,11 +19,27 @@ These packages are released as a linked set. They should share the same version,
 Release Please reads merged commits on `main` and derives changelog entries and version bumps from conventional commit messages:
 
 - `fix:` creates a patch release.
-- `feat:` creates a minor release.
+- `feat:` creates a minor release, including while Presso is still pre-1.0.
 - `feat!:` or a `BREAKING CHANGE:` footer creates a major release.
 - `docs:`, `test:`, `refactor:`, and `chore:` appear in history but do not usually drive a release unless they include a breaking-change marker.
 
+Release Please is configured with `bump-minor-pre-major: true` and
+`bump-patch-for-minor-pre-major: false`, so `feat:` commits move Presso from
+`0.1.x` to `0.2.0` rather than creating another `0.1.x` patch release. This
+keeps feature releases visible during the early framework phase.
+
 Keep PRs squash/rebase friendly and use conventional commit subjects for every commit that should affect release notes.
+
+For substantial product slices, prefer a squash merge with a single clear
+conventional commit subject and body, or make sure the branch contains a
+high-level conventional commit that represents the user-facing feature. Release
+Please reads commits more reliably than PR summaries, so a sequence of narrow
+implementation commits can produce technically correct but weak release notes.
+
+If Release Please chooses the wrong version for a one-off release, add a
+`Release-As: x.y.z` footer to a conventional commit before the release PR is
+generated or updated. Use this sparingly; the config should handle normal
+feature and fix releases.
 
 ## GitHub Release Flow
 
