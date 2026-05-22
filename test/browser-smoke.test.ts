@@ -534,6 +534,31 @@ async function expectActiveLayout(page: Page, layout: { id: string; layout: stri
   const bodyBox = await slide.locator(':scope > .presso-slide-body').boundingBox();
   expect(bodyBox?.width ?? 0).toBeGreaterThan(20);
   expect(bodyBox?.height ?? 0).toBeGreaterThan(20);
+  if (layout.layout === 'two-column') {
+    await slide.locator('.presso-columns').waitFor();
+    await expectColumnGrid(page);
+  }
+}
+
+async function expectColumnGrid(page: Page): Promise<void> {
+  const layout = await page.evaluate(() => {
+    const columns = document.querySelector('.presso-slide.is-active .presso-columns');
+    if (!(columns instanceof HTMLElement)) throw new Error('Missing active columns');
+    const columnCount = columns.querySelectorAll(':scope > .presso-column').length;
+    const style = getComputedStyle(columns);
+    const rect = columns.getBoundingClientRect();
+    return {
+      columnCount,
+      display: style.display,
+      template: style.gridTemplateColumns,
+      width: rect.width
+    };
+  });
+
+  expect(layout.columnCount).toBe(2);
+  expect(layout.display).toBe('grid');
+  expect(layout.template).toContain('px');
+  expect(layout.width).toBeGreaterThan(100);
 }
 
 async function expectPresenterLayout(page: Page): Promise<void> {

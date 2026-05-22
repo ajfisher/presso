@@ -335,7 +335,7 @@ describe('runtime renderer', () => {
       slides: [
         {
           ...deck.slides[0]!,
-          bodyMarkdown: '# One\n\n:::columns\n![Diagram](./assets/diagram.svg)\n\nImportant body text.\n:::\n\n::iframe{src="./demo/" title="Live demo"}',
+          bodyMarkdown: '# One\n\n:::columns\n:::column\n![Diagram](./assets/diagram.svg)\n:::\n\n:::column\nImportant body text.\n:::\n:::\n\n::iframe{src="./demo/" title="Live demo"}',
           metadata: {}
         },
         {
@@ -372,6 +372,7 @@ describe('runtime renderer', () => {
     expect(full).toContain('![Diagram](https://talk.example.test/assets/diagram.svg)');
     expect(full).toContain('[Live demo](https://talk.example.test/demo/)');
     expect(full).not.toContain(':::columns');
+    expect(full).not.toContain(':::column');
     expect(full).not.toContain('# One\n\n:::columns');
     expect(full).not.toContain('## Skip');
 

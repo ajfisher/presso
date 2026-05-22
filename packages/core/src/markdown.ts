@@ -2,7 +2,9 @@ import { marked } from 'marked';
 
 const NOTES_RE = /^:::notes\s*\n([\s\S]*?)\n:::\s*$/m;
 const INLINE_DIRECTIVE_RE = /^::([a-zA-Z][\w-]*)(\{[^}]*\})?\s*$/gm;
-const CONTAINER_DIRECTIVE_RE = /^:::(columns|logos|quote-image|fragment)\s*\n([\s\S]*?)\n:::\s*$/gm;
+const CONTAINER_DIRECTIVES = new Set(['columns', 'column', 'logos', 'quote-image', 'fragment']);
+const CONTAINER_DIRECTIVE_OPEN_RE = /^:::([a-zA-Z][\w-]*)\s*$/;
+const CONTAINER_DIRECTIVE_CLOSE_RE = /^:::\s*$/;
 
 marked.use({
   gfm: true,
@@ -45,10 +47,7 @@ export function extractNotes(markdown: string): { bodyMarkdown: string; notesMar
 }
 
 function transformDirectives(markdown: string): string {
-  let output = markdown.replace(CONTAINER_DIRECTIVE_RE, (_full, name: string, content: string) => {
-    const html = renderMarkdown(content.trim());
-    return `<div class="presso-${name}" data-directive="${name}">${html}</div>`;
-  });
+  let output = transformContainerDirectives(markdown);
 
   output = output.replace(INLINE_DIRECTIVE_RE, (_full, name: string, rawAttrs = '') => {
     const attrs = parseAttrs(rawAttrs);
@@ -76,6 +75,89 @@ function transformDirectives(markdown: string): string {
   });
 
   return output;
+}
+
+export function stripContainerDirectives(markdown: string): string {
+  if (!markdown.trim()) return '';
+  const lines = markdown.split(/\r?\n/);
+  return stripDirectiveRange(lines, 0, lines.length).trim();
+}
+
+function transformContainerDirectives(markdown: string): string {
+  const lines = markdown.split(/\r?\n/);
+  return transformDirectiveRange(lines, 0, lines.length);
+}
+
+function transformDirectiveRange(lines: string[], start: number, end: number): string {
+  const output: string[] = [];
+  let index = start;
+  while (index < end) {
+    const name = containerDirectiveName(lines[index] ?? '');
+    if (name) {
+      const block = readDirectiveBlock(lines, index + 1, end);
+      if (block) {
+        output.push(renderContainerDirective(name, block.content.join('\n')));
+        index = block.nextIndex;
+        continue;
+      }
+    }
+    output.push(lines[index] ?? '');
+    index += 1;
+  }
+  return output.join('\n');
+}
+
+function stripDirectiveRange(lines: string[], start: number, end: number): string {
+  const output: string[] = [];
+  let index = start;
+  while (index < end) {
+    const name = containerDirectiveName(lines[index] ?? '');
+    if (name) {
+      const block = readDirectiveBlock(lines, index + 1, end);
+      if (block) {
+        const content = stripDirectiveRange(block.content, 0, block.content.length).trim();
+        if (content) output.push(content);
+        index = block.nextIndex;
+        continue;
+      }
+    }
+    output.push(lines[index] ?? '');
+    index += 1;
+  }
+  return output.join('\n');
+}
+
+function readDirectiveBlock(lines: string[], start: number, end: number): { content: string[]; nextIndex: number } | undefined {
+  let depth = 0;
+  for (let index = start; index < end; index += 1) {
+    if (containerDirectiveName(lines[index] ?? '')) {
+      depth += 1;
+      continue;
+    }
+    if (CONTAINER_DIRECTIVE_CLOSE_RE.test(lines[index] ?? '')) {
+      if (depth === 0) {
+        return {
+          content: lines.slice(start, index),
+          nextIndex: index + 1
+        };
+      }
+      depth -= 1;
+    }
+  }
+  return undefined;
+}
+
+function containerDirectiveName(line: string): string | undefined {
+  const name = line.match(CONTAINER_DIRECTIVE_OPEN_RE)?.[1];
+  return name && CONTAINER_DIRECTIVES.has(name) ? name : undefined;
+}
+
+function renderContainerDirective(name: string, content: string): string {
+  const html = renderMarkdown(content.trim());
+  if (name === 'column') {
+    return `<section class="presso-column" data-directive="column">${html}</section>`;
+  }
+  return `<div class="presso-${name}" data-directive="${name}">${html}</div>`;
 }
 
 function parseAttrs(raw: string): Record<string, string> {
