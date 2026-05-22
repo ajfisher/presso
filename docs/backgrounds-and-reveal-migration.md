@@ -317,9 +317,18 @@ should become:
 
 ```markdown
 :::columns
-...
+:::column
+![Illustration](./assets/images/jfk.png)
+:::
+
+:::column
+> Quote or text content.
+:::
 :::
 ```
+
+Ambiguous `twocolumn` wrappers should be left as raw HTML and reported in
+`MIGRATION.md` rather than guessed into the wrong structure.
 
 Logo-only paragraphs should become:
 

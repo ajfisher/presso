@@ -369,6 +369,31 @@ Directives are the first-class alternative to raw HTML for common slide needs.
 
 ### Columns
 
+Preferred explicit column syntax:
+
+```markdown
+:::columns
+:::column
+![Illustration](./assets/jfk.png)
+:::
+
+:::column
+> We choose to go to the Moon...
+:::
+:::
+```
+
+The rendered HTML uses stable theme hooks:
+
+```html
+<div class="presso-columns" data-directive="columns">
+  <section class="presso-column" data-directive="column">...</section>
+  <section class="presso-column" data-directive="column">...</section>
+</div>
+```
+
+Older simple column wrappers remain supported for existing decks:
+
 ```markdown
 :::columns
 ![Illustration](./assets/jfk.png)
