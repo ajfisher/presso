@@ -215,6 +215,7 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-action="edit-new-slide"');
     expect(config.editing).toEqual({
       enabled: true,
+      createEndpoint: '/edit/slides',
       slideEndpoint: '/edit/slide'
     });
 
@@ -236,9 +237,13 @@ describe('runtime renderer', () => {
         source: { type: 'file', path: './slides.md' }
       }
     }, 'deck', { server: true });
-    expect(singleFileHtml).not.toContain('data-edit-overlay');
-    expect(singleFileHtml).not.toContain('/edit/slide');
-    expect(runtimeConfig(singleFileHtml).editing).toEqual({ enabled: false });
+    const singleFileConfig = runtimeConfig(singleFileHtml);
+    expect(singleFileHtml).toContain('data-edit-overlay');
+    expect(singleFileHtml).toContain('/edit/slide');
+    expect(singleFileConfig.editing).toEqual({
+      enabled: true,
+      slideEndpoint: '/edit/slide'
+    });
   });
 
   it('renders controller state hooks and slide metadata without notes', () => {

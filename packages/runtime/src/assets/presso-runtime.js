@@ -14,6 +14,7 @@
   const canDirectFullscreen = mode === 'deck' || mode === 'embed';
   const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
   const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
+  const canCreateSlides = Boolean(canEditSlides && editing.createEndpoint);
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
@@ -274,7 +275,7 @@
   }
 
   async function createSlideFromEditor() {
-    if (!canEditSlides || editSaving || editCreating) return;
+    if (!canCreateSlides || editSaving || editCreating) return;
     if (editHasChanges() && !window.confirm('Create a new slide and discard unsaved edits?')) return;
     setEditCreating(true);
     setEditError('');
@@ -305,8 +306,7 @@
   }
 
   function editSlidesUrl() {
-    const endpoint = String(editing.slideEndpoint || '').replace(/\/slide$/, '/slides');
-    return new URL(endpoint, location.href);
+    return new URL(editing.createEndpoint, location.href);
   }
 
   function editOverlay() {
@@ -538,7 +538,8 @@
       setControlLabel(button, editSaving ? 'Saving...' : 'Save');
     });
     document.querySelectorAll('[data-edit-new-slide]').forEach((button) => {
-      button.disabled = editSaving || editCreating;
+      button.hidden = !canCreateSlides;
+      button.disabled = !canCreateSlides || editSaving || editCreating;
       setControlLabel(button, editCreating ? 'Creating...' : 'New slide');
     });
   }

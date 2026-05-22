@@ -5,7 +5,7 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, createFolderSlideSource, pathExists, readFolderSlideSource, writeFolderSlideSource, type CreateFolderSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
+import { compileDeck, createFolderSlideSource, pathExists, readSlideSource, writeSlideSource, type CreateFolderSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
@@ -247,12 +247,12 @@ async function handleEditSlide(cwd: string, req: http.IncomingMessage, res: Serv
   try {
     const index = parseSlideIndex(url);
     if (req.method === 'GET') {
-      sendJson(res, await readFolderSlideSource(cwd, index));
+      sendJson(res, await readSlideSource(cwd, index));
       return;
     }
     if (req.method === 'PUT') {
       const input = parseEditInput(parseJsonObject(await readBody(req)));
-      const saved = await writeFolderSlideSource(cwd, index, input);
+      const saved = await writeSlideSource(cwd, index, input);
       sendJson(res, saved);
       return;
     }

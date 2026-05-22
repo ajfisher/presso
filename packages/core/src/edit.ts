@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
-import { compileDeck } from './deck.js';
+import { compileDeck, parseSingleFileSlideSections } from './deck.js';
 import { listMarkdownFiles, pathExists, toPosixPath } from './fs.js';
 import { extractNotes } from './markdown.js';
 import type { Slide } from './types.js';
@@ -24,6 +24,20 @@ export interface EditableSlideInput {
 
 export interface CreateFolderSlideOptions {
   afterIndex?: number;
+}
+
+export async function readSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
+  const deck = await compileDeck(cwd);
+  return deck.config.source.type === 'folder'
+    ? readFolderSlideSource(cwd, index)
+    : readSingleFileSlideSource(cwd, index);
+}
+
+export async function writeSlideSource(cwd = process.cwd(), index: number, input: EditableSlideInput): Promise<EditableSlideSource> {
+  const deck = await compileDeck(cwd);
+  return deck.config.source.type === 'folder'
+    ? writeFolderSlideSource(cwd, index, input)
+    : writeSingleFileSlideSource(cwd, index, input);
 }
 
 export async function readFolderSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
@@ -50,6 +64,31 @@ export async function writeFolderSlideSource(cwd = process.cwd(), index: number,
   const output = matter.stringify(markdown, metadata);
   await fs.writeFile(filePath, ensureTrailingNewline(output), 'utf8');
   return readFolderSlideSource(cwd, index);
+}
+
+export async function readSingleFileSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
+  const { slide, section } = await resolveSingleFileSlide(cwd, index);
+  const parsed = matter(section.content.trim());
+  const markdown = extractNotes(parsed.content);
+
+  return {
+    index: slide.index,
+    id: slide.id,
+    title: slide.title,
+    sourcePath: slide.sourcePath,
+    metadataYaml: metadataToYaml(parsed.data as Record<string, unknown>),
+    bodyMarkdown: editableMarkdown(markdown.bodyMarkdown),
+    notesMarkdown: editableMarkdown(markdown.notesMarkdown)
+  };
+}
+
+export async function writeSingleFileSlideSource(cwd = process.cwd(), index: number, input: EditableSlideInput): Promise<EditableSlideSource> {
+  const { filePath, section, source } = await resolveSingleFileSlide(cwd, index);
+  const metadata = parseMetadataYaml(input.metadataYaml);
+  const markdown = composeSlideMarkdown(input.bodyMarkdown, input.notesMarkdown);
+  const output = ensureTrailingNewline(matter.stringify(markdown, metadata));
+  await fs.writeFile(filePath, source.slice(0, section.contentStart) + output + source.slice(section.contentEnd), 'utf8');
+  return readSingleFileSlideSource(cwd, index);
 }
 
 export async function createFolderSlideSource(cwd = process.cwd(), options: CreateFolderSlideOptions = {}): Promise<EditableSlideSource> {
@@ -111,6 +150,36 @@ async function resolveFolderSlide(cwd: string, index: number): Promise<{ slide: 
   return { slide, filePath };
 }
 
+async function resolveSingleFileSlide(cwd: string, index: number): Promise<{
+  filePath: string;
+  section: ReturnType<typeof parseSingleFileSlideSections>[number];
+  slide: Slide;
+  source: string;
+}> {
+  const deck = await compileDeck(cwd);
+  if (deck.config.source.type !== 'file') {
+    throw new Error('Single-file edit mode requires source.type "file".');
+  }
+  const slide = deck.slides[index];
+  if (!slide) {
+    throw new Error(`Slide index ${index} does not exist.`);
+  }
+
+  const root = path.resolve(deck.config.rootDir);
+  const filePath = path.resolve(root, deck.config.source.path);
+  if (!isInside(root, filePath)) {
+    throw new Error(`Slide source path is outside the deck root: ${deck.config.source.path}`);
+  }
+
+  const source = await fs.readFile(filePath, 'utf8');
+  const section = parseSingleFileSlideSections(source)[index];
+  if (!section) {
+    throw new Error(`Slide index ${index} does not exist in ${slide.sourcePath}.`);
+  }
+
+  return { filePath, section, slide, source };
+}
+
 async function nextNumericSlidePrefix(slideDir: string, files: string[]): Promise<string> {
   let nextNumber = files.reduce((highest, file) => {
     const match = path.basename(file).match(/^(\d+)/);
@@ -167,7 +236,11 @@ function parseMetadataYaml(metadataYaml: string): Record<string, unknown> {
     const source = metadataYaml.trim()
       ? `---\n${metadataYaml.trimEnd()}\n---\n`
       : '---\n{}\n---\n';
-    const data = matter(source).data;
+    const parsed = matter(source);
+    if (metadataYaml.trim() && parsed.content.trim()) {
+      throw new Error('Slide metadata must be valid YAML frontmatter only.');
+    }
+    const data = parsed.data;
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
       throw new Error('Slide metadata must be a YAML mapping.');
     }

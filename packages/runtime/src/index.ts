@@ -26,6 +26,7 @@ interface RenderOptions {
 interface RenderContext {
   assetPrefix: string;
   controlUrls: string[];
+  editingCreateEnabled: boolean;
   editingEnabled: boolean;
   includeNotes: boolean;
   mode: RenderMode;
@@ -120,7 +121,11 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,
       editing: context.editingEnabled
-        ? { enabled: true, slideEndpoint: '/edit/slide' }
+        ? {
+          enabled: true,
+          slideEndpoint: '/edit/slide',
+          ...(context.editingCreateEnabled ? { createEndpoint: '/edit/slides' } : {})
+        }
         : { enabled: false },
       routes: buildRoutes(mode, context.server),
       server: context.server,
@@ -357,10 +362,12 @@ function renderTranscriptHtml(deck: Deck, context: RenderContext): string {
 function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): RenderContext {
   const server = Boolean(options.server);
   const publicBuild = Boolean(options.public);
+  const editingEnabled = server && (deck.config.source.type === 'folder' || deck.config.source.type === 'file') && (mode === 'deck' || mode === 'presenter');
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
     controlUrls: options.controlUrls ?? [],
-    editingEnabled: server && deck.config.source.type === 'folder' && (mode === 'deck' || mode === 'presenter'),
+    editingCreateEnabled: editingEnabled && deck.config.source.type === 'folder',
+    editingEnabled,
     includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,
     notesPublic: deck.config.notes.public,

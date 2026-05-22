@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { compileDeck, createFolderSlideSource, readFolderSlideSource, writeFolderSlideSource } from './index.js';
+import { compileDeck, createFolderSlideSource, readFolderSlideSource, readSlideSource, writeFolderSlideSource, writeSlideSource } from './index.js';
 
 const tmpRoots: string[] = [];
 
@@ -188,6 +188,85 @@ describe('folder slide editing', () => {
   });
 });
 
+describe('single-file slide editing', () => {
+  afterEach(async () => {
+    await Promise.all(tmpRoots.splice(0).map((root) => fs.rm(root, { recursive: true, force: true })));
+  });
+
+  it('reads a single-file slide into metadata, body, and notes fields', async () => {
+    const root = await createSingleFileDeck();
+    const source = await readSlideSource(root, 1);
+
+    expect(source).toMatchObject({
+      index: 1,
+      id: 'two',
+      sourcePath: 'slides.md',
+      title: 'Second',
+      bodyMarkdown: '## Second',
+      notesMarkdown: 'Second notes.'
+    });
+    expect(source.metadataYaml).toContain('layout: statement');
+    expect(source.metadataYaml).toContain('custom: keep-me');
+  });
+
+  it('writes only the active single-file slide section', async () => {
+    const root = await createSingleFileDeck();
+    const filePath = path.join(root, 'slides.md');
+    const before = await fs.readFile(filePath, 'utf8');
+    const firstSectionBefore = before.slice(before.indexOf('::slide'), before.indexOf('\n::slide', before.indexOf('::slide') + 1));
+    const source = await readSlideSource(root, 1);
+
+    await writeSlideSource(root, 1, {
+      metadataYaml: `${source.metadataYaml}\nnewField: retained`,
+      bodyMarkdown: '## Updated second\n\nLine one\nLine two',
+      notesMarkdown: 'Updated second notes.'
+    });
+
+    const after = await fs.readFile(filePath, 'utf8');
+    const firstSectionAfter = after.slice(after.indexOf('::slide'), after.indexOf('\n::slide', after.indexOf('::slide') + 1));
+    expect(firstSectionAfter).toBe(firstSectionBefore);
+    const deck = await compileDeck(root);
+    expect(deck.slides[1]!.metadata.custom).toBe('keep-me');
+    expect(deck.slides[1]!.metadata.newField).toBe('retained');
+    expect(deck.slides[1]!.bodyMarkdown).toContain('Updated second');
+    expect(deck.slides[1]!.notesMarkdown).toBe('Updated second notes.');
+  });
+
+  it('can add and remove notes from single-file slides', async () => {
+    const root = await createSingleFileDeck();
+    const first = await readSlideSource(root, 0);
+
+    await writeSlideSource(root, 0, {
+      metadataYaml: first.metadataYaml,
+      bodyMarkdown: first.bodyMarkdown,
+      notesMarkdown: ''
+    });
+    expect((await readSlideSource(root, 0)).notesMarkdown).toBe('');
+
+    const second = await readSlideSource(root, 1);
+    await writeSlideSource(root, 1, {
+      metadataYaml: second.metadataYaml,
+      bodyMarkdown: second.bodyMarkdown,
+      notesMarkdown: 'Fresh notes.'
+    });
+    expect((await compileDeck(root)).slides[1]!.notesMarkdown).toBe('Fresh notes.');
+  });
+
+  it('rejects invalid single-file metadata without changing the source file', async () => {
+    const root = await createSingleFileDeck();
+    const filePath = path.join(root, 'slides.md');
+    const before = await fs.readFile(filePath, 'utf8');
+
+    await expect(writeSlideSource(root, 1, {
+      metadataYaml: 'id: [',
+      bodyMarkdown: '## Broken',
+      notesMarkdown: 'Broken'
+    })).rejects.toThrow('Invalid slide metadata');
+
+    expect(await fs.readFile(filePath, 'utf8')).toBe(before);
+  });
+});
+
 async function createFolderDeck(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-folder-'));
   tmpRoots.push(root);
@@ -215,6 +294,48 @@ layout: bullets
 :::notes
 Detail notes.
 :::
+`);
+  return root;
+}
+
+async function createSingleFileDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-single-file-'));
+  tmpRoots.push(root);
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), 'export default { source: { type: "file", path: "./slides.md" } };\n');
+  await fs.writeFile(path.join(root, 'slides.md'), `# Preamble stays put
+
+::slide
+---
+id: one
+layout: title
+---
+
+# First
+
+:::notes
+First notes.
+:::
+
+::slide
+---
+id: two
+layout: statement
+custom: keep-me
+---
+
+## Second
+
+:::notes
+Second notes.
+:::
+
+::slide
+---
+id: three
+layout: bullets
+---
+
+## Third
 `);
   return root;
 }

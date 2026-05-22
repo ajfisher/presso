@@ -119,13 +119,33 @@ describe('dev server slide editing', () => {
     expect(await invalidPayload.json()).toMatchObject({ error: expect.stringContaining('metadataYaml') });
   });
 
-  it('rejects single-file decks for local edit writeback', async () => {
+  it('reads and writes editable single-file slide source', async () => {
     const root = await createSingleFileDeck();
     const server = await startTestServer(root);
 
-    const response = await fetch(`${server.origin}/edit/slide?index=0`);
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: expect.stringContaining('folder decks only') });
+    const source = await getJson(server, '/edit/slide?index=1');
+    expect(source).toMatchObject({
+      id: 'two',
+      sourcePath: 'slides.md',
+      bodyMarkdown: '## Two',
+      notesMarkdown: 'Two notes.'
+    });
+
+    const saved = await putJson(server, '/edit/slide?index=1', {
+      metadataYaml: `${source.metadataYaml}\nnewField: retained`,
+      bodyMarkdown: '## Updated two',
+      notesMarkdown: 'Updated two notes.'
+    });
+    expect(saved).toMatchObject({
+      bodyMarkdown: '## Updated two',
+      notesMarkdown: 'Updated two notes.'
+    });
+
+    const file = await fs.readFile(path.join(root, 'slides.md'), 'utf8');
+    expect(file).toContain('# One');
+    expect(file).toContain('newField: retained');
+    expect(file).toContain('## Updated two');
+    expect(file).toContain('Updated two notes.');
   });
 
   it('creates folder slides through the dev edit endpoint', async () => {
@@ -237,7 +257,24 @@ async function createSingleFileDeck(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-server-edit-file-'));
   tmpRoots.push(root);
   await fs.writeFile(path.join(root, 'presso.config.mjs'), 'export default { source: { type: "file", path: "./slides.md" } };\n');
-  await fs.writeFile(path.join(root, 'slides.md'), '::slide\n---\nid: one\n---\n# One\n');
+  await fs.writeFile(path.join(root, 'slides.md'), `::slide
+---
+id: one
+layout: title
+---
+# One
+
+::slide
+---
+id: two
+layout: statement
+---
+## Two
+
+:::notes
+Two notes.
+:::
+`);
   return root;
 }
 

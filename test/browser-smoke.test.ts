@@ -321,6 +321,48 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('edits active single-file slide source over the dev server', async () => {
+    const deck = await createSingleFileSmokeDeck();
+    const devServer = await startDevServer(deck);
+    const playwright = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(playwright.chromium);
+      const page = await browser.newPage();
+      await page.goto(`${devServer.origin}/#/1`, { waitUntil: 'domcontentloaded' });
+      await expectText(page, '.presso-slide.is-active', 'Original single-file slide');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await expectText(page, '[data-edit-source]', 'slides.md');
+      expect(await page.locator('[data-action="edit-new-slide"]').isVisible()).toBe(false);
+      await expectFieldValue(page, '[data-edit-body]', '## Original single-file slide');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Original single-file notes.');
+
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await page.locator('[data-edit-metadata]').fill('id: single-two\nlayout: bullets\ncustom: retained');
+      await page.locator('[data-edit-tab="body"]').click();
+      await page.locator('[data-edit-body]').fill('## Edited single-file slide\n\nEdited body line.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await page.locator('[data-edit-notes]').fill('Edited single-file notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Edited single-file slide');
+      await expectText(page, '.presso-slide.is-active', 'Edited body line');
+
+      const source = await fs.readFile(path.join(deck, 'slides.md'), 'utf8');
+      expect(source).toContain('# Untouched first slide');
+      expect(source).toContain('custom: retained');
+      expect(source).toContain('layout: bullets');
+      expect(source).toContain('## Edited single-file slide');
+      expect(source).toContain('Edited single-file notes.');
+    } finally {
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 60000);
+
   it('exports all PDF layouts from real print routes', async () => {
     const deck = await createPdfSmokeDeck();
     const outputs = await exportPdfs(deck);
@@ -410,6 +452,40 @@ layout: bullets
 ## Untouched slide
 
 - Do not edit
+`);
+  return root;
+}
+
+async function createSingleFileSmokeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-single-smoke-'));
+  tmpRoots.push(root);
+  await fs.writeFile(path.join(root, 'theme.css'), ':root { --presso-accent: #d15bff; }\n');
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Single File Edit Smoke',
+  source: { type: 'file', path: './slides.md' },
+  theme: './theme.css'
+};
+`);
+  await fs.writeFile(path.join(root, 'slides.md'), `::slide
+---
+id: single-one
+layout: title
+---
+
+# Untouched first slide
+
+::slide
+---
+id: single-two
+layout: statement
+custom: keep-me
+---
+
+## Original single-file slide
+
+:::notes
+Original single-file notes.
+:::
 `);
   return root;
 }

@@ -7,6 +7,14 @@ import { renderSlideMarkdown } from './markdown.js';
 import { applyTiming } from './timing.js';
 import type { Deck, OrderCheckResult, ResolvedPressoConfig, Slide } from './types.js';
 
+export interface SingleFileSlideSection {
+  index: number;
+  boundaryStart: number;
+  contentStart: number;
+  contentEnd: number;
+  content: string;
+}
+
 export async function compileDeck(cwd = process.cwd()): Promise<Deck> {
   const config = await loadConfig(cwd);
   const rawSlides = config.source.type === 'folder'
@@ -51,11 +59,25 @@ export async function loadSingleFileSlides(config: ResolvedPressoConfig): Promis
     throw new Error(`Slide file not found: ${filePath}`);
   }
   const content = await fs.readFile(filePath, 'utf8');
-  const sections = content
-    .split(/^::slide\s*$/m)
-    .map((section) => section.trim())
-    .filter(Boolean);
-  return sections.map((section, index) => buildSlide(section, filePath, config.rootDir, index));
+  const sections = parseSingleFileSlideSections(content);
+  return sections.map((section, index) => buildSlide(section.content.trim(), filePath, config.rootDir, index));
+}
+
+export function parseSingleFileSlideSections(content: string): SingleFileSlideSection[] {
+  const boundaries = [...content.matchAll(/^::slide[^\S\r\n]*(?:\r?\n|$)/gm)];
+  return boundaries.map((match, boundaryIndex) => {
+    const boundaryStart = match.index ?? 0;
+    const contentStart = boundaryStart + match[0].length;
+    const next = boundaries[boundaryIndex + 1];
+    const contentEnd = next?.index ?? content.length;
+    return {
+      index: boundaryIndex,
+      boundaryStart,
+      contentStart,
+      contentEnd,
+      content: content.slice(contentStart, contentEnd)
+    };
+  }).filter((section) => section.content.trim());
 }
 
 export function parseOrderFile(content: string): string[] {
