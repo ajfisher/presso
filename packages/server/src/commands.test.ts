@@ -77,6 +77,26 @@ Image notes.
 
 ![One](/images/hero.png)
 ![Two](/images/hero.png)
+
+---
+
+## Two columns
+
+<div class="twocolumn">
+
+![One](/images/hero.png)
+
+Column text.
+
+</div>
+
+---
+
+## Ambiguous columns
+
+<div class="twocolumn">
+Only one column-like block.
+</div>
 `);
 
     await migrateRevealDeck(source, target);
@@ -84,6 +104,8 @@ Image notes.
     const first = await fs.readFile(path.join(target, 'slides', '001-opening.md'), 'utf8');
     const second = await fs.readFile(path.join(target, 'slides', '002-image-slide.md'), 'utf8');
     const third = await fs.readFile(path.join(target, 'slides', '003-logos.md'), 'utf8');
+    const fourth = await fs.readFile(path.join(target, 'slides', '004-two-columns.md'), 'utf8');
+    const fifth = await fs.readFile(path.join(target, 'slides', '005-ambiguous-columns.md'), 'utf8');
     const theme = await fs.readFile(path.join(target, 'theme.css'), 'utf8');
     const report = await fs.readFile(path.join(target, 'MIGRATION.md'), 'utf8');
 
@@ -95,8 +117,13 @@ Image notes.
     expect(third).toContain('layout: "logos"');
     expect(third).toContain('color: "#FFFFFF"');
     expect(third).toContain(':::logos');
+    expect(fourth).toContain('layout: "two-column"');
+    expect(fourth).toContain(':::column\n![One](./assets/images/hero.png)\n:::');
+    expect(fourth).toContain(':::column\nColumn text.\n:::');
+    expect(fifth).toContain('<div class="twocolumn">');
     expect(theme).toContain('background-color: var(--presso-bg-color, var(--presso-bg));');
     expect(report).toContain('Unsupported Reveal element comment');
+    expect(report).toContain('Ambiguous twocolumn wrapper');
     expect(await fs.readFile(path.join(target, 'assets', 'images', 'hero.png'), 'utf8')).toBe('image');
     expect(await fs.readFile(path.join(target, 'public', 'static', 'slides.pdf'), 'utf8')).toBe('pdf');
   });

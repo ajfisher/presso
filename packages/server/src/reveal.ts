@@ -8,6 +8,7 @@ interface RevealSlide {
   dataBackground?: string;
   dataTiming?: string;
   elementComments: string[];
+  manualItems: string[];
   notesMarkdown: string;
   title: string;
 }
@@ -16,6 +17,7 @@ interface MigrationReport {
   assetsCopied: string[];
   backgrounds: string[];
   elementComments: string[];
+  manualItems: string[];
   notesConverted: number;
   slidesGenerated: number;
   sourceDeck: string;
@@ -43,6 +45,7 @@ export async function migrateRevealDeck(source: string, target: string): Promise
     assetsCopied: [],
     backgrounds: [],
     elementComments: [],
+    manualItems: [],
     notesConverted: slides.filter((slide) => slide.notesMarkdown.trim()).length,
     slidesGenerated: slides.length,
     sourceDeck: paths.sourceDeck,
@@ -66,6 +69,9 @@ export async function migrateRevealDeck(source: string, target: string): Promise
     }
     for (const comment of slide.elementComments) {
       report.elementComments.push(`Slide ${index + 1}: ${comment}`);
+    }
+    for (const item of slide.manualItems) {
+      report.manualItems.push(`Slide ${index + 1}: ${item}`);
     }
 
     const number = String(index + 1).padStart(3, '0');
@@ -106,7 +112,8 @@ export function parseRevealSlide(content: string): RevealSlide {
   const notes = body.match(/^Notes:\s*$/m);
   const notesMarkdown = notes ? body.slice((notes.index ?? 0) + notes[0].length).trim() : '';
   body = notes ? body.slice(0, notes.index).trim() : body;
-  body = rewriteRevealAssetReferences(migrateCommonBodyPatterns(body, slideAttrs.class ?? ''));
+  const migratedBody = migrateCommonBodyPatterns(body, slideAttrs.class ?? '');
+  body = rewriteRevealAssetReferences(migratedBody.markdown);
   const migratedNotes = rewriteRevealAssetReferences(notesMarkdown);
   return {
     bodyMarkdown: body,
@@ -114,6 +121,7 @@ export function parseRevealSlide(content: string): RevealSlide {
     dataBackground: slideAttrs['data-background'],
     dataTiming: slideAttrs['data-timing'],
     elementComments,
+    manualItems: migratedBody.manualItems,
     notesMarkdown: migratedNotes,
     title: firstHeading(body)
   };
@@ -136,8 +144,14 @@ function parseRevealAttrs(raw: string): Record<string, string> {
   return attrs;
 }
 
-function migrateCommonBodyPatterns(body: string, className: string): string {
-  let output = body.replace(/<div\s+class=["']twocolumn["']>\s*([\s\S]*?)\s*<\/div>/gi, (_full, content: string) => `:::columns\n${content.trim()}\n:::`);
+function migrateCommonBodyPatterns(body: string, className: string): { manualItems: string[]; markdown: string } {
+  const manualItems: string[] = [];
+  let output = body.replace(/<div\s+class=["']twocolumn["']>\s*([\s\S]*?)\s*<\/div>/gi, (full, content: string) => {
+    const columns = migrateTwoColumnContent(content);
+    if (columns) return columns;
+    manualItems.push('Ambiguous twocolumn wrapper left as raw HTML for manual column cleanup.');
+    return full;
+  });
   if (className.split(/\s+/).includes('brands') && !output.includes(':::logos')) {
     const lines = output.split(/\r?\n/);
     const imageLines = lines.filter((line) => line.trim().startsWith('!['));
@@ -146,7 +160,39 @@ function migrateCommonBodyPatterns(body: string, className: string): string {
       output = `${otherLines}\n\n:::logos\n${imageLines.join('\n')}\n:::`.trim();
     }
   }
-  return output;
+  return { manualItems, markdown: output };
+}
+
+function migrateTwoColumnContent(content: string): string | undefined {
+  const blocks = splitMarkdownBlocks(content);
+  if (blocks.length >= 2 && isMarkdownImageBlock(blocks[0] ?? '')) {
+    return nestedColumns(blocks[0]!, blocks.slice(1).join('\n\n'));
+  }
+  const childDivs = [...content.matchAll(/<div(?:\s[^>]*)?>\s*([\s\S]*?)\s*<\/div>/gi)].map((match) => match[1]?.trim() ?? '').filter(Boolean);
+  if (childDivs.length === 2) {
+    return nestedColumns(childDivs[0]!, childDivs[1]!);
+  }
+  return undefined;
+}
+
+function splitMarkdownBlocks(content: string): string[] {
+  return content.trim().split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+}
+
+function isMarkdownImageBlock(block: string): boolean {
+  return /^!\[[^\]]*]\([^)]+\)$/m.test(block.trim());
+}
+
+function nestedColumns(left: string, right: string): string {
+  return `:::columns
+:::column
+${left.trim()}
+:::
+
+:::column
+${right.trim()}
+:::
+:::`;
 }
 
 function migrateBackground(value: string | undefined): { summary: string; value: Record<string, string> } | undefined {
@@ -342,6 +388,7 @@ ${report.timing.length ? report.timing.map((item) => `- ${item}`).join('\n') : '
 ## Manual Follow-Up
 
 ${report.elementComments.length ? report.elementComments.map((item) => `- Unsupported Reveal element comment: ${item}`).join('\n') : '- No unsupported Reveal element comments found.'}
+${report.manualItems.length ? report.manualItems.map((item) => `- ${item}`).join('\n') : '- No ambiguous migration items found.'}
 - Review migrated theme CSS; this command does not attempt Reveal theme compatibility.
 - Review any raw HTML, icon markup, or plugin-dependent content manually.
 `;
