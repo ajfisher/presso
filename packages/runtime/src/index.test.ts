@@ -242,6 +242,7 @@ describe('runtime renderer', () => {
     expect(singleFileHtml).toContain('/edit/slide');
     expect(singleFileConfig.editing).toEqual({
       enabled: true,
+      createEndpoint: '/edit/slides',
       slideEndpoint: '/edit/slide'
     });
   });

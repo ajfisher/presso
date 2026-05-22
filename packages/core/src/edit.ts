@@ -26,6 +26,8 @@ export interface CreateFolderSlideOptions {
   afterIndex?: number;
 }
 
+export type CreateSlideOptions = CreateFolderSlideOptions;
+
 export async function readSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
   const deck = await compileDeck(cwd);
   return deck.config.source.type === 'folder'
@@ -38,6 +40,13 @@ export async function writeSlideSource(cwd = process.cwd(), index: number, input
   return deck.config.source.type === 'folder'
     ? writeFolderSlideSource(cwd, index, input)
     : writeSingleFileSlideSource(cwd, index, input);
+}
+
+export async function createSlideSource(cwd = process.cwd(), options: CreateSlideOptions = {}): Promise<EditableSlideSource> {
+  const deck = await compileDeck(cwd);
+  return deck.config.source.type === 'folder'
+    ? createFolderSlideSource(cwd, options)
+    : createSingleFileSlideSource(cwd, options);
 }
 
 export async function readFolderSlideSource(cwd = process.cwd(), index: number): Promise<EditableSlideSource> {
@@ -96,13 +105,7 @@ export async function createFolderSlideSource(cwd = process.cwd(), options: Crea
   if (deck.config.source.type !== 'folder') {
     throw new Error('Local slide creation currently supports folder decks only.');
   }
-  if (options.afterIndex !== undefined && (!Number.isInteger(options.afterIndex) || options.afterIndex < 0)) {
-    throw new Error('A valid non-negative slide index is required.');
-  }
-  const activeSlide = options.afterIndex === undefined ? undefined : deck.slides[options.afterIndex];
-  if (options.afterIndex !== undefined && !activeSlide) {
-    throw new Error(`Slide index ${options.afterIndex} does not exist.`);
-  }
+  const activeSlide = activeSlideForCreate(deck.slides, options.afterIndex);
 
   const root = path.resolve(deck.config.rootDir);
   const slideDir = path.resolve(root, deck.config.source.path);
@@ -129,6 +132,38 @@ export async function createFolderSlideSource(cwd = process.cwd(), options: Crea
     throw new Error(`Created slide was not found in the compiled deck: ${sourcePath}`);
   }
   return readFolderSlideSource(cwd, created.index);
+}
+
+export async function createSingleFileSlideSource(cwd = process.cwd(), options: CreateSlideOptions = {}): Promise<EditableSlideSource> {
+  const deck = await compileDeck(cwd);
+  if (deck.config.source.type !== 'file') {
+    throw new Error('Single-file slide creation requires source.type "file".');
+  }
+  activeSlideForCreate(deck.slides, options.afterIndex);
+
+  const root = path.resolve(deck.config.rootDir);
+  const filePath = path.resolve(root, deck.config.source.path);
+  if (!isInside(root, filePath)) {
+    throw new Error(`Slide source path is outside the deck root: ${deck.config.source.path}`);
+  }
+
+  const source = await fs.readFile(filePath, 'utf8');
+  const sections = parseSingleFileSlideSections(source);
+  const activeSection = options.afterIndex === undefined ? undefined : sections[options.afterIndex];
+  if (options.afterIndex !== undefined && !activeSection) {
+    throw new Error(`Slide index ${options.afterIndex} does not exist in ${deck.config.source.path}.`);
+  }
+
+  const next = nextUntitledPrefix(deck.slides);
+  const nextSource = insertSingleFileSlideSection(source, activeSection?.contentEnd ?? source.length, next);
+  await fs.writeFile(filePath, nextSource, 'utf8');
+
+  const updated = await compileDeck(cwd);
+  const created = updated.slides.find((slide) => slide.id === `untitled-${next}`);
+  if (!created) {
+    throw new Error(`Created slide was not found in the compiled deck: untitled-${next}`);
+  }
+  return readSingleFileSlideSource(cwd, created.index);
 }
 
 async function resolveFolderSlide(cwd: string, index: number): Promise<{ slide: Slide; filePath: string }> {
@@ -180,6 +215,17 @@ async function resolveSingleFileSlide(cwd: string, index: number): Promise<{
   return { filePath, section, slide, source };
 }
 
+function activeSlideForCreate(slides: Slide[], afterIndex: number | undefined): Slide | undefined {
+  if (afterIndex !== undefined && (!Number.isInteger(afterIndex) || afterIndex < 0)) {
+    throw new Error('A valid non-negative slide index is required.');
+  }
+  const activeSlide = afterIndex === undefined ? undefined : slides[afterIndex];
+  if (afterIndex !== undefined && !activeSlide) {
+    throw new Error(`Slide index ${afterIndex} does not exist.`);
+  }
+  return activeSlide;
+}
+
 async function nextNumericSlidePrefix(slideDir: string, files: string[]): Promise<string> {
   let nextNumber = files.reduce((highest, file) => {
     const match = path.basename(file).match(/^(\d+)/);
@@ -191,6 +237,14 @@ async function nextNumericSlidePrefix(slideDir: string, files: string[]): Promis
     next = String(nextNumber).padStart(3, '0');
   }
   return next;
+}
+
+function nextUntitledPrefix(slides: Slide[]): string {
+  const highestUntitled = slides.reduce((highest, slide) => {
+    const match = slide.id.match(/^untitled-(\d+)$/);
+    return match ? Math.max(highest, Number(match[1])) : highest;
+  }, 0);
+  return String(Math.max(slides.length, highestUntitled) + 1).padStart(3, '0');
 }
 
 function newSlideContent(prefix: string): string {
@@ -205,6 +259,18 @@ layout: statement
 Add speaker notes here.
 :::
 `;
+}
+
+function insertSingleFileSlideSection(source: string, insertAt: number, prefix: string): string {
+  const before = source.slice(0, insertAt);
+  const after = source.slice(insertAt);
+  const beforeSeparator = before.length === 0 || before.endsWith('\n\n')
+    ? ''
+    : before.endsWith('\n')
+      ? '\n'
+      : '\n\n';
+  const afterSeparator = after.length === 0 || after.startsWith('\n') ? '' : '\n';
+  return `${before}${beforeSeparator}::slide\n${newSlideContent(prefix)}${afterSeparator}${after}`;
 }
 
 function insertOrderEntry(content: string, root: string, afterSourcePath: string | undefined, newSourcePath: string): string {

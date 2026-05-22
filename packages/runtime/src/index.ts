@@ -366,7 +366,7 @@ function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): Ren
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
     controlUrls: options.controlUrls ?? [],
-    editingCreateEnabled: editingEnabled && deck.config.source.type === 'folder',
+    editingCreateEnabled: editingEnabled,
     editingEnabled,
     includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,

@@ -1,12 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { compileDeck, createFolderSlideSource, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@ajfisher/presso-core';
+import { compileDeck, createSlideSource, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@ajfisher/presso-core';
 import { buildStatic, exportPdf, exportPdfs, exportTranscript } from '@ajfisher/presso-export';
 import { createDeck } from '@ajfisher/presso-create';
 
 export async function addSlide(cwd = process.cwd()): Promise<string> {
-  const source = await createFolderSlideSource(cwd);
+  const source = await createSlideSource(cwd);
   return path.join(cwd, source.sourcePath);
 }
 

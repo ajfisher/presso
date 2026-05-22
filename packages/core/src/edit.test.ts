@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { compileDeck, createFolderSlideSource, readFolderSlideSource, readSlideSource, writeFolderSlideSource, writeSlideSource } from './index.js';
+import { compileDeck, createFolderSlideSource, createSlideSource, readFolderSlideSource, readSlideSource, writeFolderSlideSource, writeSlideSource } from './index.js';
 
 const tmpRoots: string[] = [];
 
@@ -262,6 +262,61 @@ describe('single-file slide editing', () => {
       bodyMarkdown: '## Broken',
       notesMarkdown: 'Broken'
     })).rejects.toThrow('Invalid slide metadata');
+
+    expect(await fs.readFile(filePath, 'utf8')).toBe(before);
+  });
+
+  it('creates a single-file slide after the active section', async () => {
+    const root = await createSingleFileDeck();
+
+    const source = await createSlideSource(root, { afterIndex: 0 });
+
+    expect(source).toMatchObject({
+      index: 1,
+      id: 'untitled-004',
+      sourcePath: 'slides.md',
+      title: 'Untitled',
+      bodyMarkdown: '## Untitled',
+      notesMarkdown: 'Add speaker notes here.'
+    });
+    expect(source.metadataYaml).toContain('layout: statement');
+    expect((await compileDeck(root)).slides.map((slide) => slide.id)).toEqual([
+      'one',
+      'untitled-004',
+      'two',
+      'three'
+    ]);
+
+    const output = await fs.readFile(path.join(root, 'slides.md'), 'utf8');
+    expect(output).toContain('id: untitled-004');
+    expect(output.indexOf('id: one')).toBeLessThan(output.indexOf('id: untitled-004'));
+    expect(output.indexOf('id: untitled-004')).toBeLessThan(output.indexOf('id: two'));
+  });
+
+  it('appends a single-file slide when no active slide is provided', async () => {
+    const root = await createSingleFileDeck();
+
+    const source = await createSlideSource(root);
+
+    expect(source).toMatchObject({
+      index: 3,
+      id: 'untitled-004',
+      sourcePath: 'slides.md'
+    });
+    expect((await compileDeck(root)).slides.map((slide) => slide.id)).toEqual([
+      'one',
+      'two',
+      'three',
+      'untitled-004'
+    ]);
+  });
+
+  it('rejects invalid single-file create indexes without changing the source file', async () => {
+    const root = await createSingleFileDeck();
+    const filePath = path.join(root, 'slides.md');
+    const before = await fs.readFile(filePath, 'utf8');
+
+    await expect(createSlideSource(root, { afterIndex: 99 })).rejects.toThrow('Slide index 99 does not exist');
 
     expect(await fs.readFile(filePath, 'utf8')).toBe(before);
   });

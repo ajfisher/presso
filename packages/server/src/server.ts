@@ -5,7 +5,7 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, createFolderSlideSource, pathExists, readSlideSource, writeSlideSource, type CreateFolderSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
+import { compileDeck, createSlideSource, pathExists, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
@@ -234,7 +234,7 @@ async function handleCreateSlide(
       return;
     }
     const input = parseCreateSlideInput(parseJsonObject(await readBody(req)));
-    const created = await createFolderSlideSource(cwd, input);
+    const created = await createSlideSource(cwd, input);
     onCreated(created.index);
     sendJson(res, created);
     setTimeout(afterResponse, 50);
@@ -271,7 +271,7 @@ function parseSlideIndex(url: URL): number {
   return index;
 }
 
-function parseCreateSlideInput(value: Record<string, unknown>): CreateFolderSlideOptions {
+function parseCreateSlideInput(value: Record<string, unknown>): CreateSlideOptions {
   if (value.afterIndex === undefined || value.afterIndex === null) return {};
   if (typeof value.afterIndex !== 'number' || !Number.isInteger(value.afterIndex) || value.afterIndex < 0) {
     throw new Error('Create slide payload requires afterIndex to be a non-negative integer when provided.');

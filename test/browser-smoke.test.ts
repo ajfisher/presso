@@ -336,7 +336,7 @@ browserDescribe('browser smoke', () => {
       await page.locator('.presso-slide.is-active').dblclick();
       await page.waitForSelector('[data-edit-overlay]:not([hidden])');
       await expectText(page, '[data-edit-source]', 'slides.md');
-      expect(await page.locator('[data-action="edit-new-slide"]').isVisible()).toBe(false);
+      expect(await page.locator('[data-action="edit-new-slide"]').isVisible()).toBe(true);
       await expectFieldValue(page, '[data-edit-body]', '## Original single-file slide');
       await page.locator('[data-edit-tab="notes"]').click();
       await expectFieldValue(page, '[data-edit-notes]', 'Original single-file notes.');
@@ -357,6 +357,24 @@ browserDescribe('browser smoke', () => {
       expect(source).toContain('layout: bullets');
       expect(source).toContain('## Edited single-file slide');
       expect(source).toContain('Edited single-file notes.');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await page.locator('[data-action="edit-new-slide"]').click();
+      await expectActiveSlide(page, 2);
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await expectFieldValue(page, '[data-edit-body]', '## Untitled');
+      await page.locator('[data-edit-body]').fill('## Created single-file slide\n\nCreated in slides.md.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Add speaker notes here.');
+      await page.locator('[data-edit-notes]').fill('Created single-file notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Created single-file slide');
+
+      const createdSource = await fs.readFile(path.join(deck, 'slides.md'), 'utf8');
+      expect(createdSource).toContain('id: untitled-003');
+      expect(createdSource).toContain('## Created single-file slide');
+      expect(createdSource).toContain('Created single-file notes.');
     } finally {
       await browser?.close();
       await devServer.close();

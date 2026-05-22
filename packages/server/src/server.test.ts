@@ -187,17 +187,25 @@ describe('dev server slide editing', () => {
     expect(await invalidIndex.json()).toMatchObject({ error: expect.stringContaining('Slide index 99 does not exist') });
   });
 
-  it('rejects single-file decks for local slide creation', async () => {
+  it('creates single-file slides through the dev edit endpoint', async () => {
     const root = await createSingleFileDeck();
     const server = await startTestServer(root);
 
-    const response = await fetch(`${server.origin}/edit/slides`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ afterIndex: 0 })
+    const created = await postJson(server, '/edit/slides', { afterIndex: 0 });
+
+    expect(created).toMatchObject({
+      index: 1,
+      id: 'untitled-003',
+      sourcePath: 'slides.md',
+      bodyMarkdown: '## Untitled',
+      notesMarkdown: 'Add speaker notes here.'
     });
-    expect(response.status).toBe(400);
-    expect(await response.json()).toMatchObject({ error: expect.stringContaining('folder decks only') });
+    expect(created.metadataYaml).toContain('layout: statement');
+    const file = await fs.readFile(path.join(root, 'slides.md'), 'utf8');
+    expect(file).toContain('id: untitled-003');
+    expect(file.indexOf('id: one')).toBeLessThan(file.indexOf('id: untitled-003'));
+    expect(file.indexOf('id: untitled-003')).toBeLessThan(file.indexOf('id: two'));
+    expect(await getJson(server, '/state')).toMatchObject({ index: 1 });
   });
 });
 
