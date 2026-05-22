@@ -3,7 +3,7 @@ import http from 'node:http';
 import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
-import { compileDeck, copyDir, pathExists, type Deck, type NotesPublicPolicy, type Slide } from '@ajfisher/presso-core';
+import { compileDeck, copyDir, pathExists, type Deck, type NotesPublicPolicy, type Slide, type SlideBackground } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
 export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
@@ -47,8 +47,7 @@ interface PublicSlideManifest {
   layout: string;
   class: string[];
   bodyHtml: string;
-  background?: string;
-  backgroundFit?: string;
+  background?: SlideBackground;
   notesHtml?: string;
   targetTimeSeconds?: number;
   time?: string;
@@ -398,15 +397,14 @@ function publicSlideManifest(slide: Slide, includeNotes: boolean): PublicSlideMa
     bodyHtml: slide.bodyHtml
   };
 
-  setOptionalSlideField(manifest, 'background', slide.background);
-  setOptionalSlideField(manifest, 'backgroundFit', slide.backgroundFit);
+  if (slide.background) manifest.background = slide.background;
   setOptionalSlideField(manifest, 'time', slide.time);
   if (slide.targetTimeSeconds !== undefined) manifest.targetTimeSeconds = slide.targetTimeSeconds;
   if (includeNotes) manifest.notesHtml = slide.notesHtml;
   return manifest;
 }
 
-function setOptionalSlideField(manifest: PublicSlideManifest, key: 'background' | 'backgroundFit' | 'time', value?: string): void {
+function setOptionalSlideField(manifest: PublicSlideManifest, key: 'time', value?: string): void {
   const clean = meaningfulString(value);
   if (clean) manifest[key] = clean;
 }

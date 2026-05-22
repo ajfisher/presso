@@ -1,4 +1,4 @@
-import type { Deck, Slide } from '@ajfisher/presso-core';
+import { backgroundImage, type Deck, type Slide } from '@ajfisher/presso-core';
 
 export const TRANSCRIPT_PROFILES = ['full', 'notes', 'notes-visuals'] as const;
 export type TranscriptProfile = typeof TRANSCRIPT_PROFILES[number];
@@ -123,8 +123,9 @@ function transcriptVisualMarkdown(slide: Slide, deck: Deck): string {
   if (typeof override === 'string' && override.trim()) {
     return imageMarkdown(slide.title, override, deck);
   }
-  if (slide.background) {
-    return imageMarkdown(slide.title, slide.background, deck);
+  const visualBackground = backgroundImage(slide.background);
+  if (visualBackground) {
+    return imageMarkdown(slide.title, visualBackground, deck);
   }
   if (shouldIncludeStatement(slide)) {
     return statementMarkdown(normalizedBodyMarkdown(slide, deck));

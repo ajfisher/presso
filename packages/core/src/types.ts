@@ -17,6 +17,29 @@ export interface DeployConfig {
   cloudfrontDistributionId?: string;
 }
 
+export type SlideBackgroundScrimDirection = 'full' | 'left' | 'right' | 'top' | 'bottom';
+
+export interface SlideBackgroundScrimOverlay {
+  type: 'scrim';
+  direction?: SlideBackgroundScrimDirection;
+  strength?: number;
+}
+
+export interface SlideBackgroundCssOverlay {
+  css: string;
+}
+
+export type SlideBackgroundOverlay = SlideBackgroundScrimOverlay | SlideBackgroundCssOverlay;
+
+export interface SlideBackground {
+  image?: string;
+  color?: string;
+  fit?: string;
+  position?: string;
+  repeat?: string;
+  overlay?: SlideBackgroundOverlay;
+}
+
 export interface PressoConfigInput {
   title?: string;
   event?: string;
@@ -67,8 +90,7 @@ export interface Slide {
   title: string;
   layout: string;
   class: string[];
-  background?: string;
-  backgroundFit?: string;
+  background?: SlideBackground;
   time?: string;
   targetTimeSeconds?: number;
   bodyMarkdown: string;
@@ -88,4 +110,3 @@ export interface OrderCheckResult {
   duplicate: string[];
   orphaned: string[];
 }
-

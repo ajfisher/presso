@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import matter from 'gray-matter';
+import { normalizeSlideBackground } from './background.js';
 import { loadConfig } from './config.js';
 import { listMarkdownFiles, pathExists, slugify, toPosixPath } from './fs.js';
 import { renderSlideMarkdown } from './markdown.js';
@@ -21,6 +22,7 @@ export async function compileDeck(cwd = process.cwd()): Promise<Deck> {
     ? await loadFolderSlides(config)
     : await loadSingleFileSlides(config);
   const slides = applyTiming(rawSlides.map((slide, index) => ({ ...slide, index })));
+  validateSlideIds(slides);
   return { config, slides };
 }
 
@@ -131,8 +133,7 @@ function buildSlide(content: string, filePath: string, rootDir: string, index: n
     title,
     layout: String(metadata.layout ?? 'statement'),
     class: classes,
-    background: metadata.background === undefined ? undefined : String(metadata.background),
-    backgroundFit: metadata.backgroundFit === undefined ? undefined : String(metadata.backgroundFit),
+    background: normalizeSlideBackground(metadata, sourcePath),
     time: metadata.time === undefined ? undefined : String(metadata.time),
     bodyMarkdown: rendered.bodyMarkdown,
     bodyHtml: rendered.bodyHtml,
@@ -140,6 +141,26 @@ function buildSlide(content: string, filePath: string, rootDir: string, index: n
     notesHtml: rendered.notesHtml,
     metadata
   };
+}
+
+function validateSlideIds(slides: Slide[]): void {
+  const seen = new Map<string, Slide>();
+  const duplicates: string[] = [];
+  for (const slide of slides) {
+    const first = seen.get(slide.id);
+    if (first) {
+      duplicates.push(`"${slide.id}" in ${slideIdentity(first)} and ${slideIdentity(slide)}`);
+    } else {
+      seen.set(slide.id, slide);
+    }
+  }
+  if (duplicates.length > 0) {
+    throw new Error(`Duplicate slide id${duplicates.length === 1 ? '' : 's'}: ${duplicates.join('; ')}`);
+  }
+}
+
+function slideIdentity(slide: Slide): string {
+  return `${slide.sourcePath}#${slide.index + 1}`;
 }
 
 function getTitle(metadata: Record<string, unknown>, markdown: string, filePath: string): string {

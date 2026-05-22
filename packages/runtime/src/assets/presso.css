@@ -91,13 +91,27 @@
     position: relative;
     overflow: hidden;
     padding: 5%;
-    background: #2d2d2d;
-    background-position: center;
-    background-repeat: no-repeat;
+    background-color: var(--presso-bg-color, #2d2d2d);
+    background-image: var(--presso-bg-image, none);
+    background-position: var(--presso-bg-position, center);
+    background-repeat: var(--presso-bg-repeat, no-repeat);
+    background-size: var(--presso-bg-fit, auto);
     box-shadow: 0 1rem 4rem rgb(0 0 0 / 35%);
 
     &.is-active {
       display: grid;
+    }
+
+    &[data-background~="image"]::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: var(--presso-bg-overlay, none);
+      pointer-events: none;
+    }
+
+    > * {
+      position: relative;
     }
 
     > .presso-slide-body {
@@ -215,11 +229,8 @@
       }
     }
 
-    &[data-layout="image"],
-    &[data-layout="image-title"] {
+    &[data-layout="image"] {
       padding: 0;
-      background-size: cover;
-      background-position: center;
 
       > .presso-slide-body {
         display: block;
@@ -237,6 +248,27 @@
             object-fit: cover;
           }
         }
+      }
+    }
+
+    &[data-layout="image-title"] {
+      --presso-bg-fit: cover;
+
+      > .presso-slide-body {
+        align-content: start;
+        justify-items: start;
+      }
+
+      h1,
+      h2,
+      h3 {
+        display: inline-block;
+        max-width: 58rem;
+        margin: 0;
+        border-radius: .2rem;
+        padding: .7em .9em;
+        background: rgb(0 0 0 / 72%);
+        color: var(--presso-accent);
       }
     }
 
@@ -279,7 +311,7 @@
 
     &[data-layout="blank"] {
       padding: 0;
-      background: #111;
+      background-color: var(--presso-bg-color, #111);
 
       > .presso-slide-body {
         display: block;
@@ -295,13 +327,21 @@
     );
   }
 
-  .presso-logos {
+  .presso-logos,
+  .presso-logos > p {
     display: flex;
     flex-wrap: wrap;
     gap: 2rem;
     align-items: center;
     justify-content: center;
+  }
 
+  .presso-logos > p {
+    margin: 0;
+    max-width: none;
+  }
+
+  .presso-logos {
     img {
       max-width: 10rem;
       max-height: 6rem;

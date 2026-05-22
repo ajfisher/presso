@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Deck, NotesPublicPolicy, Slide } from '@ajfisher/presso-core';
+import type { Deck, NotesPublicPolicy, Slide, SlideBackground, SlideBackgroundOverlay } from '@ajfisher/presso-core';
 export { renderTranscriptMarkdown, resolveTranscriptProfile, TRANSCRIPT_PROFILES, type TranscriptMarkdownOptions, type TranscriptProfile } from './transcript.js';
 
 export type RenderMode =
@@ -288,11 +288,10 @@ function isVoidHtmlTag(tagName: string): boolean {
 function renderSlide(slide: Slide, context: RenderContext): string {
   const classNames = ['presso-slide', ...slide.class].join(' ');
   const target = slide.targetTimeSeconds === undefined ? '' : secondsToClock(slide.targetTimeSeconds);
-  const backgroundStyle = slide.background
-    ? `background-image: url('${escapeAttr(normalizeHref(slide.background, context.assetPrefix))}'); background-size: ${escapeAttr(slide.backgroundFit ?? 'cover')};`
-    : '';
+  const background = renderBackground(slide.background);
   return renderTemplate('slide', {
-    backgroundStyle: backgroundStyle ? ` style="${backgroundStyle}"` : '',
+    backgroundKind: escapeAttr(background.kind),
+    backgroundStyle: background.style ? ` style="${escapeAttr(background.style)}"` : '',
     bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
     classNames: escapeAttr(classNames),
     index: String(slide.index),
@@ -302,6 +301,46 @@ function renderSlide(slide: Slide, context: RenderContext): string {
     targetTime: escapeAttr(target),
     title: escapeAttr(slide.title)
   });
+}
+
+function renderBackground(background: SlideBackground | undefined): { kind: string; style: string } {
+  if (!background) return { kind: 'none', style: '' };
+  const kind = [
+    background.image ? 'image' : '',
+    background.color ? 'color' : ''
+  ].filter(Boolean).join(' ') || 'none';
+  const declarations = [
+    background.image ? `--presso-bg-image: url("${cssString(normalizeCssAssetHref(background.image))}")` : '',
+    background.color ? `--presso-bg-color: ${background.color}` : '',
+    background.image ? `--presso-bg-fit: ${background.fit ?? 'cover'}` : '',
+    background.image ? `--presso-bg-position: ${background.position ?? 'center'}` : '',
+    background.image ? `--presso-bg-repeat: ${background.repeat ?? 'no-repeat'}` : '',
+    background.image ? `--presso-bg-overlay: ${backgroundOverlayCss(background.overlay)}` : ''
+  ].filter(Boolean);
+  return {
+    kind,
+    style: declarations.length ? `${declarations.join('; ')};` : ''
+  };
+}
+
+function backgroundOverlayCss(overlay: SlideBackgroundOverlay | undefined): string {
+  if (!overlay) return 'none';
+  if ('css' in overlay) return overlay.css;
+  const alpha = overlay.strength ?? 0.45;
+  const shade = `rgb(0 0 0 / ${alpha})`;
+  switch (overlay.direction ?? 'full') {
+    case 'left':
+      return `linear-gradient(90deg, ${shade}, transparent)`;
+    case 'right':
+      return `linear-gradient(270deg, ${shade}, transparent)`;
+    case 'top':
+      return `linear-gradient(180deg, ${shade}, transparent)`;
+    case 'bottom':
+      return `linear-gradient(0deg, ${shade}, transparent)`;
+    case 'full':
+    default:
+      return shade;
+  }
 }
 
 function renderModeControls(policy: NotesPublicPolicy): string {
@@ -423,6 +462,13 @@ function normalizeHref(value: string, prefix: string): string {
   return `${prefix}${value.replace(/^\.\//, '')}`;
 }
 
+function normalizeCssAssetHref(value: string): string {
+  if (/^(?:[a-z]+:|\/|#)/i.test(value)) {
+    return value;
+  }
+  return `../${value.replace(/^\.\//, '')}`;
+}
+
 function rewriteRelativeHtml(html: string, prefix: string): string {
   return rewriteSrcset(html, prefix).replace(/\b(src|href)=(["'])(.*?)\2/gi, (match, attr: string, quote: string, value: string) => {
     if (!value) return match;
@@ -467,4 +513,8 @@ function escapeHtml(value: string): string {
 
 function escapeAttr(value: string): string {
   return escapeHtml(value).replaceAll("'", '&#39;');
+}
+
+function cssString(value: string): string {
+  return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
 }
