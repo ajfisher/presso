@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process';
 import { compileDeck, createSlideSource, listMarkdownFiles, parseOrderFile, checkOrder, toPosixPath } from '@ajfisher/presso-core';
 import { buildStatic, exportPdf, exportPdfs, exportTranscript } from '@ajfisher/presso-export';
 import { createDeck } from '@ajfisher/presso-create';
+import { migrateRevealDeck } from './reveal.js';
 
 export async function addSlide(cwd = process.cwd()): Promise<string> {
   const source = await createSlideSource(cwd);
@@ -54,7 +55,7 @@ export async function deploy(cwd = process.cwd(), dryRun = true): Promise<void> 
   }
 }
 
-export { buildStatic, createDeck, exportPdf, exportPdfs, exportTranscript };
+export { buildStatic, createDeck, exportPdf, exportPdfs, exportTranscript, migrateRevealDeck };
 
 function run(cmd: string, args: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
