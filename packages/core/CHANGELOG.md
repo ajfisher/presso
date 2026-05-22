@@ -5,6 +5,7 @@
 
 ### Features
 
+* **editing:** add local source editing for folder and single-file decks ([3e8ee69](https://github.com/ajfisher/presso/commit/3e8ee6999647c125bed9f2efa5247c78192f63d2))
 * **editing:** create slides in single-file decks ([31f60c3](https://github.com/ajfisher/presso/commit/31f60c3254cb3860bf9aa7bcf8876d1062f8f635))
 * **editing:** support single-file writeback ([c1ebc00](https://github.com/ajfisher/presso/commit/c1ebc001d54115834049035e049eda4401c627ca))
 
