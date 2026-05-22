@@ -23,6 +23,7 @@
   const teleprompterPausedKey = 'presso:teleprompter-paused';
   const teleprompterWpmKey = 'presso:teleprompter-wpm';
   const editPendingOpenKey = 'presso:edit-open-index';
+  const editPendingOpenMs = 30000;
   const teleprompterDefaultWpm = 160;
   const teleprompterMinWpm = 80;
   const teleprompterMaxWpm = 220;
@@ -244,6 +245,7 @@
     delete document.body.dataset.editing;
     editCurrentIndex = null;
     editInitialValues = null;
+    sessionStorage.removeItem(editPendingOpenKey);
     setEditHelp(false);
     setEditError('');
     editReturnFocus?.focus();
@@ -289,7 +291,10 @@
       if (!response.ok) throw new Error(data.error || 'Slide could not be created.');
       const createdIndex = Number(data.index);
       if (Number.isFinite(createdIndex)) {
-        sessionStorage.setItem(editPendingOpenKey, String(createdIndex));
+        sessionStorage.setItem(editPendingOpenKey, JSON.stringify({
+          expiresAt: Date.now() + editPendingOpenMs,
+          index: createdIndex
+        }));
         history.replaceState(null, '', '#/' + createdIndex);
       }
       location.reload();
@@ -990,10 +995,27 @@
     if (!canEditSlides) return;
     const raw = sessionStorage.getItem(editPendingOpenKey);
     if (raw === null) return;
-    sessionStorage.removeItem(editPendingOpenKey);
-    const pendingIndex = Number(raw);
+    const pending = parsePendingSlideEditor(raw);
+    if (!pending || pending.expiresAt < Date.now()) {
+      sessionStorage.removeItem(editPendingOpenKey);
+      return;
+    }
+    const pendingIndex = Number(pending.index);
     if (Number.isFinite(pendingIndex)) setIndex(pendingIndex, 'init');
     window.setTimeout(() => openSlideEditor(), 0);
+  }
+
+  function parsePendingSlideEditor(raw) {
+    try {
+      const value = JSON.parse(raw);
+      if (value && Number.isFinite(Number(value.index)) && Number.isFinite(Number(value.expiresAt))) {
+        return { expiresAt: Number(value.expiresAt), index: Number(value.index) };
+      }
+    } catch {
+      const legacyIndex = Number(raw);
+      if (Number.isFinite(legacyIndex)) return { expiresAt: Date.now() + editPendingOpenMs, index: legacyIndex };
+    }
+    return null;
   }
 
   document.addEventListener('keydown', (event) => {
