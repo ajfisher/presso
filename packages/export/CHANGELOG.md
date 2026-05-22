@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.4...@ajfisher/presso-export-v0.2.0) (2026-05-22)
+
+
+### Miscellaneous Chores
+
+* **@ajfisher/presso-export:** Synchronize Presso packages versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.1.4 to ^0.2.0
+    * @ajfisher/presso-runtime bumped from ^0.1.4 to ^0.2.0
+
 ## [0.1.4](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.3...@ajfisher/presso-export-v0.1.4) (2026-05-21)
 
 

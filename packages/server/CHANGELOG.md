@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.1.4...@ajfisher/presso-server-v0.2.0) (2026-05-22)
+
+
+### Features
+
+* **editing:** create slides in single-file decks ([31f60c3](https://github.com/ajfisher/presso/commit/31f60c3254cb3860bf9aa7bcf8876d1062f8f635))
+* **editing:** support single-file writeback ([c1ebc00](https://github.com/ajfisher/presso/commit/c1ebc001d54115834049035e049eda4401c627ca))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.1.4 to ^0.2.0
+    * @ajfisher/presso-create bumped from ^0.1.4 to ^0.2.0
+    * @ajfisher/presso-export bumped from ^0.1.4 to ^0.2.0
+    * @ajfisher/presso-runtime bumped from ^0.1.4 to ^0.2.0
+
 ## [0.1.4](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.1.3...@ajfisher/presso-server-v0.1.4) (2026-05-21)
 
 
