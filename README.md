@@ -38,6 +38,12 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 
 The speaker view at `/presenter` makes speaker notes the main surface, with compact current and next slide previews, elapsed time, target timing, session-persistent notes font controls, teleprompter controls, and a phone-controller QR code for opening `/control` from another device on the same network.
 
+## Local Editing
+
+In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide file. Static builds do not include the editor or slide source.
+
+Single newlines in body and notes Markdown render as line breaks, which keeps edited slide text close to what appears on screen. The metadata editor includes a compact frontmatter cheat sheet; the fuller authoring reference is in [docs/authoring-format.md](docs/authoring-format.md).
+
 ## Presenter Teleprompter
 
 Open `/presenter` and use the controls row:

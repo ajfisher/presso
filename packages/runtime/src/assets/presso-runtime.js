@@ -9,9 +9,12 @@
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
+  const editing = config.editing || {};
   const canNavigateSlides = ['deck', 'embed', 'presenter', 'control'].includes(mode);
   const canDirectFullscreen = mode === 'deck' || mode === 'embed';
   const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
+  const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
+  const canCreateSlides = Boolean(canEditSlides && editing.createEndpoint);
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
   const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
@@ -19,11 +22,14 @@
   const teleprompterEnabledKey = 'presso:teleprompter-enabled';
   const teleprompterPausedKey = 'presso:teleprompter-paused';
   const teleprompterWpmKey = 'presso:teleprompter-wpm';
+  const editPendingOpenKey = 'presso:edit-open-index';
+  const editPendingOpenMs = 30000;
   const teleprompterDefaultWpm = 160;
   const teleprompterMinWpm = 80;
   const teleprompterMaxWpm = 220;
   const teleprompterStepWpm = 10;
   const teleprompterMaxLagMs = 8000;
+  const builtInLayouts = ['title', 'section', 'statement', 'bullets', 'image', 'image-title', 'two-column', 'logos', 'code', 'demo', 'blank'];
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
   let presentationFullscreen = false;
@@ -42,6 +48,11 @@
   let teleprompterStartScroll = 0;
   let teleprompterEndScroll = 0;
   let teleprompterDurationMs = 0;
+  let editCurrentIndex = null;
+  let editInitialValues = null;
+  let editReturnFocus = null;
+  let editSaving = false;
+  let editCreating = false;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -193,6 +204,361 @@
       label.append(input, text, open);
       list.append(label);
     });
+  }
+
+  async function openSlideEditor() {
+    if (!canEditSlides || editSaving || editCreating) return;
+    const overlay = editOverlay();
+    if (!overlay) return;
+    editReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    setEditError('');
+    setEditHelp(false);
+    setEditTab('body', false);
+    overlay.hidden = false;
+    document.body.dataset.editing = 'true';
+    setEditSaving(true);
+    try {
+      const response = await fetch(editSlideUrl(index), { cache: 'no-store' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide source could not be loaded.');
+      editCurrentIndex = Number(data.index);
+      setEditValue('[data-edit-metadata]', data.metadataYaml || '');
+      setEditValue('[data-edit-body]', data.bodyMarkdown || '');
+      setEditValue('[data-edit-notes]', data.notesMarkdown || '');
+      syncEditLayoutViews();
+      captureEditInitialValues();
+      const source = overlay.querySelector('[data-edit-source]');
+      if (source) source.textContent = `${data.sourcePath || 'Slide source'} - slide ${editCurrentIndex + 1}`;
+      focusEditTabField('body');
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  function closeSlideEditor(force = false) {
+    if ((editSaving || editCreating) && !force) return;
+    if (!force && editHasChanges() && !window.confirm('Discard unsaved slide edits?')) return;
+    const overlay = editOverlay();
+    if (overlay) overlay.hidden = true;
+    delete document.body.dataset.editing;
+    editCurrentIndex = null;
+    editInitialValues = null;
+    sessionStorage.removeItem(editPendingOpenKey);
+    setEditHelp(false);
+    setEditError('');
+    editReturnFocus?.focus();
+    editReturnFocus = null;
+  }
+
+  async function saveSlideEditor() {
+    if (!canEditSlides || editSaving || editCreating || editCurrentIndex === null) return;
+    setEditSaving(true);
+    setEditError('');
+    try {
+      const response = await fetch(editSlideUrl(editCurrentIndex), {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          metadataYaml: editValue('[data-edit-metadata]'),
+          bodyMarkdown: editValue('[data-edit-body]'),
+          notesMarkdown: editValue('[data-edit-notes]')
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide source could not be saved.');
+      closeSlideEditor(true);
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function createSlideFromEditor() {
+    if (!canCreateSlides || editSaving || editCreating) return;
+    if (editHasChanges() && !window.confirm('Create a new slide and discard unsaved edits?')) return;
+    setEditCreating(true);
+    setEditError('');
+    try {
+      const response = await fetch(editSlidesUrl(), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ afterIndex: index })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Slide could not be created.');
+      const createdIndex = Number(data.index);
+      if (Number.isFinite(createdIndex)) {
+        sessionStorage.setItem(editPendingOpenKey, JSON.stringify({
+          expiresAt: Date.now() + editPendingOpenMs,
+          index: createdIndex
+        }));
+        history.replaceState(null, '', '#/' + createdIndex);
+      }
+      location.reload();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : String(error));
+      setEditCreating(false);
+    }
+  }
+
+  function editSlideUrl(slideIndex) {
+    const url = new URL(editing.slideEndpoint, location.href);
+    url.searchParams.set('index', String(slideIndex));
+    return url;
+  }
+
+  function editSlidesUrl() {
+    return new URL(editing.createEndpoint, location.href);
+  }
+
+  function editOverlay() {
+    const overlay = document.querySelector('[data-edit-overlay]');
+    return overlay instanceof HTMLElement ? overlay : null;
+  }
+
+  function editValue(selector) {
+    const field = document.querySelector(selector);
+    return field instanceof HTMLTextAreaElement ? field.value : '';
+  }
+
+  function setEditValue(selector, value) {
+    const field = document.querySelector(selector);
+    if (field instanceof HTMLTextAreaElement) field.value = String(value);
+  }
+
+  function editValues() {
+    return {
+      metadataYaml: editValue('[data-edit-metadata]'),
+      bodyMarkdown: editValue('[data-edit-body]'),
+      notesMarkdown: editValue('[data-edit-notes]')
+    };
+  }
+
+  function captureEditInitialValues() {
+    editInitialValues = editValues();
+  }
+
+  function editHasChanges() {
+    if (!editInitialValues) return false;
+    const current = editValues();
+    return current.metadataYaml !== editInitialValues.metadataYaml
+      || current.bodyMarkdown !== editInitialValues.bodyMarkdown
+      || current.notesMarkdown !== editInitialValues.notesMarkdown;
+  }
+
+  function setEditTab(name, focus = true) {
+    const overlay = editOverlay();
+    if (!overlay) return;
+    overlay.dataset.editActiveTab = name;
+    if (name === 'layout') syncEditLayoutViews();
+    overlay.querySelectorAll('[data-edit-tab]').forEach((button) => {
+      const selected = button.dataset.editTab === name;
+      button.setAttribute('aria-selected', selected ? 'true' : 'false');
+      button.tabIndex = selected ? 0 : -1;
+    });
+    overlay.querySelectorAll('[data-edit-panel]').forEach((panel) => {
+      panel.hidden = panel.dataset.editPanel !== name;
+    });
+    if (name !== 'metadata') setEditHelp(false);
+    if (focus) focusEditTabField(name);
+  }
+
+  function focusEditTabField(name) {
+    if (name === 'layout') {
+      const selected = document.querySelector('[data-edit-layout-option][aria-checked="true"]');
+      const custom = document.querySelector('[data-edit-layout-custom-input]');
+      if (!selected && custom instanceof HTMLInputElement && custom.value) {
+        custom.focus();
+        return;
+      }
+      const fallback = document.querySelector('[data-edit-layout-option]');
+      const target = selected instanceof HTMLElement ? selected : fallback;
+      target?.focus();
+      return;
+    }
+    const field = document.querySelector(`[data-edit-${name}]`);
+    if (field instanceof HTMLTextAreaElement) field.focus();
+  }
+
+  function moveEditTab(delta) {
+    const tabs = [...document.querySelectorAll('[data-edit-tab]')];
+    if (!tabs.length) return;
+    const current = tabs.findIndex((tab) => tab.getAttribute('aria-selected') === 'true');
+    const next = (current + delta + tabs.length) % tabs.length;
+    const name = tabs[next]?.dataset.editTab;
+    if (name) setEditTab(name);
+  }
+
+  function setEditHelp(open) {
+    const help = document.querySelector('[data-edit-help]');
+    const button = document.querySelector('[data-action="edit-help"]');
+    if (help instanceof HTMLElement) help.hidden = !open;
+    if (button instanceof HTMLElement) button.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function selectEditLayout(layout) {
+    const next = normaliseLayoutName(layout);
+    if (!next) {
+      setEditError('Layout names must start with a letter and use letters, numbers, underscores, or hyphens.');
+      return;
+    }
+    const current = editValue('[data-edit-metadata]');
+    const updated = updateMetadataLayout(current, next);
+    if (!updated.ok) {
+      setEditError(updated.error);
+      setEditTab('metadata');
+      return;
+    }
+    setEditValue('[data-edit-metadata]', updated.value);
+    setEditError('');
+    syncEditLayoutViews();
+  }
+
+  function selectCustomEditLayout() {
+    const input = document.querySelector('[data-edit-layout-custom-input]');
+    if (input instanceof HTMLInputElement) selectEditLayout(input.value);
+  }
+
+  function syncEditLayoutViews() {
+    const layout = currentEditLayout();
+    const builtIn = builtInLayouts.includes(layout);
+    document.querySelectorAll('[data-edit-layout-option]').forEach((button) => {
+      const selected = button.dataset.editLayoutOption === layout;
+      button.setAttribute('aria-checked', selected ? 'true' : 'false');
+      button.tabIndex = selected || (!builtIn && button.dataset.editLayoutOption === builtInLayouts[0]) ? 0 : -1;
+      button.dataset.selected = selected ? 'true' : 'false';
+    });
+    const customInput = document.querySelector('[data-edit-layout-custom-input]');
+    if (customInput instanceof HTMLInputElement) customInput.value = builtIn ? '' : layout;
+    const current = document.querySelector('[data-edit-layout-current]');
+    if (current) current.textContent = builtIn ? `Current: ${layout}` : `Current custom layout: ${layout}`;
+  }
+
+  function moveEditLayoutOption(delta) {
+    const options = [...document.querySelectorAll('[data-edit-layout-option]')];
+    if (!options.length) return;
+    const current = options.findIndex((option) => option === document.activeElement);
+    const next = (current + delta + options.length) % options.length;
+    focusEditLayoutOption(next);
+  }
+
+  function focusEditLayoutOption(index) {
+    const options = [...document.querySelectorAll('[data-edit-layout-option]')];
+    const option = index < 0 ? options[options.length - 1] : options[index];
+    if (option instanceof HTMLElement) option.focus();
+  }
+
+  function currentEditLayout() {
+    const metadata = editValue('[data-edit-metadata]');
+    const match = metadata.match(/^layout\s*:\s*(.*?)\s*$/m);
+    const value = match ? unquoteYamlScalar(match[1] || '') : '';
+    return normaliseLayoutName(value) || 'statement';
+  }
+
+  function updateMetadataLayout(metadata, layout) {
+    if (looksInvalidMetadata(metadata)) {
+      return { ok: false, error: 'Metadata YAML needs fixing before the layout can be changed.' };
+    }
+    const line = `layout: ${quoteYamlScalar(layout)}`;
+    const lines = metadata.split(/\r?\n/);
+    const index = lines.findIndex((value) => /^layout\s*:/.test(value));
+    if (index >= 0) {
+      lines[index] = line;
+      return { ok: true, value: lines.join('\n') };
+    }
+    const clean = metadata.replace(/(?:\r?\n)+$/, '');
+    return { ok: true, value: clean ? `${clean}\n${line}` : line };
+  }
+
+  function looksInvalidMetadata(metadata) {
+    const flowOpen = (metadata.match(/[\[{]/g) || []).length;
+    const flowClose = (metadata.match(/[\]}]/g) || []).length;
+    if (flowOpen !== flowClose) return true;
+    return metadata.split(/\r?\n/).some((line) => {
+      const clean = line.trim();
+      return clean && !clean.startsWith('#') && !line.startsWith(' ') && !line.includes(':');
+    });
+  }
+
+  function normaliseLayoutName(value) {
+    const clean = String(value || '').trim();
+    return /^[a-zA-Z][\w-]*$/.test(clean) ? clean : '';
+  }
+
+  function quoteYamlScalar(value) {
+    return /^[a-zA-Z][\w-]*$/.test(value) ? value : JSON.stringify(value);
+  }
+
+  function unquoteYamlScalar(value) {
+    const clean = String(value || '').trim();
+    if ((clean.startsWith('"') && clean.endsWith('"')) || (clean.startsWith("'") && clean.endsWith("'"))) {
+      return clean.slice(1, -1);
+    }
+    return clean;
+  }
+
+  function isEditHelpOpen() {
+    const help = document.querySelector('[data-edit-help]');
+    return help instanceof HTMLElement && !help.hidden;
+  }
+
+  function trapEditFocus(event) {
+    if (event.key !== 'Tab') return false;
+    const overlay = editOverlay();
+    if (!overlay) return false;
+    const focusable = [...overlay.querySelectorAll('a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])')]
+      .filter((el) => el instanceof HTMLElement && !el.disabled && !el.closest('[hidden]'));
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (!first || !last) return false;
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+      return true;
+    }
+    if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+      return true;
+    }
+    return false;
+  }
+
+  function setEditSaving(saving) {
+    editSaving = saving;
+    refreshEditActionStates();
+  }
+
+  function setEditCreating(creating) {
+    editCreating = creating;
+    refreshEditActionStates();
+  }
+
+  function refreshEditActionStates() {
+    document.querySelectorAll('[data-edit-save]').forEach((button) => {
+      button.disabled = editSaving || editCreating;
+      setControlLabel(button, editSaving ? 'Saving...' : 'Save');
+    });
+    document.querySelectorAll('[data-edit-new-slide]').forEach((button) => {
+      button.hidden = !canCreateSlides;
+      button.disabled = !canCreateSlides || editSaving || editCreating;
+      setControlLabel(button, editCreating ? 'Creating...' : 'New slide');
+    });
+  }
+
+  function setEditError(message) {
+    const error = document.querySelector('[data-edit-error]');
+    if (!(error instanceof HTMLElement)) return;
+    error.hidden = !message;
+    error.textContent = message;
+  }
+
+  function isEditOpen() {
+    const overlay = editOverlay();
+    return Boolean(overlay && !overlay.hidden);
   }
 
   function renderActiveSlide() {
@@ -625,7 +991,98 @@
     }
   }
 
+  function openPendingSlideEditor() {
+    if (!canEditSlides) return;
+    const raw = sessionStorage.getItem(editPendingOpenKey);
+    if (raw === null) return;
+    const pending = parsePendingSlideEditor(raw);
+    if (!pending || pending.expiresAt < Date.now()) {
+      sessionStorage.removeItem(editPendingOpenKey);
+      return;
+    }
+    const pendingIndex = Number(pending.index);
+    if (Number.isFinite(pendingIndex)) setIndex(pendingIndex, 'init');
+    window.setTimeout(() => openSlideEditor(), 0);
+  }
+
+  function parsePendingSlideEditor(raw) {
+    try {
+      const value = JSON.parse(raw);
+      if (value && Number.isFinite(Number(value.index)) && Number.isFinite(Number(value.expiresAt))) {
+        return { expiresAt: Number(value.expiresAt), index: Number(value.index) };
+      }
+    } catch {
+      const legacyIndex = Number(raw);
+      if (Number.isFinite(legacyIndex)) return { expiresAt: Date.now() + editPendingOpenMs, index: legacyIndex };
+    }
+    return null;
+  }
+
   document.addEventListener('keydown', (event) => {
+    if (isEditOpen()) {
+      if (trapEditFocus(event)) return;
+      if ((event.metaKey || event.ctrlKey) && ['1', '2', '3', '4'].includes(event.key)) {
+        event.preventDefault();
+        setEditTab(['body', 'notes', 'layout', 'metadata'][Number(event.key) - 1]);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        if (isEditHelpOpen()) {
+          setEditHelp(false);
+          return;
+        }
+        closeSlideEditor();
+        return;
+      }
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 's') {
+        event.preventDefault();
+        saveSlideEditor();
+        return;
+      }
+      if (event.target instanceof Element && event.target.matches('[data-edit-layout-custom-input]') && event.key === 'Enter') {
+        event.preventDefault();
+        selectCustomEditLayout();
+        return;
+      }
+      if (event.target instanceof Element && event.target.closest('[data-edit-tab]')) {
+        if (event.key === 'ArrowRight') {
+          event.preventDefault();
+          moveEditTab(1);
+        }
+        if (event.key === 'ArrowLeft') {
+          event.preventDefault();
+          moveEditTab(-1);
+        }
+        if (event.key === 'Home') {
+          event.preventDefault();
+          setEditTab('body');
+        }
+        if (event.key === 'End') {
+          event.preventDefault();
+          setEditTab('metadata');
+        }
+      }
+      if (event.target instanceof Element && event.target.closest('[data-edit-layout-option]')) {
+        if (['ArrowRight', 'ArrowDown'].includes(event.key)) {
+          event.preventDefault();
+          moveEditLayoutOption(1);
+        }
+        if (['ArrowLeft', 'ArrowUp'].includes(event.key)) {
+          event.preventDefault();
+          moveEditLayoutOption(-1);
+        }
+        if (event.key === 'Home') {
+          event.preventDefault();
+          focusEditLayoutOption(0);
+        }
+        if (event.key === 'End') {
+          event.preventDefault();
+          focusEditLayoutOption(-1);
+        }
+      }
+      return;
+    }
     if (isEditableTarget(event.target)) return;
     if (event.key === 'Home') {
       if (!canNavigateSlides) return;
@@ -709,6 +1166,18 @@
     if (action === 'control') openRoute('control');
     if (action === 'shortcuts') toggleShortcuts();
     if (action === 'shortcuts-close') toggleShortcuts(false);
+    if (action === 'edit-new-slide') createSlideFromEditor();
+    if (action === 'edit-cancel') closeSlideEditor();
+    if (action === 'edit-help') {
+      setEditTab('metadata', false);
+      setEditHelp(true);
+    }
+    if (action === 'edit-help-close') setEditHelp(false);
+    if (action === 'edit-layout') {
+      const option = target?.closest('[data-edit-layout-option]');
+      if (option instanceof HTMLElement && option.dataset.editLayoutOption) selectEditLayout(option.dataset.editLayoutOption);
+    }
+    if (action === 'edit-layout-custom') selectCustomEditLayout();
     if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
     if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
     if (action === 'timer-reset') resetPresenterTimer();
@@ -717,6 +1186,26 @@
     if (action === 'teleprompter-slower') setTeleprompterWpm(teleprompterWpm - teleprompterStepWpm);
     if (action === 'teleprompter-faster') setTeleprompterWpm(teleprompterWpm + teleprompterStepWpm);
     if (action === 'teleprompter-reset') resetTeleprompterScroll();
+    const tab = target?.closest('[data-edit-tab]');
+    if (tab instanceof HTMLElement && tab.dataset.editTab) {
+      event.preventDefault();
+      setEditTab(tab.dataset.editTab);
+    }
+  });
+
+  document.addEventListener('dblclick', (event) => {
+    if (!canEditSlides || isEditableTarget(event.target)) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest('.presso-slide.is-active')) return;
+    event.preventDefault();
+    openSlideEditor();
+  });
+
+  document.addEventListener('submit', (event) => {
+    const form = event.target instanceof Element ? event.target.closest('[data-edit-form]') : null;
+    if (!form) return;
+    event.preventDefault();
+    saveSlideEditor();
   });
 
   document.addEventListener('scroll', (event) => {
@@ -734,6 +1223,7 @@
   });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
   if (canNavigateSlides) setIndex(index, 'init');
+  openPendingSlideEditor();
   updateFullscreenViews();
   updateTeleprompterViews();
   handleWakeLockUnavailable();

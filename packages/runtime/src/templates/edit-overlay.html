@@ -1,0 +1,121 @@
+<div data-edit-overlay hidden>
+  <section role="dialog" aria-modal="true" aria-labelledby="presso-edit-title">
+    <form data-edit-form>
+      <header>
+        <div>
+          <p data-edit-source></p>
+          <h2 id="presso-edit-title">Edit slide</h2>
+        </div>
+        <div data-edit-actions>
+          <button data-action="edit-new-slide" data-edit-new-slide type="button">New slide</button>
+          <button data-action="edit-cancel" type="button" aria-label="Close editor">Close</button>
+          <button data-edit-save type="submit">Save</button>
+        </div>
+      </header>
+      <nav data-edit-tabs role="tablist" aria-label="Slide edit sections">
+        <button id="presso-edit-tab-body" data-edit-tab="body" type="button" role="tab" aria-controls="presso-edit-panel-body" aria-selected="true">Body</button>
+        <button id="presso-edit-tab-notes" data-edit-tab="notes" type="button" role="tab" aria-controls="presso-edit-panel-notes" aria-selected="false" tabindex="-1">Notes</button>
+        <button id="presso-edit-tab-layout" data-edit-tab="layout" type="button" role="tab" aria-controls="presso-edit-panel-layout" aria-selected="false" tabindex="-1">Layout</button>
+        <button id="presso-edit-tab-metadata" data-edit-tab="metadata" type="button" role="tab" aria-controls="presso-edit-panel-metadata" aria-selected="false" tabindex="-1">Metadata</button>
+      </nav>
+      <div data-edit-panels>
+        <section id="presso-edit-panel-body" data-edit-panel="body" role="tabpanel" aria-labelledby="presso-edit-tab-body">
+          <label for="presso-edit-body">Body</label>
+          <textarea id="presso-edit-body" data-edit-body spellcheck="false"></textarea>
+        </section>
+        <section id="presso-edit-panel-notes" data-edit-panel="notes" role="tabpanel" aria-labelledby="presso-edit-tab-notes" hidden>
+          <label for="presso-edit-notes">Notes</label>
+          <textarea id="presso-edit-notes" data-edit-notes spellcheck="false"></textarea>
+        </section>
+        <section id="presso-edit-panel-layout" data-edit-panel="layout" role="tabpanel" aria-labelledby="presso-edit-tab-layout" hidden>
+          <div data-edit-panel-header>
+            <label id="presso-edit-layout-label">Layout</label>
+            <p data-edit-layout-current></p>
+          </div>
+          <div data-edit-layout-grid role="radiogroup" aria-labelledby="presso-edit-layout-label">
+            <button data-action="edit-layout" data-edit-layout-option="title" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="title" aria-hidden="true"><span></span><span></span></span>
+              <span>Title</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="section" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="section" aria-hidden="true"><span></span><span></span></span>
+              <span>Section</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="statement" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="statement" aria-hidden="true"><span></span><span></span></span>
+              <span>Statement</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="bullets" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="bullets" aria-hidden="true"><span><i></i></span><span><i></i></span><span><i></i></span></span>
+              <span>Bullets</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="image" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="image" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span>Image</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="image-title" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="image-title" aria-hidden="true"><span></span><span></span></span>
+              <span>Image title</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="two-column" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="two-column" aria-hidden="true"><span></span><span></span></span>
+              <span>Two column</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="logos" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="logos" aria-hidden="true"><span></span><span></span><span></span></span>
+              <span>Logos</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="code" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="code" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+              <span>Code</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="demo" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="demo" aria-hidden="true"><span></span><span></span></span>
+              <span>Demo</span>
+            </button>
+            <button data-action="edit-layout" data-edit-layout-option="blank" type="button" role="radio" aria-checked="false">
+              <span data-layout-preview="blank" aria-hidden="true"><span></span></span>
+              <span>Blank</span>
+            </button>
+          </div>
+          <div data-edit-layout-custom>
+            <label for="presso-edit-custom-layout">Custom theme layout</label>
+            <div>
+              <input id="presso-edit-custom-layout" data-edit-layout-custom-input type="text" spellcheck="false" placeholder="theme-layout">
+              <button data-action="edit-layout-custom" type="button">Use custom</button>
+            </div>
+          </div>
+        </section>
+        <section id="presso-edit-panel-metadata" data-edit-panel="metadata" role="tabpanel" aria-labelledby="presso-edit-tab-metadata" hidden>
+          <div data-edit-panel-header>
+            <label for="presso-edit-metadata">Metadata</label>
+            <button data-action="edit-help" type="button" aria-controls="presso-edit-help" aria-expanded="false">Frontmatter keys</button>
+          </div>
+          <textarea id="presso-edit-metadata" data-edit-metadata spellcheck="false"></textarea>
+        </section>
+        <aside id="presso-edit-help" data-edit-help hidden>
+          <header>
+            <h3>Frontmatter keys</h3>
+            <button data-action="edit-help-close" type="button">Close</button>
+          </header>
+          <dl>
+            <dt>id</dt><dd>Stable slide identifier</dd>
+            <dt>title</dt><dd>Presenter and transcript title</dd>
+            <dt>layout</dt><dd>Use the Layout tab for built-in choices or a custom theme layout name</dd>
+            <dt>class</dt><dd>Extra slide classes</dd>
+            <dt>background</dt><dd>Slide background asset</dd>
+            <dt>backgroundFit</dt><dd>cover, contain, tile, or a theme value</dd>
+            <dt>time</dt><dd>Timing marker, for example "6:00"</dd>
+            <dt>transcript</dt><dd>false omits the slide</dd>
+            <dt>transcriptVisual</dt><dd>Image path, true, or false</dd>
+            <dt>transcriptBody</dt><dd>true, false, or statement</dd>
+          </dl>
+        </aside>
+      </div>
+      <footer>
+        <p data-edit-error role="alert" hidden></p>
+        <button data-action="edit-cancel" type="button">Cancel</button>
+      </footer>
+    </form>
+  </section>
+</div>

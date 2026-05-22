@@ -5,12 +5,18 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, pathExists } from '@ajfisher/presso-core';
+import { compileDeck, createSlideSource, pathExists, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
   id: number;
   res: ServerResponse;
+}
+
+export interface DevServer {
+  close: () => Promise<void>;
+  origin: string;
+  port: number;
 }
 
 const execFileAsync = promisify(execFile);
@@ -42,12 +48,13 @@ const ROUTE_MODES = new Map<string, RenderMode>([
   ['/print/notes-pages/', 'print-speaker']
 ]);
 
-export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<void> {
+export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<DevServer> {
   let currentIndex = 0;
   let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
   let controlUrlCache: { expiresAt: number; urls: string[] } | undefined;
+  let suppressReloadUntil = 0;
 
   const controlUrls = async (): Promise<string[]> => {
     if (controlUrlCache && Date.now() < controlUrlCache.expiresAt) return controlUrlCache.urls;
@@ -62,6 +69,21 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      if (url.pathname === '/edit/slides') {
+        suppressReloadUntil = Date.now() + 500;
+        await handleCreateSlide(cwd, req, res, (slideIndex) => {
+          currentIndex = slideIndex;
+          broadcast(clients, 'state', { fullscreen: currentFullscreen, index: currentIndex });
+        }, () => {
+          suppressReloadUntil = 0;
+          broadcast(clients, 'reload', {});
+        });
+        return;
+      }
+      if (url.pathname === '/edit/slide') {
+        await handleEditSlide(cwd, req, res, url);
+        return;
+      }
       if (req.method === 'GET' && url.pathname === '/events') {
         const id = ++clientId;
         res.writeHead(200, {
@@ -103,8 +125,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           sendJson(res, { ok: true });
           return;
         }
-        res.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
-        res.end(JSON.stringify({ error: 'Command type is required.' }));
+        sendJson(res, { error: 'Command type is required.' }, 400);
         return;
       }
 
@@ -141,8 +162,9 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
     }
   });
 
-  watch(cwd, { recursive: true }, (_event, fileName) => {
+  const watcher = watch(cwd, { recursive: true }, (_event, fileName) => {
     if (fileName && String(fileName).includes('node_modules')) return;
+    if (Date.now() < suppressReloadUntil) return;
     broadcast(clients, 'reload', {});
   });
 
@@ -150,6 +172,14 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   console.log(`Presso dev server running at http://localhost:${port}`);
   const initialControlUrls = await controlUrls();
   if (initialControlUrls.length) console.log(`Phone controller: ${initialControlUrls[0]}`);
+  return {
+    close: () => new Promise((resolve, reject) => {
+      watcher.close();
+      server.close((error) => error ? reject(error) : resolve());
+    }),
+    origin: `http://localhost:${port}`,
+    port
+  };
 }
 
 async function serveStatic(cwd: string, pathname: string, res: ServerResponse): Promise<boolean> {
@@ -191,8 +221,77 @@ function sendHtml(res: ServerResponse, html: string): void {
   res.end(html);
 }
 
-function sendJson(res: ServerResponse, data: unknown): void {
-  res.writeHead(200, {
+async function handleCreateSlide(
+  cwd: string,
+  req: http.IncomingMessage,
+  res: ServerResponse,
+  onCreated: (index: number) => void,
+  afterResponse: () => void
+): Promise<void> {
+  try {
+    if (req.method !== 'POST') {
+      sendJson(res, { error: 'Create slide endpoint supports POST only.' }, 405);
+      return;
+    }
+    const input = parseCreateSlideInput(parseJsonObject(await readBody(req)));
+    const created = await createSlideSource(cwd, input);
+    onCreated(created.index);
+    sendJson(res, created);
+    setTimeout(afterResponse, 50);
+  } catch (error) {
+    sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
+  }
+}
+
+async function handleEditSlide(cwd: string, req: http.IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+  try {
+    const index = parseSlideIndex(url);
+    if (req.method === 'GET') {
+      sendJson(res, await readSlideSource(cwd, index));
+      return;
+    }
+    if (req.method === 'PUT') {
+      const input = parseEditInput(parseJsonObject(await readBody(req)));
+      const saved = await writeSlideSource(cwd, index, input);
+      sendJson(res, saved);
+      return;
+    }
+    sendJson(res, { error: 'Edit slide endpoint supports GET and PUT only.' }, 405);
+  } catch (error) {
+    sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
+  }
+}
+
+function parseSlideIndex(url: URL): number {
+  const raw = url.searchParams.get('index');
+  const index = Number(raw);
+  if (!raw || !Number.isInteger(index) || index < 0) {
+    throw new Error('A valid non-negative slide index is required.');
+  }
+  return index;
+}
+
+function parseCreateSlideInput(value: Record<string, unknown>): CreateSlideOptions {
+  if (value.afterIndex === undefined || value.afterIndex === null) return {};
+  if (typeof value.afterIndex !== 'number' || !Number.isInteger(value.afterIndex) || value.afterIndex < 0) {
+    throw new Error('Create slide payload requires afterIndex to be a non-negative integer when provided.');
+  }
+  return { afterIndex: value.afterIndex };
+}
+
+function parseEditInput(value: Record<string, unknown>): EditableSlideInput {
+  if (typeof value.metadataYaml !== 'string' || typeof value.bodyMarkdown !== 'string' || typeof value.notesMarkdown !== 'string') {
+    throw new Error('Edit payload requires metadataYaml, bodyMarkdown, and notesMarkdown strings.');
+  }
+  return {
+    metadataYaml: value.metadataYaml,
+    bodyMarkdown: value.bodyMarkdown,
+    notesMarkdown: value.notesMarkdown
+  };
+}
+
+function sendJson(res: ServerResponse, data: unknown, status = 200): void {
+  res.writeHead(status, {
     'cache-control': 'no-store',
     'content-type': 'application/json; charset=utf-8'
   });

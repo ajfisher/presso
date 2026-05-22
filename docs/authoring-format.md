@@ -181,6 +181,9 @@ Ask:
 Notes are Markdown. They can contain paragraphs, lists, links, emphasis, code,
 and simple directives if useful.
 
+Single newlines in slide body and notes Markdown render as line breaks. Use a
+blank line when you want a new paragraph.
+
 ## Frontmatter
 
 Slide frontmatter is YAML. The expected core fields are:
@@ -222,6 +225,27 @@ Possible later fields:
 - `assets`
 
 Unknown fields should be preserved through edit/writeback.
+
+### Frontmatter Cheat Sheet
+
+These keys are understood by the current runtime, export, or transcript
+pipeline:
+
+| Key | Values | Used by |
+| --- | --- | --- |
+| `id` | Stable slug such as `where-are-we` | URLs, controller state, writeback, analytics |
+| `title` | Human-readable text | Presenter view, transcript headings, metadata |
+| `layout` | `title`, `section`, `statement`, `bullets`, `image`, `image-title`, `two-column`, `logos`, `code`, `demo`, `blank`, or a custom theme layout | Runtime CSS |
+| `class` | String or YAML list | Runtime CSS hooks |
+| `background` | Deck-relative asset path or theme-supported background token | Runtime rendering, transcript visuals |
+| `backgroundFit` | `cover`, `contain`, `tile`, or a theme value | Runtime background sizing |
+| `time` | `"6:00"` or `"00:06:00"` | Timing interpolation and presenter view |
+| `transcript` | `false` | Transcript export omission |
+| `transcriptVisual` | Asset path, `true`, or `false` | Transcript visual selection |
+| `transcriptBody` | `true`, `false`, or `statement` | Transcript body inclusion |
+
+Deck-level options such as `notes.public`, `baseUrl`, `deploy`, and
+`featureImage` live in `presso.config.ts`, not slide frontmatter.
 
 ## Assets
 
@@ -331,7 +355,6 @@ Expected starter layouts:
 - `image`
 - `image-title`
 - `two-column`
-- `quote-image`
 - `logos`
 - `code`
 - `demo`

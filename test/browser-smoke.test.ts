@@ -67,6 +67,9 @@ browserDescribe('browser smoke', () => {
       }
 
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
+      expect(await page.locator('[data-edit-overlay]').count()).toBe(0);
+      expect(await page.content()).not.toContain('/edit/slide');
+      expect(await page.content()).not.toContain('/edit/slides');
       await page.mouse.move(24, 24);
       await expectPresentationControlsVisible(page);
       await page.waitForTimeout(2200);
@@ -225,6 +228,159 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('edits active folder slide source over the dev server', async () => {
+    const deck = await createEditableSmokeDeck();
+    const devServer = await startDevServer(deck);
+    const playwright = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(playwright.chromium);
+      const page = await browser.newPage();
+      await page.goto(`${devServer.origin}/`, { waitUntil: 'domcontentloaded' });
+      await expectText(page, '.presso-slide.is-active', 'Original slide');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await expectText(page, '[data-edit-source]', 'slides/001-original.md');
+      expect(await page.locator('[data-edit-tab="body"]').getAttribute('aria-selected')).toBe('true');
+      await expectFieldValue(page, '[data-edit-body]', '# Original slide');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Original notes.');
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await page.locator('[data-action="edit-help"]').click();
+      await expectText(page, '[data-edit-help]', 'backgroundFit');
+      await page.locator('[data-action="edit-help-close"]').click();
+
+      const originalFile = await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8');
+      await page.locator('[data-edit-metadata]').fill('id: [');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '[data-edit-error]', 'Invalid slide metadata');
+      expect(await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8')).toBe(originalFile);
+      let dismissedCreate = false;
+      page.once('dialog', async (dialog) => {
+        expect(dialog.message()).toContain('discard unsaved edits');
+        dismissedCreate = true;
+        await dialog.dismiss();
+      });
+      await page.locator('[data-action="edit-new-slide"]').click();
+      expect(dismissedCreate).toBe(true);
+      expect(existsSync(path.join(deck, 'slides/003-untitled.md'))).toBe(false);
+
+      await page.locator('[data-edit-metadata]').fill('id: original\nlayout: statement\ncustom: retained');
+      await page.locator('[data-edit-tab="layout"]').click();
+      await expectText(page, '[data-edit-layout-current]', 'Current: statement');
+      await page.locator('[data-edit-layout-custom-input]').fill('feature-split');
+      await page.locator('[data-action="edit-layout-custom"]').click();
+      await expectText(page, '[data-edit-layout-current]', 'Current custom layout: feature-split');
+      await page.locator('[data-edit-layout-option="bullets"]').click();
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await expectFieldValue(page, '[data-edit-metadata]', 'id: original\nlayout: bullets\ncustom: retained');
+      await page.locator('[data-edit-tab="body"]').click();
+      await page.locator('[data-edit-body]').fill('## Edited heading\n\nUpdated line one\nUpdated line two.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await page.locator('[data-edit-notes]').fill('Edited note one\nEdited **note two**.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Edited heading');
+      await expectText(page, '.presso-slide.is-active', 'Updated line one');
+      expect(await page.locator('.presso-slide.is-active p').first().innerHTML()).toContain('<br>');
+
+      const updatedFile = await fs.readFile(path.join(deck, 'slides/001-original.md'), 'utf8');
+      expect(updatedFile).toContain('custom: retained');
+      expect(updatedFile).toContain('layout: bullets');
+      expect(updatedFile).toContain('## Edited heading');
+      expect(updatedFile).toContain('Updated line one\nUpdated line two.');
+      expect(updatedFile).toContain('Edited note one\nEdited **note two**.');
+      expect(await fs.readFile(path.join(deck, 'slides/002-untouched.md'), 'utf8')).toContain('Untouched slide');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await page.locator('[data-action="edit-new-slide"]').click();
+      await page.waitForFunction(() => document.querySelector('[data-edit-source]')?.textContent?.includes('slides/003-untitled.md'));
+      await expectActiveSlide(page, 2);
+      await expectFieldValue(page, '[data-edit-body]', '## Untitled');
+      await page.locator('[data-edit-body]').fill('## Created slide\n\nCreated body line.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Add speaker notes here.');
+      await page.locator('[data-edit-notes]').fill('Created notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Created slide');
+      await expectText(page, '.presso-slide.is-active', 'Created body line');
+
+      const createdFile = await fs.readFile(path.join(deck, 'slides/003-untitled.md'), 'utf8');
+      expect(createdFile).toContain('id: untitled-003');
+      expect(createdFile).toContain('layout: statement');
+      expect(createdFile).toContain('## Created slide');
+      expect(createdFile).toContain('Created notes.');
+
+      await page.goto(`${devServer.origin}/presenter`, { waitUntil: 'domcontentloaded' });
+      await expectText(page, '[data-current-notes]', 'Created notes.');
+    } finally {
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 60000);
+
+  it('edits active single-file slide source over the dev server', async () => {
+    const deck = await createSingleFileSmokeDeck();
+    const devServer = await startDevServer(deck);
+    const playwright = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(playwright.chromium);
+      const page = await browser.newPage();
+      await page.goto(`${devServer.origin}/#/1`, { waitUntil: 'domcontentloaded' });
+      await expectText(page, '.presso-slide.is-active', 'Original single-file slide');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await expectText(page, '[data-edit-source]', 'slides.md');
+      expect(await page.locator('[data-action="edit-new-slide"]').isVisible()).toBe(true);
+      await expectFieldValue(page, '[data-edit-body]', '## Original single-file slide');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Original single-file notes.');
+
+      await page.locator('[data-edit-tab="metadata"]').click();
+      await page.locator('[data-edit-metadata]').fill('id: single-two\nlayout: bullets\ncustom: retained');
+      await page.locator('[data-edit-tab="body"]').click();
+      await page.locator('[data-edit-body]').fill('## Edited single-file slide\n\nEdited body line.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await page.locator('[data-edit-notes]').fill('Edited single-file notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Edited single-file slide');
+      await expectText(page, '.presso-slide.is-active', 'Edited body line');
+
+      const source = await fs.readFile(path.join(deck, 'slides.md'), 'utf8');
+      expect(source).toContain('# Untouched first slide');
+      expect(source).toContain('custom: retained');
+      expect(source).toContain('layout: bullets');
+      expect(source).toContain('## Edited single-file slide');
+      expect(source).toContain('Edited single-file notes.');
+
+      await page.locator('.presso-slide.is-active').dblclick();
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await page.locator('[data-action="edit-new-slide"]').click();
+      await expectActiveSlide(page, 2);
+      await page.waitForSelector('[data-edit-overlay]:not([hidden])');
+      await expectFieldValue(page, '[data-edit-body]', '## Untitled');
+      await page.locator('[data-edit-body]').fill('## Created single-file slide\n\nCreated in slides.md.');
+      await page.locator('[data-edit-tab="notes"]').click();
+      await expectFieldValue(page, '[data-edit-notes]', 'Add speaker notes here.');
+      await page.locator('[data-edit-notes]').fill('Created single-file notes.');
+      await page.locator('[data-edit-save]').click();
+      await expectText(page, '.presso-slide.is-active', 'Created single-file slide');
+
+      const createdSource = await fs.readFile(path.join(deck, 'slides.md'), 'utf8');
+      expect(createdSource).toContain('id: untitled-003');
+      expect(createdSource).toContain('## Created single-file slide');
+      expect(createdSource).toContain('Created single-file notes.');
+    } finally {
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 60000);
+
   it('exports all PDF layouts from real print routes', async () => {
     const deck = await createPdfSmokeDeck();
     const outputs = await exportPdfs(deck);
@@ -279,6 +435,75 @@ layout: statement
 ---
 
 ## Empty notes slide
+`);
+  return root;
+}
+
+async function createEditableSmokeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-smoke-'));
+  tmpRoots.push(root);
+  await fs.mkdir(path.join(root, 'slides'), { recursive: true });
+  await fs.writeFile(path.join(root, 'theme.css'), ':root { --presso-accent: #d15bff; }\n');
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Edit Smoke',
+  source: { type: 'folder', path: './slides' },
+  theme: './theme.css'
+};
+`);
+  await fs.writeFile(path.join(root, 'slides/001-original.md'), `---
+id: original
+layout: statement
+custom: keep-me
+---
+
+# Original slide
+
+:::notes
+Original notes.
+:::
+`);
+  await fs.writeFile(path.join(root, 'slides/002-untouched.md'), `---
+id: untouched
+layout: bullets
+---
+
+## Untouched slide
+
+- Do not edit
+`);
+  return root;
+}
+
+async function createSingleFileSmokeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-edit-single-smoke-'));
+  tmpRoots.push(root);
+  await fs.writeFile(path.join(root, 'theme.css'), ':root { --presso-accent: #d15bff; }\n');
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Single File Edit Smoke',
+  source: { type: 'file', path: './slides.md' },
+  theme: './theme.css'
+};
+`);
+  await fs.writeFile(path.join(root, 'slides.md'), `::slide
+---
+id: single-one
+layout: title
+---
+
+# Untouched first slide
+
+::slide
+---
+id: single-two
+layout: statement
+custom: keep-me
+---
+
+## Original single-file slide
+
+:::notes
+Original single-file notes.
+:::
 `);
   return root;
 }
@@ -637,12 +862,17 @@ async function expectText(page: Page, selector: string, text: string): Promise<v
   expect(await page.locator(selector).first().textContent()).toContain(text);
 }
 
-async function startDevServer(): Promise<{ close: () => Promise<void>; origin: string }> {
+async function expectFieldValue(page: Page, selector: string, text: string): Promise<void> {
+  await page.waitForSelector(selector);
+  expect(await page.locator(selector).inputValue()).toBe(text);
+}
+
+async function startDevServer(deckDir = 'examples/basic'): Promise<{ close: () => Promise<void>; origin: string }> {
   const port = await getFreePort();
   const child = spawn(process.execPath, [
     'packages/server/dist/cli.js',
     'dev',
-    'examples/basic',
+    deckDir,
     `--port=${port}`
   ], { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
 

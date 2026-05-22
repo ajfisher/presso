@@ -26,6 +26,8 @@ interface RenderOptions {
 interface RenderContext {
   assetPrefix: string;
   controlUrls: string[];
+  editingCreateEnabled: boolean;
+  editingEnabled: boolean;
   includeNotes: boolean;
   mode: RenderMode;
   notesPublic: NotesPublicPolicy;
@@ -49,6 +51,7 @@ const templates = {
   controllerPopover: readTemplate('controller-popover.html'),
   deck: readTemplate('deck.html'),
   document: readTemplate('document.html'),
+  editOverlay: readTemplate('edit-overlay.html'),
   fullscreenPrompt: readTemplate('fullscreen-prompt.html'),
   modeControls: readTemplate('mode-controls.html'),
   notesButton: readTemplate('notes-button.html'),
@@ -111,11 +114,19 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
   const printMode = mode.startsWith('print-');
   return renderTemplate('document', {
     body,
+    editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
     fullscreenPrompt: printMode ? '' : renderTemplate('fullscreenPrompt'),
     mode,
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,
+      editing: context.editingEnabled
+        ? {
+          enabled: true,
+          slideEndpoint: '/edit/slide',
+          ...(context.editingCreateEnabled ? { createEndpoint: '/edit/slides' } : {})
+        }
+        : { enabled: false },
       routes: buildRoutes(mode, context.server),
       server: context.server,
       slides: deck.slides.map((slide) => ({
@@ -351,9 +362,12 @@ function renderTranscriptHtml(deck: Deck, context: RenderContext): string {
 function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): RenderContext {
   const server = Boolean(options.server);
   const publicBuild = Boolean(options.public);
+  const editingEnabled = server && (deck.config.source.type === 'folder' || deck.config.source.type === 'file') && (mode === 'deck' || mode === 'presenter');
   return {
     assetPrefix: server ? '/' : routePrefix(mode),
     controlUrls: options.controlUrls ?? [],
+    editingCreateEnabled: editingEnabled,
+    editingEnabled,
     includeNotes: shouldIncludeNotes(deck.config.notes.public, mode, server, publicBuild),
     mode,
     notesPublic: deck.config.notes.public,

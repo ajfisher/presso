@@ -14,4 +14,9 @@ describe('markdown rendering', () => {
     expect(rendered.bodyHtml).toContain('class=\"presso-iframe\"');
     expect(rendered.bodyHtml).toContain('<div class=\"raw\">ok</div>');
   });
+
+  it('renders soft line breaks as slide line breaks', () => {
+    const rendered = renderSlideMarkdown('First line\nSecond line');
+    expect(rendered.bodyHtml).toContain('First line<br>Second line');
+  });
 });

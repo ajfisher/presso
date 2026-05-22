@@ -1,0 +1,15 @@
+:root {
+  --presso-accent: #00c2a8;
+}
+
+.presso-slide {
+  border-radius: 0;
+}
+
+.presso-slide[data-layout="statement"] h2 {
+  max-width: 18ch;
+}
+
+.presso-slide[data-layout="two-column"] .presso-slide-body {
+  gap: 3rem;
+}
