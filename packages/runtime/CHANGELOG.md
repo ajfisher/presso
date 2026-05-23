@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.2.0...@ajfisher/presso-runtime-v0.3.0) (2026-05-23)
+
+
+### Features
+
+* render explicit `data-background` hooks and background CSS custom properties instead of relying on inline-style sniffing ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* default image background overlays to `none`, with scrims available only when opted in through slide metadata ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* add the `image-title` full-bleed image layout and starter CSS for semantic `.presso-column` output ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* improve logo and column starter styling so migrated Markdown image groups render cleanly without deck-specific paragraph hacks ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.2.0 to ^0.3.0
+
 ## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.1.4...@ajfisher/presso-runtime-v0.2.0) (2026-05-22)
 
 

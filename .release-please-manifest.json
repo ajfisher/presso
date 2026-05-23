@@ -1,7 +1,7 @@
 {
-  "packages/core": "0.2.0",
-  "packages/runtime": "0.2.0",
-  "packages/export": "0.2.0",
-  "packages/create": "0.2.0",
-  "packages/server": "0.2.0"
+  "packages/core": "0.3.0",
+  "packages/runtime": "0.3.0",
+  "packages/export": "0.3.0",
+  "packages/create": "0.3.0",
+  "packages/server": "0.3.0"
 }

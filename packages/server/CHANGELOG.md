@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.2.0...@ajfisher/presso-server-v0.3.0) (2026-05-23)
+
+
+### Features
+
+* add `presso migrate reveal <source> <target>` for bootstrapping recent Reveal decks into numbered Presso folder decks ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* migrate Reveal slide-level classes, image and colour backgrounds, notes, and simple timing metadata into Presso frontmatter and directives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* convert obvious Reveal `twocolumn` wrappers to nested Presso column directives and report ambiguous cases in `MIGRATION.md` ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Notes
+
+* Reveal migration is a bootstrap tool, not a compatibility layer for Reveal themes, plugins, or broad `.element` mappings ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.2.0 to ^0.3.0
+    * @ajfisher/presso-create bumped from ^0.2.0 to ^0.3.0
+    * @ajfisher/presso-export bumped from ^0.2.0 to ^0.3.0
+    * @ajfisher/presso-runtime bumped from ^0.2.0 to ^0.3.0
+
 ## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.1.4...@ajfisher/presso-server-v0.2.0) (2026-05-22)
 
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.2.0...@ajfisher/presso-export-v0.3.0) (2026-05-23)
+
+
+### Features
+
+* include structured slide background metadata in the public `deck.json` manifest ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* keep transcript visual selection aligned with structured background image metadata ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.2.0 to ^0.3.0
+    * @ajfisher/presso-runtime bumped from ^0.2.0 to ^0.3.0
+
 ## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.1.4...@ajfisher/presso-export-v0.2.0) (2026-05-22)
 
 

@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.2.0...@ajfisher/presso-core-v0.3.0) (2026-05-23)
+
+
+### Features
+
+* add structured slide backgrounds with image, colour, fit, position, repeat, and opt-in overlay metadata ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* add nested `:::columns` / `:::column` directive parsing while preserving legacy simple column wrappers ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* reject duplicate slide IDs with source context during deck compilation ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Compatibility
+
+* preserve `background: ./asset.png`, CSS colour shorthand, legacy `backgroundFit`, simple `:::columns`, and raw HTML behaviour ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
 ## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.1.4...@ajfisher/presso-core-v0.2.0) (2026-05-22)
 
 
