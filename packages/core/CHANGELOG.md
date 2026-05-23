@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.3.0...@ajfisher/presso-core-v0.4.0) (2026-05-23)
+
+
+### Features
+
+* add migration-ready layout and theme primitives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869)), closes [#69](https://github.com/ajfisher/presso/issues/69) [#71](https://github.com/ajfisher/presso/issues/71) [#72](https://github.com/ajfisher/presso/issues/72) [#73](https://github.com/ajfisher/presso/issues/73) [#74](https://github.com/ajfisher/presso/issues/74) [#77](https://github.com/ajfisher/presso/issues/77) [#79](https://github.com/ajfisher/presso/issues/79) [#80](https://github.com/ajfisher/presso/issues/80) [#88](https://github.com/ajfisher/presso/issues/88) [#89](https://github.com/ajfisher/presso/issues/89) [#91](https://github.com/ajfisher/presso/issues/91) [#75](https://github.com/ajfisher/presso/issues/75) [#90](https://github.com/ajfisher/presso/issues/90)
+* add release readiness workflow ([34df543](https://github.com/ajfisher/presso/commit/34df5436c19047e28b1b68c676dacc1f5fe0480d))
+* **editing:** add folder slide creation ([714747f](https://github.com/ajfisher/presso/commit/714747f7b82b976b685cff8625f199ce2e0c8f5b))
+* **editing:** add folder slide local editing ([cdb7833](https://github.com/ajfisher/presso/commit/cdb7833c26a55552c480a8ac97031bd6e61884d1))
+* **editing:** create slides in single-file decks ([31f60c3](https://github.com/ajfisher/presso/commit/31f60c3254cb3860bf9aa7bcf8876d1062f8f635))
+* **editing:** support single-file writeback ([c1ebc00](https://github.com/ajfisher/presso/commit/c1ebc001d54115834049035e049eda4401c627ca))
+* **release:** add release readiness workflow ([1bf3077](https://github.com/ajfisher/presso/commit/1bf307794b1b65bf7ce063946b5101f07d146934))
+* **runtime:** add starter layout coverage ([adc0f15](https://github.com/ajfisher/presso/commit/adc0f15aac5eb4a706ffc0de6de2b2b771e14a05)), closes [#11](https://github.com/ajfisher/presso/issues/11)
+* scaffold presso workspace ([b62551f](https://github.com/ajfisher/presso/commit/b62551fe6dce9e66a7c059a2739692812f3766f2))
+
+
+### Bug Fixes
+
+* **editing:** preserve markdown line breaks ([49591b4](https://github.com/ajfisher/presso/commit/49591b421e2443a69a3a9f15d820468b36844731))
+* **release:** use npm trusted publishing ([0ae4be8](https://github.com/ajfisher/presso/commit/0ae4be80dc2af07a8816a097fc96f0d91c043cf5))
+* **release:** use npm trusted publishing ([6ca3b2c](https://github.com/ajfisher/presso/commit/6ca3b2c81ac97703db676865f5fd0ca9e05e6f11))
+
 ## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.2.0...@ajfisher/presso-core-v0.3.0) (2026-05-23)
 
 
