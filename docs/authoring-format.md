@@ -248,6 +248,12 @@ pipeline:
 Deck-level options such as `notes.public`, `baseUrl`, `deploy`, and
 `featureImage` live in `presso.config.ts`, not slide frontmatter.
 
+Background shorthand treats path-like strings such as `./hero.webp`,
+`assets/hero.webp`, or `hero.webp` as images. Bare CSS identifiers such as
+`rebeccapurple` or browser system colours are treated as colours so Presso does
+not need to track the browser's named-colour registry. Use the structured
+`background.image` form for unusual extensionless asset paths.
+
 ## Assets
 
 Markdown asset references are deck-root relative. Prefer `./assets/name.ext`

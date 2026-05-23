@@ -88,6 +88,12 @@ background:
 ---
 # Object
 `);
+    await fs.writeFile(path.join(dir, 'slides', '004-system-color.md'), `---
+id: system-color
+background: Canvas
+---
+# System Colour
+`);
 
     const deck = await compileDeck(dir);
 
@@ -105,6 +111,7 @@ background:
         strength: 0.35
       }
     });
+    expect(deck.slides[3]!.background).toEqual({ color: 'Canvas' });
   });
 
   it('rejects invalid background objects with source context', async () => {

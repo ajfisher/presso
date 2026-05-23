@@ -82,7 +82,8 @@ The background object should support:
 String shorthand remains useful, but the parser should classify it deliberately:
 
 - A path-like string becomes `background.image`.
-- A CSS colour string becomes `background.color`.
+- A CSS colour string or bare CSS colour identifier becomes `background.color`.
+- Use `background.image` explicitly for unusual extensionless asset paths.
 
 ## Background Overlays
 
