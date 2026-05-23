@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-runtime",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Browser rendering runtime and HTML templates for Presso decks.",
   "license": "MIT",
   "type": "module",
@@ -26,6 +26,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ajfisher/presso-core": "^0.2.0"
+    "@ajfisher/presso-core": "^0.3.0"
   }
 }
