@@ -5,7 +5,14 @@
 
 ### Features
 
-* add migration-ready layout and theme primitives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869)), closes [#69](https://github.com/ajfisher/presso/issues/69) [#71](https://github.com/ajfisher/presso/issues/71) [#72](https://github.com/ajfisher/presso/issues/72) [#73](https://github.com/ajfisher/presso/issues/73) [#74](https://github.com/ajfisher/presso/issues/74) [#77](https://github.com/ajfisher/presso/issues/77) [#79](https://github.com/ajfisher/presso/issues/79) [#80](https://github.com/ajfisher/presso/issues/80) [#88](https://github.com/ajfisher/presso/issues/88) [#89](https://github.com/ajfisher/presso/issues/89) [#91](https://github.com/ajfisher/presso/issues/91) [#75](https://github.com/ajfisher/presso/issues/75) [#90](https://github.com/ajfisher/presso/issues/90)
+* add structured slide backgrounds with image, colour, fit, position, repeat, and opt-in overlay metadata ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* add nested `:::columns` / `:::column` directive parsing while preserving legacy simple column wrappers ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* reject duplicate slide IDs with source context during deck compilation ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Compatibility
+
+* preserve `background: ./asset.png`, CSS colour shorthand, legacy `backgroundFit`, simple `:::columns`, and raw HTML behaviour ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
 
 ## [0.2.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.1.4...@ajfisher/presso-core-v0.2.0) (2026-05-22)
 

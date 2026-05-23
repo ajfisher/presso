@@ -5,7 +5,14 @@
 
 ### Features
 
-* add migration-ready layout and theme primitives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869)), closes [#69](https://github.com/ajfisher/presso/issues/69) [#71](https://github.com/ajfisher/presso/issues/71) [#72](https://github.com/ajfisher/presso/issues/72) [#73](https://github.com/ajfisher/presso/issues/73) [#74](https://github.com/ajfisher/presso/issues/74) [#77](https://github.com/ajfisher/presso/issues/77) [#79](https://github.com/ajfisher/presso/issues/79) [#80](https://github.com/ajfisher/presso/issues/80) [#88](https://github.com/ajfisher/presso/issues/88) [#89](https://github.com/ajfisher/presso/issues/89) [#91](https://github.com/ajfisher/presso/issues/91) [#75](https://github.com/ajfisher/presso/issues/75) [#90](https://github.com/ajfisher/presso/issues/90)
+* add `presso migrate reveal <source> <target>` for bootstrapping recent Reveal decks into numbered Presso folder decks ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* migrate Reveal slide-level classes, image and colour backgrounds, notes, and simple timing metadata into Presso frontmatter and directives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* convert obvious Reveal `twocolumn` wrappers to nested Presso column directives and report ambiguous cases in `MIGRATION.md` ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+
+
+### Notes
+
+* Reveal migration is a bootstrap tool, not a compatibility layer for Reveal themes, plugins, or broad `.element` mappings ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
 
 
 ### Dependencies

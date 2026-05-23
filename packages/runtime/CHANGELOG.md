@@ -5,7 +5,10 @@
 
 ### Features
 
-* add migration-ready layout and theme primitives ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869)), closes [#69](https://github.com/ajfisher/presso/issues/69) [#71](https://github.com/ajfisher/presso/issues/71) [#72](https://github.com/ajfisher/presso/issues/72) [#73](https://github.com/ajfisher/presso/issues/73) [#74](https://github.com/ajfisher/presso/issues/74) [#77](https://github.com/ajfisher/presso/issues/77) [#79](https://github.com/ajfisher/presso/issues/79) [#80](https://github.com/ajfisher/presso/issues/80) [#88](https://github.com/ajfisher/presso/issues/88) [#89](https://github.com/ajfisher/presso/issues/89) [#91](https://github.com/ajfisher/presso/issues/91) [#75](https://github.com/ajfisher/presso/issues/75) [#90](https://github.com/ajfisher/presso/issues/90)
+* render explicit `data-background` hooks and background CSS custom properties instead of relying on inline-style sniffing ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* default image background overlays to `none`, with scrims available only when opted in through slide metadata ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* add the `image-title` full-bleed image layout and starter CSS for semantic `.presso-column` output ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
+* improve logo and column starter styling so migrated Markdown image groups render cleanly without deck-specific paragraph hacks ([eb7b78e](https://github.com/ajfisher/presso/commit/eb7b78ed9fcef16e88f1a6097ef5116a3172d869))
 
 
 ### Dependencies
