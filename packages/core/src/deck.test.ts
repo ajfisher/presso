@@ -17,7 +17,8 @@ describe('deck compilation', () => {
       'logos',
       'code',
       'demo',
-      'blank'
+      'blank',
+      'image-title'
     ]);
     expect(deck.slides[0]!.layout).toBe('title');
     expect(deck.slides[2]!.notesMarkdown).toContain('Speaker notes');
@@ -53,6 +54,114 @@ id: second
     expect(deck.slides).toHaveLength(2);
     expect(deck.slides[0]!.notesMarkdown).toBe('First notes');
     expect(deck.slides[1]!.title).toBe('Second');
+  });
+
+  it('normalizes slide background shorthand and object metadata', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-backgrounds-'));
+    await fs.mkdir(path.join(dir, 'slides'));
+    await fs.writeFile(path.join(dir, 'presso.config.ts'), 'export default { source: { type: "folder", path: "./slides" } };\n');
+    await fs.writeFile(path.join(dir, 'slides', '001-image.md'), `---
+id: image
+background: ./assets/open.webp
+backgroundFit: contain
+---
+# Image
+`);
+    await fs.writeFile(path.join(dir, 'slides', '002-color.md'), `---
+id: color
+background: rebeccapurple
+---
+# Colour
+`);
+    await fs.writeFile(path.join(dir, 'slides', '003-object.md'), `---
+id: object
+background:
+  image: ./assets/team.webp
+  color: "#10131a"
+  fit: cover
+  position: center top
+  repeat: no-repeat
+  overlay:
+    type: scrim
+    direction: left
+    strength: 0.35
+---
+# Object
+`);
+    await fs.writeFile(path.join(dir, 'slides', '004-system-color.md'), `---
+id: system-color
+background: Canvas
+---
+# System Colour
+`);
+
+    const deck = await compileDeck(dir);
+
+    expect(deck.slides[0]!.background).toEqual({ image: './assets/open.webp', fit: 'contain' });
+    expect(deck.slides[1]!.background).toEqual({ color: 'rebeccapurple' });
+    expect(deck.slides[2]!.background).toEqual({
+      image: './assets/team.webp',
+      color: '#10131a',
+      fit: 'cover',
+      position: 'center top',
+      repeat: 'no-repeat',
+      overlay: {
+        type: 'scrim',
+        direction: 'left',
+        strength: 0.35
+      }
+    });
+    expect(deck.slides[3]!.background).toEqual({ color: 'Canvas' });
+  });
+
+  it('rejects invalid background objects with source context', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-background-invalid-'));
+    await fs.mkdir(path.join(dir, 'slides'));
+    await fs.writeFile(path.join(dir, 'presso.config.ts'), 'export default { source: { type: "folder", path: "./slides" } };\n');
+    await fs.writeFile(path.join(dir, 'slides', '001-invalid.md'), `---
+id: invalid
+background:
+  fit: cover
+---
+# Invalid
+`);
+
+    await expect(compileDeck(dir)).rejects.toThrow('Invalid slide background in slides/001-invalid.md');
+  });
+
+  it('rejects duplicate slide ids with source paths', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-duplicate-ids-'));
+    await fs.mkdir(path.join(dir, 'slides'));
+    await fs.writeFile(path.join(dir, 'presso.config.ts'), 'export default { source: { type: "folder", path: "./slides" } };\n');
+    await fs.writeFile(path.join(dir, 'slides', '001-one.md'), '---\nid: duplicate\n---\n# One\n');
+    await fs.writeFile(path.join(dir, 'slides', '002-two.md'), '---\nid: duplicate\n---\n# Two\n');
+
+    await expect(compileDeck(dir)).rejects.toThrow('Duplicate slide id: "duplicate" in slides/001-one.md#1 and slides/002-two.md#2');
+  });
+
+  it('rejects duplicate slide ids in single-file decks with slide positions', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-duplicate-single-'));
+    await fs.writeFile(
+      path.join(dir, 'presso.config.ts'),
+      'export default { source: { type: "file", path: "./slides.md" } };\n'
+    );
+    await fs.writeFile(
+      path.join(dir, 'slides.md'),
+      `::slide
+---
+id: duplicate
+---
+# One
+
+::slide
+---
+id: duplicate
+---
+# Two
+`
+    );
+
+    await expect(compileDeck(dir)).rejects.toThrow('Duplicate slide id: "duplicate" in slides.md#1 and slides.md#2');
   });
 
   it('reports order-file duplicate and missing entries', () => {

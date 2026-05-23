@@ -66,8 +66,10 @@ describe('static export', () => {
       title: 'title',
       layout: 'image',
       class: ['featured', 'print-friendly'],
-      background: './assets/example.svg',
-      backgroundFit: 'contain',
+      background: {
+        image: './assets/example.svg',
+        fit: 'contain'
+      },
       time: '0:30',
       targetTimeSeconds: 30
     });

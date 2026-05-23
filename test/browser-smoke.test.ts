@@ -27,7 +27,8 @@ const starterLayouts = [
   { id: 'logos', index: 6, layout: 'logos' },
   { id: 'code', index: 7, layout: 'code' },
   { id: 'demo', index: 8, layout: 'demo' },
-  { id: 'blank', index: 9, layout: 'blank' }
+  { id: 'blank', index: 9, layout: 'blank' },
+  { id: 'image-title', index: 10, layout: 'image-title' }
 ];
 
 browserDescribe('browser smoke', () => {
@@ -84,8 +85,8 @@ browserDescribe('browser smoke', () => {
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
       await expectProgress(page, 0);
       await page.goto(`${staticServer.origin}/#/5`, { waitUntil: 'networkidle' });
-      await expectProgress(page, (5 / 9) * 100);
-      await page.goto(`${staticServer.origin}/#/9`, { waitUntil: 'networkidle' });
+      await expectProgress(page, (5 / 10) * 100);
+      await page.goto(`${staticServer.origin}/#/10`, { waitUntil: 'networkidle' });
       await expectProgress(page, 100);
       await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       await expectActiveSlide(page);
@@ -94,7 +95,7 @@ browserDescribe('browser smoke', () => {
       await expectText(page, '[data-next-preview]', 'A tiny vertical slice');
       await expectText(page, '[data-current-notes]', 'Opening notes for the basic fixture.');
       await expectText(page, '[data-current-position]', '1');
-      await expectText(page, '[data-slide-count]', '10');
+      await expectText(page, '[data-slide-count]', '11');
       await expectPresenterLayout(page);
       for (const index of [5, 7]) {
         await page.goto(`${staticServer.origin}/presenter/#/${index}`, { waitUntil: 'networkidle' });
@@ -209,10 +210,10 @@ browserDescribe('browser smoke', () => {
       await expectText(controlPage, '[data-current-position]', '6');
 
       await deckPage.keyboard.press('End');
-      await expectCurrentSlide(deckPage, 9);
-      await expectCurrentSlide(presenterPage, 9);
-      await expectCurrentSlide(controlPage, 9);
-      await expectText(controlPage, '[data-current-position]', '10');
+      await expectCurrentSlide(deckPage, 10);
+      await expectCurrentSlide(presenterPage, 10);
+      await expectCurrentSlide(controlPage, 10);
+      await expectText(controlPage, '[data-current-position]', '11');
 
       await deckPage.keyboard.press('Home');
       await expectCurrentSlide(deckPage, 0);
@@ -533,6 +534,31 @@ async function expectActiveLayout(page: Page, layout: { id: string; layout: stri
   const bodyBox = await slide.locator(':scope > .presso-slide-body').boundingBox();
   expect(bodyBox?.width ?? 0).toBeGreaterThan(20);
   expect(bodyBox?.height ?? 0).toBeGreaterThan(20);
+  if (layout.layout === 'two-column') {
+    await slide.locator('.presso-columns').waitFor();
+    await expectColumnGrid(page);
+  }
+}
+
+async function expectColumnGrid(page: Page): Promise<void> {
+  const layout = await page.evaluate(() => {
+    const columns = document.querySelector('.presso-slide.is-active .presso-columns');
+    if (!(columns instanceof HTMLElement)) throw new Error('Missing active columns');
+    const columnCount = columns.querySelectorAll(':scope > .presso-column').length;
+    const style = getComputedStyle(columns);
+    const rect = columns.getBoundingClientRect();
+    return {
+      columnCount,
+      display: style.display,
+      template: style.gridTemplateColumns,
+      width: rect.width
+    };
+  });
+
+  expect(layout.columnCount).toBe(2);
+  expect(layout.display).toBe('grid');
+  expect(layout.template).toContain('px');
+  expect(layout.width).toBeGreaterThan(100);
 }
 
 async function expectPresenterLayout(page: Page): Promise<void> {

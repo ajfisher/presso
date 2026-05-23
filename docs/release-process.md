@@ -35,6 +35,9 @@ conventional commit subject and body, or make sure the branch contains a
 high-level conventional commit that represents the user-facing feature. Release
 Please reads commits more reliably than PR summaries, so a sequence of narrow
 implementation commits can produce technically correct but weak release notes.
+When a slice is large enough to need editorial release notes, add a draft under
+`docs/release-notes/` and link it from the feature PR so the Release Please PR
+and GitHub Release can reuse the detail.
 
 If Release Please chooses the wrong version for a one-off release, add a
 `Release-As: x.y.z` footer to a conventional commit before the release PR is

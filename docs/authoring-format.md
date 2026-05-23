@@ -194,8 +194,9 @@ title: Where are we?
 layout: image
 class:
   - question
-background: ./assets/map2.webp
-backgroundFit: cover
+background:
+  image: ./assets/map2.webp
+  fit: cover
 time: "6:00"
 ```
 
@@ -206,8 +207,8 @@ Recommended fields:
 - `title`: human-readable title for presenter view and transcript output.
 - `layout`: named layout handled by CSS.
 - `class`: additional class names or layout variants.
-- `background`: image, video, colour, or CSS background token.
-- `backgroundFit`: `cover`, `contain`, `tile`, or a theme-defined value.
+- `background`: image shorthand, colour shorthand, or a structured background
+  object.
 - `time`: key timing marker such as `"6:00"` or `"00:06:00"`.
 - `notesLayout`: optional print hint, such as `side`, `below`, or `page`.
 
@@ -237,8 +238,8 @@ pipeline:
 | `title` | Human-readable text | Presenter view, transcript headings, metadata |
 | `layout` | `title`, `section`, `statement`, `bullets`, `image`, `image-title`, `two-column`, `logos`, `code`, `demo`, `blank`, or a custom theme layout | Runtime CSS |
 | `class` | String or YAML list | Runtime CSS hooks |
-| `background` | Deck-relative asset path or theme-supported background token | Runtime rendering, transcript visuals |
-| `backgroundFit` | `cover`, `contain`, `tile`, or a theme value | Runtime background sizing |
+| `background` | Deck-relative asset path, CSS colour, or object with `image`, `color`, `fit`, `position`, `repeat`, and `overlay` | Runtime rendering, transcript visuals |
+| `backgroundFit` | Legacy shorthand for image background sizing | Runtime background sizing |
 | `time` | `"6:00"` or `"00:06:00"` | Timing interpolation and presenter view |
 | `transcript` | `false` | Transcript export omission |
 | `transcriptVisual` | Asset path, `true`, or `false` | Transcript visual selection |
@@ -246,6 +247,12 @@ pipeline:
 
 Deck-level options such as `notes.public`, `baseUrl`, `deploy`, and
 `featureImage` live in `presso.config.ts`, not slide frontmatter.
+
+Background shorthand treats path-like strings such as `./hero.webp`,
+`assets/hero.webp`, or `hero.webp` as images. Bare CSS identifiers such as
+`rebeccapurple` or browser system colours are treated as colours so Presso does
+not need to track the browser's named-colour registry. Use the structured
+`background.image` form for unusual extensionless asset paths.
 
 ## Assets
 
@@ -367,6 +374,31 @@ Deck authors can define any additional layout name in CSS.
 Directives are the first-class alternative to raw HTML for common slide needs.
 
 ### Columns
+
+Preferred explicit column syntax:
+
+```markdown
+:::columns
+:::column
+![Illustration](./assets/jfk.png)
+:::
+
+:::column
+> We choose to go to the Moon...
+:::
+:::
+```
+
+The rendered HTML uses stable theme hooks:
+
+```html
+<div class="presso-columns" data-directive="columns">
+  <section class="presso-column" data-directive="column">...</section>
+  <section class="presso-column" data-directive="column">...</section>
+</div>
+```
+
+Older simple column wrappers remain supported for existing decks:
 
 ```markdown
 :::columns
@@ -522,7 +554,7 @@ Static builds also emit `dist/deck.json` as a sanitized public manifest. It
 contains a `schemaVersion`, public deck metadata, `notes.public`, and public
 slide entries with rendered `bodyHtml`. Public slide entries include known
 runtime fields such as `id`, `index`, `title`, `layout`, `class`, `background`,
-`backgroundFit`, `time`, and `targetTimeSeconds`.
+`time`, and `targetTimeSeconds`.
 
 `dist/deck.json` deliberately omits local authoring fields: `rootDir`, `source`,
 `deploy`, `sourcePath`, arbitrary slide `metadata`, `bodyMarkdown`, and
@@ -585,9 +617,11 @@ becomes:
 layout: title
 class:
   - title
-background: /images/foo.webp
-duration: 30
+background:
+  image: ./assets/images/foo.webp
+time: "0:30"
 ```
 
-Migration does not need to be automatic for v1, but the mapping should be simple
-enough to script later.
+`presso migrate reveal <source> <target>` provides a deliberately small
+bootstrap migrator for this shape. It is not a Reveal compatibility layer; it
+emits native Presso Markdown and a `MIGRATION.md` report for manual follow-up.

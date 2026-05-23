@@ -1,3 +1,4 @@
+export * from './background.js';
 export * from './config.js';
 export * from './deck.js';
 export * from './edit.js';

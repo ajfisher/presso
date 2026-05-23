@@ -82,6 +82,58 @@ describe('runtime renderer', () => {
     expect(html).toContain('srcset="../assets/example.svg 1x, ../assets/example@2x.svg 2x"');
   });
 
+  it('renders structured background hooks without default overlays', () => {
+    const html = renderPage({
+      ...deck,
+      slides: [
+        {
+          ...deck.slides[0]!,
+          layout: 'image-title',
+          background: {
+            image: './assets/open.webp',
+            color: '#10131a',
+            position: 'center top'
+          }
+        },
+        {
+          ...deck.slides[1]!,
+          background: {
+            color: '#ffffff'
+          }
+        }
+      ]
+    }, 'deck');
+
+    expect(html).toContain('data-background="image color"');
+    expect(html).toContain('--presso-bg-image: url(&quot;../assets/open.webp&quot;)');
+    expect(html).toContain('--presso-bg-color: #10131a');
+    expect(html).toContain('--presso-bg-fit: cover');
+    expect(html).toContain('--presso-bg-position: center top');
+    expect(html).toContain('--presso-bg-overlay: none');
+    expect(html).toContain('data-background="color"');
+    expect(html).toContain('--presso-bg-color: #ffffff');
+    expect(html).not.toContain('background-image: url');
+  });
+
+  it('renders opt-in background scrims as CSS variables', () => {
+    const html = renderPage({
+      ...deck,
+      slides: [{
+        ...deck.slides[0]!,
+        background: {
+          image: './assets/team.webp',
+          overlay: {
+            type: 'scrim',
+            direction: 'left',
+            strength: 0.35
+          }
+        }
+      }]
+    }, 'deck');
+
+    expect(html).toContain('--presso-bg-overlay: linear-gradient(90deg, rgb(0 0 0 / 0.35), transparent)');
+  });
+
   it('omits private notes from public static render output', () => {
     const html = renderPage(deckWithNotesPolicy(false), 'presenter', { public: true });
     expect(html).not.toContain('<p>Speaker notes</p>');
@@ -283,7 +335,7 @@ describe('runtime renderer', () => {
       slides: [
         {
           ...deck.slides[0]!,
-          bodyMarkdown: '# One\n\n:::columns\n![Diagram](./assets/diagram.svg)\n\nImportant body text.\n:::\n\n::iframe{src="./demo/" title="Live demo"}',
+          bodyMarkdown: '# One\n\n:::columns\n:::column\n![Diagram](./assets/diagram.svg)\n:::\n\n:::column\nImportant body text.\n:::\n:::\n\n::iframe{src="./demo/" title="Live demo"}',
           metadata: {}
         },
         {
@@ -301,6 +353,16 @@ describe('runtime renderer', () => {
           bodyMarkdown: '## Skip',
           notesMarkdown: 'Skip notes',
           metadata: { transcript: false }
+        },
+        {
+          ...deck.slides[1]!,
+          id: 'background',
+          index: 3,
+          title: 'Background',
+          background: { image: './assets/background.webp' },
+          bodyMarkdown: '## Background',
+          notesMarkdown: 'Background notes',
+          metadata: {}
         }
       ]
     };
@@ -310,6 +372,7 @@ describe('runtime renderer', () => {
     expect(full).toContain('![Diagram](https://talk.example.test/assets/diagram.svg)');
     expect(full).toContain('[Live demo](https://talk.example.test/demo/)');
     expect(full).not.toContain(':::columns');
+    expect(full).not.toContain(':::column');
     expect(full).not.toContain('# One\n\n:::columns');
     expect(full).not.toContain('## Skip');
 
@@ -321,6 +384,7 @@ describe('runtime renderer', () => {
     const notesVisuals = renderTranscriptMarkdown(transcriptDeck, { fragment: true, profile: 'notes-visuals' });
     expect(notesVisuals).toContain('## One\n\n![Diagram](https://talk.example.test/assets/diagram.svg)\n\nSpeaker notes');
     expect(notesVisuals).toContain('## Two\n\nMoney in - Money out = Profit\n\nExplain the simple statement.');
+    expect(notesVisuals).toContain('## Background\n\n![Background](https://talk.example.test/assets/background.webp)\n\nBackground notes');
   });
 });
 

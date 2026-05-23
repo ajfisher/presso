@@ -82,7 +82,8 @@ The background object should support:
 String shorthand remains useful, but the parser should classify it deliberately:
 
 - A path-like string becomes `background.image`.
-- A CSS colour string becomes `background.color`.
+- A CSS colour string or bare CSS colour identifier becomes `background.color`.
+- Use `background.image` explicitly for unusual extensionless asset paths.
 
 ## Background Overlays
 
@@ -317,9 +318,18 @@ should become:
 
 ```markdown
 :::columns
-...
+:::column
+![Illustration](./assets/images/jfk.png)
+:::
+
+:::column
+> Quote or text content.
+:::
 :::
 ```
+
+Ambiguous `twocolumn` wrappers should be left as raw HTML and reported in
+`MIGRATION.md` rather than guessed into the wrong structure.
 
 Logo-only paragraphs should become:
 

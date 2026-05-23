@@ -1,6 +1,10 @@
 ---
 id: logos
 layout: logos
+background:
+  color: "#ffffff"
+class:
+  - light
 ---
 
 ## Logos

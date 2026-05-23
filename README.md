@@ -40,9 +40,19 @@ The speaker view at `/presenter` makes speaker notes the main surface, with comp
 
 ## Local Editing
 
-In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide file. Static builds do not include the editor or slide source.
+In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide or single-file deck section. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide source. Static builds do not include the editor or slide source.
 
 Single newlines in body and notes Markdown render as line breaks, which keeps edited slide text close to what appears on screen. The metadata editor includes a compact frontmatter cheat sheet; the fuller authoring reference is in [docs/authoring-format.md](docs/authoring-format.md).
+
+## Reveal Migration
+
+Use the minimal Reveal migrator to bootstrap an existing talk into native Presso files:
+
+```bash
+presso migrate reveal ~/dev/presentations/missions ~/dev/presentations/missions-presso
+```
+
+The migrator discovers `src/slides.md`, copies `src/images` and `src/static`, converts `Notes:` blocks to `:::notes`, maps common slide-level `class`, `data-background`, and `data-timing` values to frontmatter, and writes `MIGRATION.md` for manual follow-up. It does not attempt Reveal CSS or plugin compatibility.
 
 ## Presenter Teleprompter
 
@@ -156,6 +166,7 @@ Runtime files are generated under `_presso/` in static builds. Deck assets shoul
 
 - [Product shape](docs/product-shape.md)
 - [Authoring format](docs/authoring-format.md)
+- [CSS-first theme authoring](docs/theme-authoring.md)
 - [Backgrounds and Reveal migration](docs/backgrounds-and-reveal-migration.md)
 - [Release process](docs/release-process.md)
 

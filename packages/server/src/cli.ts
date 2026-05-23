@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import path from 'node:path';
 import { startDevServer } from './server.js';
-import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, orderAppend, orderCheck, orderInit } from './commands.js';
+import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, migrateRevealDeck, orderAppend, orderCheck, orderInit } from './commands.js';
 import { resolvePdfLayout } from '@ajfisher/presso-export';
 import { resolveTranscriptProfile, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
@@ -76,6 +76,13 @@ async function main(command = 'help', args: string[]): Promise<void> {
     const target = args[0];
     if (!target) throw new Error('Usage: presso create <directory>');
     await createDeck(target);
+    return;
+  }
+  if (command === 'migrate' && args[0] === 'reveal') {
+    const source = args[1];
+    const target = args[2];
+    if (!source || !target) throw new Error('Usage: presso migrate reveal <source> <target>');
+    console.log(await migrateRevealDeck(source, target));
     return;
   }
   printHelp();
@@ -182,5 +189,6 @@ function printHelp(): void {
   presso deploy [deckDir] [--yes]
   presso slide add [deckDir]
   presso order init|check|append [deckDir]
-  presso create <directory>`);
+  presso create <directory>
+  presso migrate reveal <source> <target>`);
 }

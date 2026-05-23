@@ -1,4 +1,4 @@
-import type { Deck, Slide } from '@ajfisher/presso-core';
+import { backgroundImage, stripContainerDirectives, type Deck, type Slide } from '@ajfisher/presso-core';
 
 export const TRANSCRIPT_PROFILES = ['full', 'notes', 'notes-visuals'] as const;
 export type TranscriptProfile = typeof TRANSCRIPT_PROFILES[number];
@@ -11,7 +11,6 @@ export interface TranscriptMarkdownOptions {
 
 const IMAGE_RE = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/;
 const MARKDOWN_LINK_RE = /(!?\[[^\]]*\]\()([^)#][^)]+)(\))/g;
-const CONTAINER_DIRECTIVE_RE = /^:::(columns|logos|quote-image|fragment)\s*\n([\s\S]*?)\n:::\s*$/gm;
 const INLINE_DIRECTIVE_RE = /^::([a-zA-Z][\w-]*)(\{[^}]*\})?\s*$/gm;
 
 export function renderTranscriptMarkdown(deck: Deck, options: TranscriptMarkdownOptions = {}): string {
@@ -84,7 +83,7 @@ function normalizeMarkdown(markdown: string, deck: Deck): string {
   let output = markdown.trim();
   if (!output) return '';
 
-  output = output.replace(CONTAINER_DIRECTIVE_RE, (_full, _name: string, content: string) => content.trim());
+  output = stripContainerDirectives(output);
   output = output.replace(INLINE_DIRECTIVE_RE, (_full, name: string, rawAttrs = '') => {
     const attrs = parseAttrs(rawAttrs);
     if (name === 'iframe' || name === 'video') {
@@ -123,8 +122,9 @@ function transcriptVisualMarkdown(slide: Slide, deck: Deck): string {
   if (typeof override === 'string' && override.trim()) {
     return imageMarkdown(slide.title, override, deck);
   }
-  if (slide.background) {
-    return imageMarkdown(slide.title, slide.background, deck);
+  const visualBackground = backgroundImage(slide.background);
+  if (visualBackground) {
+    return imageMarkdown(slide.title, visualBackground, deck);
   }
   if (shouldIncludeStatement(slide)) {
     return statementMarkdown(normalizedBodyMarkdown(slide, deck));

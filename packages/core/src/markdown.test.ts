@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderSlideMarkdown } from './index.js';
+import { renderSlideMarkdown, stripContainerDirectives } from './index.js';
 
 describe('markdown rendering', () => {
   it('extracts notes from slide body', () => {
@@ -18,5 +18,58 @@ describe('markdown rendering', () => {
   it('renders soft line breaks as slide line breaks', () => {
     const rendered = renderSlideMarkdown('First line\nSecond line');
     expect(rendered.bodyHtml).toContain('First line<br>Second line');
+  });
+
+  it('renders nested column directives as semantic column sections', () => {
+    const rendered = renderSlideMarkdown(`:::columns
+:::column
+![Diagram](./assets/diagram.svg)
+
+Left **body**
+:::
+
+:::column
+- One
+- Two
+:::
+:::`);
+
+    expect(rendered.bodyHtml).toContain('<div class="presso-columns" data-directive="columns">');
+    expect(rendered.bodyHtml).toContain('<section class="presso-column" data-directive="column">');
+    expect(rendered.bodyHtml).toContain('<strong>body</strong>');
+    expect(rendered.bodyHtml).toContain('<li>Two</li>');
+  });
+
+  it('keeps legacy simple column wrappers working', () => {
+    const rendered = renderSlideMarkdown(`:::columns
+![Diagram](./assets/diagram.svg)
+
+> Quote
+:::`);
+
+    expect(rendered.bodyHtml).toContain('<div class="presso-columns" data-directive="columns">');
+    expect(rendered.bodyHtml).toContain('<blockquote>');
+    expect(rendered.bodyHtml).not.toContain('class="presso-column"');
+  });
+
+  it('leaves malformed container directives as authored markdown', () => {
+    const rendered = renderSlideMarkdown(`:::columns
+:::column
+Unclosed column`);
+
+    expect(rendered.bodyMarkdown).toContain(':::columns');
+    expect(rendered.bodyHtml).toContain(':::columns');
+  });
+
+  it('strips nested container directive wrappers for transcript output', () => {
+    expect(stripContainerDirectives(`:::columns
+:::column
+Left
+:::
+
+:::column
+Right
+:::
+:::`)).toBe('Left\n\nRight');
   });
 });
