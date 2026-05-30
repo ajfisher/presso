@@ -2,6 +2,20 @@
   "name": "@ajfisher/presso-core",
   "version": "0.3.2",
   "description": "Core config, Markdown parsing, and deck model for Presso.",
+  "keywords": [
+    "presso",
+    "presentations",
+    "markdown",
+    "slides",
+    "speaker-notes",
+    "typescript",
+    "static-site",
+    "pdf-export"
+  ],
+  "homepage": "https://github.com/ajfisher/presso#readme",
+  "bugs": {
+    "url": "https://github.com/ajfisher/presso/issues"
+  },
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -10,7 +24,9 @@
     "directory": "packages/core"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "publishConfig": {
     "access": "public"

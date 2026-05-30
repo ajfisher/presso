@@ -9,6 +9,7 @@ const write = process.argv.includes('--write');
 const dryRun = process.argv.includes('--dry-run') || !write;
 const root = process.cwd();
 const packageRoot = path.join(root, 'packages');
+const requiredPackageFiles = ['README.md', 'LICENSE', 'package.json'];
 const destination = write
   ? path.join(root, '.presso', 'packages')
   : await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pack-'));
@@ -33,9 +34,19 @@ for (const dir of packageDirs) {
     maxBuffer: 1024 * 1024
   });
   const [packed] = JSON.parse(stdout);
+  validatePackedFiles(packed);
   console.log(`${dryRun ? 'Checked' : 'Packed'} ${packed.name}@${packed.version} (${packed.files.length} files)`);
 }
 
 if (write) {
   console.log(`Package tarballs written to ${destination}`);
+}
+
+function validatePackedFiles(packed) {
+  const paths = new Set(packed.files.map((file) => file.path));
+  for (const file of requiredPackageFiles) {
+    if (!paths.has(file)) {
+      throw new Error(`${packed.name}: packed package is missing ${file}.`);
+    }
+  }
 }
