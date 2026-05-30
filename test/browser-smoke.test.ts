@@ -165,6 +165,7 @@ browserDescribe('browser smoke', () => {
       await expectActiveSlide(page);
       await expectSoftWrappedNotes(page, '[data-current-notes]', 'Presenter note should stay readable as one paragraph.');
       await expectPresenterChromeIgnoresHostileTheme(page);
+      await expectPresenterNotesListSizingTracksControls(page);
       await expectSlidePreviewKeepsTheme(page);
 
       await page.goto(`${staticServer.origin}/notes/`, { waitUntil: 'networkidle' });
@@ -510,6 +511,9 @@ layout: title
 :::notes
 Presenter note should stay readable
 as one paragraph.
+
+- Bullet notes should inherit presenter sizing.
+- Font controls should resize bullet items.
 :::
 `);
   await fs.writeFile(path.join(root, 'slides/002-next.md'), `---
@@ -967,11 +971,42 @@ async function expectSoftWrappedNotes(page: Page, selector: string, text: string
 }
 
 async function expectPresenterChromeIgnoresHostileTheme(page: Page): Promise<void> {
-  const metrics = await page.locator('article[data-current-notes]').evaluate((notes) => {
+  const metrics = await presenterNotesTypography(page);
+  expect(metrics.notesFontFamily).not.toContain('Georgia');
+  expect(metrics.notesFontSize).toBeCloseTo(20, 0);
+  expect(metrics.notesLineHeight).toBeCloseTo(29, 0);
+  expect(metrics.notesColor).toBe('rgb(255, 255, 255)');
+  expect(metrics.paragraphFontSize).toBeCloseTo(20, 0);
+  expect(metrics.paragraphColor).toBe('rgb(255, 255, 255)');
+  expect(metrics.paragraphTextTransform).toBe('none');
+  expect(metrics.listFontSize).toBeCloseTo(20, 0);
+  expect(metrics.listItemFontSize).toBeCloseTo(20, 0);
+  expect(metrics.buttonFontFamily).not.toContain('Georgia');
+  expect(metrics.buttonFontSize).toBeLessThan(24);
+  expect(metrics.buttonHeight).toBeLessThan(80);
+}
+
+async function expectPresenterNotesListSizingTracksControls(page: Page): Promise<void> {
+  const initial = await presenterNotesTypography(page);
+  await page.locator('[data-action="font-plus"]').click();
+  const larger = await presenterNotesTypography(page);
+  expect(larger.notesFontSize).toBeGreaterThan(initial.notesFontSize);
+  expect(larger.listFontSize).toBeCloseTo(larger.notesFontSize, 0);
+  expect(larger.listItemFontSize).toBeCloseTo(larger.notesFontSize, 0);
+}
+
+async function presenterNotesTypography(page: Page) {
+  return page.locator('article[data-current-notes]').evaluate((notes) => {
     const paragraph = notes.querySelector('p');
     if (!(paragraph instanceof HTMLElement)) throw new Error('Presenter notes paragraph was not rendered.');
+    const list = notes.querySelector('ul');
+    if (!(list instanceof HTMLElement)) throw new Error('Presenter notes list was not rendered.');
+    const listItem = notes.querySelector('li');
+    if (!(listItem instanceof HTMLElement)) throw new Error('Presenter notes list item was not rendered.');
     const notesStyle = getComputedStyle(notes);
     const paragraphStyle = getComputedStyle(paragraph);
+    const listStyle = getComputedStyle(list);
+    const listItemStyle = getComputedStyle(listItem);
     const nextButton = document.querySelector('button[data-action="next"]');
     if (!(nextButton instanceof HTMLElement)) throw new Error('Presenter next button was not rendered.');
     const buttonStyle = getComputedStyle(nextButton);
@@ -986,19 +1021,11 @@ async function expectPresenterChromeIgnoresHostileTheme(page: Page): Promise<voi
       notesLineHeight: parseFloat(notesStyle.lineHeight),
       paragraphColor: paragraphStyle.color,
       paragraphFontSize: parseFloat(paragraphStyle.fontSize),
-      paragraphTextTransform: paragraphStyle.textTransform
+      paragraphTextTransform: paragraphStyle.textTransform,
+      listFontSize: parseFloat(listStyle.fontSize),
+      listItemFontSize: parseFloat(listItemStyle.fontSize)
     };
   });
-  expect(metrics.notesFontFamily).not.toContain('Georgia');
-  expect(metrics.notesFontSize).toBeCloseTo(20, 0);
-  expect(metrics.notesLineHeight).toBeCloseTo(29, 0);
-  expect(metrics.notesColor).toBe('rgb(255, 255, 255)');
-  expect(metrics.paragraphFontSize).toBeCloseTo(20, 0);
-  expect(metrics.paragraphColor).toBe('rgb(255, 255, 255)');
-  expect(metrics.paragraphTextTransform).toBe('none');
-  expect(metrics.buttonFontFamily).not.toContain('Georgia');
-  expect(metrics.buttonFontSize).toBeLessThan(24);
-  expect(metrics.buttonHeight).toBeLessThan(80);
 }
 
 async function expectControlChromeIgnoresHostileTheme(page: Page): Promise<void> {
