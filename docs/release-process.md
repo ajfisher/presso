@@ -28,16 +28,39 @@ Release Please is configured with `bump-minor-pre-major: true` and
 `0.1.x` to `0.2.0` rather than creating another `0.1.x` patch release. This
 keeps feature releases visible during the early framework phase.
 
-Keep PRs squash/rebase friendly and use conventional commit subjects for every commit that should affect release notes.
+Keep PRs squash/rebase friendly and use conventional commit subjects for every
+commit that should affect release notes.
 
-For substantial product slices, prefer a squash merge with a single clear
-conventional commit subject and body, or make sure the branch contains a
-high-level conventional commit that represents the user-facing feature. Release
-Please reads commits more reliably than PR summaries, so a sequence of narrow
-implementation commits can produce technically correct but weak release notes.
+## Merge Strategy
+
+Use the merge method that gives Release Please useful commit history:
+
+- Small fixes and narrow changes can be squash-merged with one clear
+  conventional commit subject.
+- Release-bearing feature slices should keep curated conventional commits when
+  those commits describe meaningful user-facing units. Work locally however is
+  fastest, then tidy the branch before merge so the final history is useful.
+- Avoid preserving `wip`, `fix tests`, review-only, or mechanically noisy
+  commits on `main`. Fix those up before using a merge commit or rebase merge.
+
+A good feature slice history looks like:
+
+```text
+feat(core): add structured background metadata
+feat(runtime): add image-title layout hooks
+feat(server): add reveal migration command
+docs(theme): document CSS-first theme contract
+```
+
+That gives Release Please better changelog material than one broad squash commit
+or many low-level implementation commits. Release Please reads commits more
+reliably than PR summaries, so PR body detail should be treated as review
+context, not as the primary changelog source.
+
 When a slice is large enough to need editorial release notes, add a draft under
-`docs/release-notes/` and link it from the feature PR so the Release Please PR
-and GitHub Release can reuse the detail.
+`docs/release-notes/` and link it from the feature PR. Use that draft to review
+and improve the generated changelogs in the Release Please PR, but do not expect
+Release Please to ingest the draft automatically.
 
 If Release Please chooses the wrong version for a one-off release, add a
 `Release-As: x.y.z` footer to a conventional commit before the release PR is
@@ -54,6 +77,14 @@ The `Release` workflow runs on pushes to `main`.
 4. Merging the release PR creates Git tags and GitHub Releases.
 
 Release Please is configured with the `node-workspace` and `linked-versions` plugins so the packages stay version-aligned.
+
+Release Please must be able to parse its own release PR body after merge. Do not
+replace the generated body with custom release prose. If release notes need
+editorial improvement, update the generated package changelog entries or add
+comments/review notes while preserving the Release Please body structure. If the
+body format is broken, Release Please may merge the version bump without
+creating the matching tags/releases, then open a follow-up release PR for the
+next version.
 
 ## Local Release Checks
 
