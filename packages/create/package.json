@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-create",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Starter deck scaffolder for Presso.",
   "license": "MIT",
   "type": "module",
