@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderSlideMarkdown, stripContainerDirectives } from './index.js';
+import { renderMarkdown, renderSlideMarkdown, stripContainerDirectives } from './index.js';
 
 describe('markdown rendering', () => {
   it('extracts notes from slide body', () => {
@@ -18,6 +18,29 @@ describe('markdown rendering', () => {
   it('renders soft line breaks as slide line breaks', () => {
     const rendered = renderSlideMarkdown('First line\nSecond line');
     expect(rendered.bodyHtml).toContain('First line<br>Second line');
+  });
+
+  it('renders soft line breaks in notes as paragraph whitespace', () => {
+    const rendered = renderSlideMarkdown(`# Slide
+
+:::notes
+First note line
+continues as one paragraph.
+
+Second paragraph
+also continues.
+:::`);
+
+    expect(rendered.notesHtml).toContain('<p>First note line\ncontinues as one paragraph.</p>');
+    expect(rendered.notesHtml).toContain('<p>Second paragraph\nalso continues.</p>');
+    expect(rendered.notesHtml).not.toContain('<br>');
+  });
+
+  it('allows render callers to opt out of soft line break tags', () => {
+    const html = renderMarkdown('First line\nSecond line', { breaks: false });
+
+    expect(html).toContain('<p>First line\nSecond line</p>');
+    expect(html).not.toContain('<br>');
   });
 
   it('renders nested column directives as semantic column sections', () => {

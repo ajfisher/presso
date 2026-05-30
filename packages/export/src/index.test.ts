@@ -99,6 +99,18 @@ describe('static export', () => {
     }
   });
 
+  it('exports public notes html with soft-wrapped paragraphs', async () => {
+    const root = await createDeck('toggle', {
+      notesMarkdown: 'SECRET_PRIVATE_NOTE\ncontinues as one paragraph.\n\nSecond note paragraph.'
+    });
+    const dest = await buildStatic(root, path.join(root, 'dist'));
+    const manifest = await readDeckManifest(dest);
+
+    expect(manifest.slides[0].notesHtml).toContain('<p>SECRET_PRIVATE_NOTE\ncontinues as one paragraph.</p>');
+    expect(manifest.slides[0].notesHtml).toContain('<p>Second note paragraph.</p>');
+    expect(manifest.slides[0].notesHtml).not.toContain('<br>');
+  });
+
   it('emits stable print routes and compatibility aliases', async () => {
     const root = await createDeck('toggle');
     const dest = await buildStatic(root, path.join(root, 'dist'));
@@ -180,9 +192,10 @@ describe('static export', () => {
   });
 });
 
-async function createDeck(publicNotes: false | 'toggle' | 'visible', options: { includeMetadata?: boolean; includeSlideManifestFields?: boolean } = {}): Promise<string> {
+async function createDeck(publicNotes: false | 'toggle' | 'visible', options: { includeMetadata?: boolean; includeSlideManifestFields?: boolean; notesMarkdown?: string } = {}): Promise<string> {
   const includeMetadata = options.includeMetadata ?? true;
   const includeSlideManifestFields = options.includeSlideManifestFields ?? false;
+  const notesMarkdown = options.notesMarkdown ?? 'SECRET_PRIVATE_NOTE';
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-export-'));
   tmpRoots.push(root);
   await fs.mkdir(path.join(root, 'slides'), { recursive: true });
@@ -217,7 +230,7 @@ customSecret: SHOULD_NOT_LEAK_METADATA
 ![Example](./assets/example.svg)
 
 :::notes
-SECRET_PRIVATE_NOTE
+${notesMarkdown}
 :::
 `);
   return root;

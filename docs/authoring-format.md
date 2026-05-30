@@ -181,8 +181,11 @@ Ask:
 Notes are Markdown. They can contain paragraphs, lists, links, emphasis, code,
 and simple directives if useful.
 
-Single newlines in slide body and notes Markdown render as line breaks. Use a
-blank line when you want a new paragraph.
+Single newlines in slide body Markdown render as line breaks. Speaker notes
+treat single newlines inside a paragraph as soft wraps, so you can hard-wrap
+notes source for terminal editing without adding visible breaks. Use a blank
+line when you want a new paragraph, or an explicit `<br>` when a note really
+needs a hard line break.
 
 ## Frontmatter
 

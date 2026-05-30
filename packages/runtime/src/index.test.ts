@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Deck } from '@ajfisher/presso-core';
-import { renderPage, renderTranscriptMarkdown } from './index.js';
+import { renderPage, renderTranscriptMarkdown, type RenderMode } from './index.js';
 
 const deck: Deck = {
   config: {
@@ -188,6 +188,28 @@ describe('runtime renderer', () => {
 
     const publicPrivate = renderPage(deckWithNotesPolicy(false), 'print-speaker', { public: true });
     expect(publicPrivate).not.toContain('<p>Speaker notes</p>');
+  });
+
+  it('renders wrapped note paragraphs without hard breaks across note routes', () => {
+    const wrappedDeck = deckWithWrappedNotes();
+    const noteRoutes: RenderMode[] = [
+      'deck',
+      'presenter',
+      'notes',
+      'print-notes',
+      'print-speaker',
+      'print-handout',
+      'transcript'
+    ];
+
+    for (const mode of noteRoutes) {
+      const html = renderPage(wrappedDeck, mode);
+
+      expect(html).toContain('<p>First note line\ncontinues as one paragraph.</p>');
+      expect(html).toContain('<p>Second paragraph\nalso continues.</p>');
+      expect(html).not.toContain('First note line<br>continues as one paragraph.');
+      expect(html).not.toContain('Second paragraph<br>also continues.');
+    }
   });
 
   it('splits long handout notes into repeated slide context pages', () => {
@@ -412,6 +434,20 @@ function deckWithNotesPolicy(publicNotes: Deck['config']['notes']['public']): De
         public: publicNotes
       }
     }
+  };
+}
+
+function deckWithWrappedNotes(): Deck {
+  return {
+    ...deck,
+    slides: [
+      {
+        ...deck.slides[0]!,
+        notesMarkdown: 'First note line\ncontinues as one paragraph.\n\nSecond paragraph\nalso continues.',
+        notesHtml: '<p>First note line\ncontinues as one paragraph.</p>\n<p>Second paragraph\nalso continues.</p>\n'
+      },
+      deck.slides[1]!
+    ]
   };
 }
 

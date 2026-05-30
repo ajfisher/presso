@@ -7,8 +7,7 @@ const CONTAINER_DIRECTIVE_OPEN_RE = /^:::([a-zA-Z][\w-]*)\s*$/;
 const CONTAINER_DIRECTIVE_CLOSE_RE = /^:::\s*$/;
 
 marked.use({
-  gfm: true,
-  breaks: true
+  gfm: true
 });
 
 export interface RenderedMarkdown {
@@ -18,22 +17,27 @@ export interface RenderedMarkdown {
   notesHtml: string;
 }
 
+export interface RenderMarkdownOptions {
+  breaks?: boolean;
+}
+
 export function renderSlideMarkdown(markdown: string): RenderedMarkdown {
   const { bodyMarkdown, notesMarkdown } = extractNotes(markdown);
   return {
     bodyMarkdown: bodyMarkdown.trim(),
     bodyHtml: renderMarkdown(bodyMarkdown),
     notesMarkdown: notesMarkdown.trim(),
-    notesHtml: renderMarkdown(notesMarkdown)
+    notesHtml: renderMarkdown(notesMarkdown, { breaks: false })
   };
 }
 
-export function renderMarkdown(markdown: string): string {
+export function renderMarkdown(markdown: string, options: RenderMarkdownOptions = {}): string {
   if (!markdown.trim()) {
     return '';
   }
-  const prepared = transformDirectives(markdown);
-  return marked.parse(prepared, { async: false }) as string;
+  const renderOptions = { breaks: options.breaks ?? true };
+  const prepared = transformDirectives(markdown, renderOptions);
+  return marked.parse(prepared, { async: false, gfm: true, breaks: renderOptions.breaks }) as string;
 }
 
 export function extractNotes(markdown: string): { bodyMarkdown: string; notesMarkdown: string } {
@@ -46,8 +50,8 @@ export function extractNotes(markdown: string): { bodyMarkdown: string; notesMar
   return { bodyMarkdown, notesMarkdown };
 }
 
-function transformDirectives(markdown: string): string {
-  let output = transformContainerDirectives(markdown);
+function transformDirectives(markdown: string, options: Required<RenderMarkdownOptions>): string {
+  let output = transformContainerDirectives(markdown, options);
 
   output = output.replace(INLINE_DIRECTIVE_RE, (_full, name: string, rawAttrs = '') => {
     const attrs = parseAttrs(rawAttrs);
@@ -83,12 +87,12 @@ export function stripContainerDirectives(markdown: string): string {
   return stripDirectiveRange(lines, 0, lines.length).trim();
 }
 
-function transformContainerDirectives(markdown: string): string {
+function transformContainerDirectives(markdown: string, options: Required<RenderMarkdownOptions>): string {
   const lines = markdown.split(/\r?\n/);
-  return transformDirectiveRange(lines, 0, lines.length);
+  return transformDirectiveRange(lines, 0, lines.length, options);
 }
 
-function transformDirectiveRange(lines: string[], start: number, end: number): string {
+function transformDirectiveRange(lines: string[], start: number, end: number, options: Required<RenderMarkdownOptions>): string {
   const output: string[] = [];
   let index = start;
   while (index < end) {
@@ -96,7 +100,7 @@ function transformDirectiveRange(lines: string[], start: number, end: number): s
     if (name) {
       const block = readDirectiveBlock(lines, index + 1, end);
       if (block) {
-        output.push(renderContainerDirective(name, block.content.join('\n')));
+        output.push(renderContainerDirective(name, block.content.join('\n'), options));
         index = block.nextIndex;
         continue;
       }
@@ -152,8 +156,8 @@ function containerDirectiveName(line: string): string | undefined {
   return name && CONTAINER_DIRECTIVES.has(name) ? name : undefined;
 }
 
-function renderContainerDirective(name: string, content: string): string {
-  const html = renderMarkdown(content.trim());
+function renderContainerDirective(name: string, content: string, options: Required<RenderMarkdownOptions>): string {
+  const html = renderMarkdown(content.trim(), options);
   if (name === 'column') {
     return `<section class="presso-column" data-directive="column">${html}</section>`;
   }
