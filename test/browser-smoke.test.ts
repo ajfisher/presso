@@ -163,9 +163,21 @@ browserDescribe('browser smoke', () => {
       await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       await expectRuntimeAssets(page);
       await expectActiveSlide(page);
-      await expectText(page, '[data-current-notes]', 'Presenter note should stay readable.');
+      await expectSoftWrappedNotes(page, '[data-current-notes]', 'Presenter note should stay readable as one paragraph.');
       await expectPresenterChromeIgnoresHostileTheme(page);
       await expectSlidePreviewKeepsTheme(page);
+
+      await page.goto(`${staticServer.origin}/notes/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
+      await expectSoftWrappedNotes(page, 'main section:first-of-type', 'Presenter note should stay readable as one paragraph.');
+
+      await page.goto(`${staticServer.origin}/print/notes/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
+      await expectSoftWrappedNotes(page, '.presso-print-notes-page:first-of-type .presso-print-notes', 'Presenter note should stay readable as one paragraph.');
+
+      await page.goto(`${staticServer.origin}/transcript/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
+      await expectSoftWrappedNotes(page, 'main section:first-of-type', 'Presenter note should stay readable as one paragraph.');
 
       await page.goto(`${staticServer.origin}/control/`, { waitUntil: 'networkidle' });
       await expectRuntimeAssets(page);
@@ -496,7 +508,8 @@ layout: title
 # Hostile Theme
 
 :::notes
-Presenter note should stay readable.
+Presenter note should stay readable
+as one paragraph.
 :::
 `);
   await fs.writeFile(path.join(root, 'slides/002-next.md'), `---
@@ -940,6 +953,17 @@ async function expectRuntimeAssets(page: Page): Promise<void> {
   expect(assetHrefs.some((href) => href.includes('/_presso/presso.css'))).toBe(true);
   expect(assetHrefs.some((href) => href.includes('/_presso/presso-runtime.js'))).toBe(true);
   expect(themeStyles.some((style) => style.includes('theme.css') && style.includes('layer(presso.theme)'))).toBe(true);
+}
+
+async function expectSoftWrappedNotes(page: Page, selector: string, text: string): Promise<void> {
+  await page.waitForSelector(selector);
+  const metrics = await page.locator(selector).first().evaluate((element) => ({
+    html: element.innerHTML,
+    text: (element.textContent ?? '').replace(/\s+/g, ' ').trim()
+  }));
+
+  expect(metrics.text).toContain(text);
+  expect(metrics.html).not.toContain('<br');
 }
 
 async function expectPresenterChromeIgnoresHostileTheme(page: Page): Promise<void> {

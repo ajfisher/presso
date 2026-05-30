@@ -42,7 +42,7 @@ The speaker view at `/presenter` makes speaker notes the main surface, with comp
 
 In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide or single-file deck section. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide source. Static builds do not include the editor or slide source.
 
-Single newlines in body and notes Markdown render as line breaks, which keeps edited slide text close to what appears on screen. The metadata editor includes a compact frontmatter cheat sheet; the fuller authoring reference is in [docs/authoring-format.md](docs/authoring-format.md).
+Single newlines in slide body Markdown render as line breaks, which keeps edited slide text close to what appears on screen. Speaker notes treat single newlines inside a paragraph as soft wraps, so notes source can be hard-wrapped for terminal editing without adding visible breaks. The metadata editor includes a compact frontmatter cheat sheet; the fuller authoring reference is in [docs/authoring-format.md](docs/authoring-format.md).
 
 ## Reveal Migration
 
