@@ -61,8 +61,16 @@ describe('runtime renderer', () => {
     expect(html).toContain('id="presso-runtime-config"');
     expect(html).toContain('"presenter":"presenter/"');
     expect(html).toContain('<link rel="stylesheet" href="_presso/presso.css">');
+    expect(html).toContain('<style data-presso-theme>@import url("theme.css") layer(presso.theme);</style>');
     expect(html).toContain('<script src="_presso/presso-runtime.js" type="module"></script>');
     expect(html).not.toContain('function setIndex');
+  });
+
+  it('imports deck themes into the theme cascade layer on nested routes', () => {
+    const html = renderPage(deck, 'presenter');
+
+    expect(html).toContain('<style data-presso-theme>@import url("../theme.css") layer(presso.theme);</style>');
+    expect(html).not.toContain('<link rel="stylesheet" href="../theme.css">');
   });
 
   it('uses nested runtime and deck asset paths for static routes', () => {
@@ -77,6 +85,7 @@ describe('runtime renderer', () => {
     }, 'embed', { public: true });
 
     expect(html).toContain('href="../_presso/presso.css"');
+    expect(html).toContain('@import url("../theme.css") layer(presso.theme);');
     expect(html).toContain('src="../_presso/presso-runtime.js"');
     expect(html).toContain('src="../assets/example.svg"');
     expect(html).toContain('srcset="../assets/example.svg 1x, ../assets/example@2x.svg 2x"');
@@ -224,6 +233,9 @@ describe('runtime renderer', () => {
     const html = renderPage(deck, 'presenter', { controlUrls: ['http://192.0.2.1:3030/control'], server: true });
     const config = runtimeConfig(html);
     expect(html).toContain('data-current-title');
+    expect(html).toContain('<section data-presso-chrome aria-label="Speaker notes">');
+    expect(html).toContain('<section data-presso-chrome aria-label="Timing">');
+    expect(html).toContain('<section data-presso-chrome aria-label="Controls">');
     expect(html).toContain('data-elapsed');
     expect(html).toContain('data-current-target-time');
     expect(html).toContain('data-time-delta');
@@ -237,6 +249,7 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-notes-progress');
     expect(html).toContain('data-action="controller-open"');
     expect(html).toContain('data-controller-popover');
+    expect(html).toContain('data-presso-chrome data-controller-popover');
     expect(html).toContain('data-controller-url-open');
     expect(html).toContain('data-controller-url-list');
     expect(html).toContain('aria-label="Slide navigation"');
@@ -304,6 +317,7 @@ describe('runtime renderer', () => {
     const config = runtimeConfig(html);
 
     expect(html).toContain('data-sync-status');
+    expect(html).toContain('<main data-presso-chrome>');
     expect(html).toContain('data-current-title');
     expect(html).toContain('data-current-position');
     expect(html).toContain('data-slide-count');
