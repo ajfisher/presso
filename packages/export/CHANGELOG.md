@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.3.2](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.3.1...@ajfisher/presso-export-v0.3.2) (2026-05-30)
+
+
+### Bug Fixes
+
+* **core:** render speaker note soft wraps as paragraphs ([2d490d7](https://github.com/ajfisher/presso/commit/2d490d74e467a0c7925f014dd708e4c344ef3e3b)), closes [#100](https://github.com/ajfisher/presso/issues/100)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.3.1 to ^0.3.2
+    * @ajfisher/presso-runtime bumped from ^0.3.1 to ^0.3.2
+
 ## [0.3.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-export-v0.3.0...@ajfisher/presso-export-v0.3.1) (2026-05-30)
 
 

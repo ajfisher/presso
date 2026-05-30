@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.2](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.3.1...@ajfisher/presso-core-v0.3.2) (2026-05-30)
+
+
+### Bug Fixes
+
+* **core:** render speaker note soft wraps as paragraphs ([2d490d7](https://github.com/ajfisher/presso/commit/2d490d74e467a0c7925f014dd708e4c344ef3e3b)), closes [#100](https://github.com/ajfisher/presso/issues/100)
+
 ## [0.3.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.3.0...@ajfisher/presso-core-v0.3.1) (2026-05-30)
 
 
