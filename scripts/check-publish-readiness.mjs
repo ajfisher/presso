@@ -1,9 +1,11 @@
 import fs from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
 const packageRoot = path.join(root, 'packages');
+const requiredKeywords = ['presso', 'presentations', 'markdown', 'slides', 'speaker-notes'];
+const requiredPackageFiles = ['dist', 'README.md', 'LICENSE'];
 const packageDirs = (await fs.readdir(packageRoot, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
   .map((entry) => path.join(packageRoot, entry.name))
@@ -66,9 +68,13 @@ function validatePackage(pkg, expectedVersion) {
   if (json.type !== 'module') errors.push(`${id}: type must be module.`);
   if (json.license !== 'MIT') errors.push(`${id}: license must be MIT.`);
   if (!json.description) errors.push(`${id}: description is required for npm.`);
+  if (json.homepage !== 'https://github.com/ajfisher/presso#readme') errors.push(`${id}: homepage must point to the repo README.`);
+  if (json.bugs?.url !== 'https://github.com/ajfisher/presso/issues') errors.push(`${id}: bugs.url must point to the repo issues.`);
+  validateKeywords(id, json.keywords);
   validateRepository(id, rel, json.repository);
   if (json.publishConfig?.access !== 'public') errors.push(`${id}: publishConfig.access must be public.`);
-  if (!Array.isArray(json.files) || !json.files.includes('dist')) errors.push(`${id}: files must include dist.`);
+  validatePackageFiles(id, json.files);
+  validatePackageDocs(id, dir);
   if (!json.scripts?.build) errors.push(`${id}: build script is required.`);
 
   validateExports(id, dir, json.exports);
@@ -76,6 +82,41 @@ function validatePackage(pkg, expectedVersion) {
   validateDependencies(id, json.dependencies ?? {}, json.version);
   validateDependencies(id, json.optionalDependencies ?? {}, json.version);
   validateDependencies(id, json.peerDependencies ?? {}, json.version);
+}
+
+function validateKeywords(id, keywords) {
+  if (!Array.isArray(keywords)) {
+    errors.push(`${id}: keywords must be defined for npm discovery.`);
+    return;
+  }
+  for (const keyword of requiredKeywords) {
+    if (!keywords.includes(keyword)) errors.push(`${id}: keywords must include ${keyword}.`);
+  }
+}
+
+function validatePackageFiles(id, files) {
+  if (!Array.isArray(files)) {
+    errors.push(`${id}: files must include ${requiredPackageFiles.join(', ')}.`);
+    return;
+  }
+  for (const file of requiredPackageFiles) {
+    if (!files.includes(file)) errors.push(`${id}: files must include ${file}.`);
+  }
+}
+
+function validatePackageDocs(id, dir) {
+  const readme = path.join(dir, 'README.md');
+  if (!fileExists(readme)) {
+    errors.push(`${id}: README.md is required for npm.`);
+  } else {
+    const contents = readFileSync(readme, 'utf8').trim();
+    if (contents.length < 200) errors.push(`${id}: README.md must contain package-specific npm content.`);
+    if (!contents.includes(id)) errors.push(`${id}: README.md must mention the package name.`);
+  }
+
+  if (!fileExists(path.join(dir, 'LICENSE'))) {
+    errors.push(`${id}: LICENSE is required in the package tarball.`);
+  }
 }
 
 function validateRepository(id, rel, repository) {

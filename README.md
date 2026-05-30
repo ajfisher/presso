@@ -1,8 +1,54 @@
 # Presso
 
-Web-based presentation framework for Markdown-native conference talks, workshops, and similar events.
+Markdown-native web presentation framework for talks, workshops, speaker notes, static publishing, and PDF export.
 
 ## Quick Start
+
+Create a new deck with npm:
+
+```bash
+npm exec -- @ajfisher/presso-create my-talk
+cd my-talk
+npm install
+npm run dev
+```
+
+Presso creates a normal folder of Markdown slides, CSS theme files, and deck-local assets. The same source can be presented in the browser, opened in speaker view, exported as a static site, turned into PDFs, and converted into transcript Markdown.
+
+| Deck | Presenter |
+| --- | --- |
+| ![Presso deck screenshot](docs/media/presso-deck.png) | ![Presso presenter screenshot](docs/media/presso-presenter.png) |
+
+## Feature Tour
+
+- Markdown-first authoring with folder decks or single-file decks.
+- Speaker view with notes, current and next slide previews, timer, pacing, and teleprompter controls.
+- Phone-friendly `/control` route with optional keep-awake support.
+- Public notes and transcript routes for companion publishing.
+- Static builds with isolated runtime assets under `_presso/`.
+- PDF export for slides, notes, speaker pages, and handouts.
+- Local edit/writeback for folder-deck slides and single-file deck sections.
+- Reveal.js migration helper for bootstrapping older talks.
+
+## Packages
+
+| Package | Purpose |
+| --- | --- |
+| [`@ajfisher/presso-create`](packages/create/README.md) | Starter deck scaffolder. |
+| [`@ajfisher/presso-server`](packages/server/README.md) | Main `presso` CLI, dev server, controller sync, editing, and command orchestration. |
+| [`@ajfisher/presso-core`](packages/core/README.md) | Config loading, Markdown parsing, deck model, timing, and edit/writeback primitives. |
+| [`@ajfisher/presso-runtime`](packages/runtime/README.md) | Browser rendering, route templates, runtime assets, and transcript rendering helpers. |
+| [`@ajfisher/presso-export`](packages/export/README.md) | Static HTML, metadata, transcript, and Playwright-backed PDF export helpers. |
+
+## Docs
+
+- [Authoring format](docs/authoring-format.md)
+- [CSS-first theme authoring](docs/theme-authoring.md)
+- [Backgrounds and Reveal migration](docs/backgrounds-and-reveal-migration.md)
+- [Product shape](docs/product-shape.md)
+- [Release process](docs/release-process.md)
+
+## Repository Development
 
 ```bash
 make install
@@ -13,15 +59,6 @@ make dev
 The example deck lives in `examples/basic`.
 
 Use `make dev DECK=path/to/deck PORT=3031` to run a different local deck. Raw CLI access is available with `make presso ARGS="build examples/basic"` until the package is installed globally or from a generated deck.
-
-To scaffold a new deck once the packages are published:
-
-```bash
-npm exec -- @ajfisher/presso-create my-talk
-cd my-talk
-npm install
-npm run dev
-```
 
 Inside this repo, `make create NAME=my-talk` creates the same numbered starter deck with local package links.
 
