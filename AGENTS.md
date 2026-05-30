@@ -32,7 +32,8 @@ These notes exist to keep future agent work aligned with the project direction.
 - Publishable package dependencies between `@ajfisher/presso-*` packages must use semver ranges, not `file:` or `workspace:` specs.
 - npm publishing uses trusted publishing through GitHub Actions OIDC. Keep `permissions.id-token: write`, do not reintroduce `NODE_AUTH_TOKEN` or `NPM_TOKEN` in `.github/workflows/publish-npm.yml`, and keep release workflow caching disabled.
 - Publishable package manifests must keep `repository.url` aligned to `https://github.com/ajfisher/presso.git` with the correct `repository.directory`; npm validates this for trusted publishing.
-- Do not manually edit generated Release Please PR outputs unless you are deliberately correcting release notes or package metadata.
+- Do not replace the generated Release Please PR body. Release Please parses that body after merge to create tags and GitHub Releases. If release notes need improvement, edit the generated changelog/package metadata while preserving the PR body structure.
+- For release-bearing feature slices, prefer curated conventional commits and a non-squash merge when the commit history is clean and useful. Squash small or noisy PRs into one clear conventional commit.
 
 ## Public Output Safety
 

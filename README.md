@@ -214,7 +214,8 @@ The intended release flow is automated through Release Please:
 1. Keep PR commits conventional.
 2. Let the `Release` workflow open a release PR with changelogs and version bumps.
 3. Run `make release-check` on the release PR.
-4. Merge the release PR to create Git tags and GitHub Releases.
-5. Publish the scoped packages through the manual `Publish npm Packages` workflow when ready.
+4. Preserve the generated Release Please PR body; update changelogs rather than replacing the body.
+5. Merge the release PR to create Git tags and GitHub Releases.
+6. Publish the scoped packages through the manual `Publish npm Packages` workflow when ready.
 
 See [Release process](docs/release-process.md) for details.
