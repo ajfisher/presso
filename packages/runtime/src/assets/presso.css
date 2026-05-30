@@ -1,4 +1,4 @@
-@layer presso.reset, presso.base, presso.deck, presso.modes, presso.controls, presso.print;
+@layer presso.reset, presso.base, presso.deck, presso.theme, presso.modes, presso.controls, presso.print;
 
 @layer presso.reset {
   * {
@@ -1232,6 +1232,40 @@
 }
 
 @layer presso.modes {
+  html:has(> body[data-mode="presenter"]),
+  html:has(> body[data-mode="control"]) {
+    font-size: 16px;
+  }
+
+  body[data-mode="presenter"],
+  body[data-mode="control"] {
+    background: var(--presso-bg);
+    color: var(--presso-fg);
+    font-family: Inter, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: normal;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  body[data-mode="presenter"] [data-presso-chrome],
+  body[data-mode="presenter"] [data-presso-chrome] :where(header, footer, section, article, aside, nav, div, p, h1, h2, h3, h4, ul, ol, li, button, label, input, span, strong, time, svg),
+  body[data-mode="control"] [data-presso-chrome],
+  body[data-mode="control"] [data-presso-chrome] :where(header, footer, section, article, aside, nav, div, p, h1, h2, h3, h4, ul, ol, li, button, label, input, span, strong, time, svg) {
+    box-sizing: border-box;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+    font-family: inherit;
+    font-size: 1rem;
+    font-style: normal;
+    line-height: normal;
+    letter-spacing: 0;
+    text-align: initial;
+    text-transform: none;
+  }
+
   body[data-mode="presenter"] > main {
     display: grid;
     grid-template-columns: minmax(0, 1.4fr) minmax(22rem, .6fr);
@@ -1299,9 +1333,13 @@
       grid-template-rows: auto auto minmax(0, 1fr) minmax(0, 1fr);
       gap: 1rem;
       min-height: 0;
+      margin: 0;
+      padding: 0;
 
       > section {
         min-width: 0;
+        margin: 0;
+        padding: 0;
       }
 
       > section:first-child {
@@ -1319,6 +1357,7 @@
           padding: .7rem;
           background: rgb(255 255 255 / 8%);
           color: white;
+          font-family: Inter, system-ui, sans-serif;
           text-align: left;
         }
 
@@ -1405,6 +1444,7 @@
           padding: .7rem .85rem;
           background: rgb(255 255 255 / 12%);
           color: white;
+          font-family: Inter, system-ui, sans-serif;
           min-height: 2.75rem;
 
           &:disabled {
@@ -1480,6 +1520,7 @@
           padding: .7rem .5rem;
           min-height: 2.75rem;
           color: white;
+          font-family: Inter, system-ui, sans-serif;
           font-size: .95rem;
           font-variant-numeric: tabular-nums;
         }
@@ -1573,12 +1614,55 @@
     }
 
     article[data-current-notes] {
-      font-size: var(--presenter-notes-size, 1.25rem);
+      color: white;
+      font-family: Inter, system-ui, sans-serif;
+      font-size: var(--presenter-notes-size, 20px);
       line-height: 1.45;
+      letter-spacing: 0;
+      text-align: start;
+      text-transform: none;
       overflow: auto;
       height: 100%;
       padding-right: .5rem;
       scroll-behavior: auto;
+
+      :where(p, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6) {
+        max-width: none;
+        margin: 0 0 1rem;
+        color: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        letter-spacing: 0;
+        text-align: start;
+        text-transform: none;
+      }
+
+      :where(h1, h2, h3, h4, h5, h6) {
+        font-weight: 700;
+      }
+
+      :where(ul, ol) {
+        padding-left: 1.35em;
+      }
+
+      :where(pre) {
+        overflow: auto;
+        padding: .85rem;
+        background: rgb(255 255 255 / 8%);
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: .92em;
+        white-space: pre-wrap;
+      }
+
+      :where(code) {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: .95em;
+      }
+
+      > :last-child {
+        margin-bottom: 0;
+      }
     }
 
     @media (max-width: 900px) {
@@ -1668,6 +1752,7 @@
       padding: 1rem;
       background: rgb(255 255 255 / 12%);
       color: white;
+      font-family: Inter, system-ui, sans-serif;
       font-size: clamp(1.35rem, 5vw, 2rem);
       font-weight: 700;
 
@@ -1683,6 +1768,7 @@
       padding: .7rem .9rem;
       background: rgb(255 255 255 / 12%);
       color: white;
+      font-family: Inter, system-ui, sans-serif;
       font-size: 1rem;
       font-weight: 600;
 
@@ -1703,6 +1789,7 @@
       border-radius: .3rem;
       background: rgb(255 255 255 / 12%);
       color: white;
+      font-family: Inter, system-ui, sans-serif;
       font-size: 1rem;
       font-weight: 600;
       cursor: pointer;

@@ -1,7 +1,10 @@
 # CSS-First Theme Authoring
 
-Presso themes are ordinary CSS files loaded after the runtime stylesheet. A deck
-chooses its theme in `presso.config.ts`:
+Presso themes are ordinary CSS files loaded into the `presso.theme` cascade
+layer after the slide defaults and before presenter, controller, overlay, and
+print chrome. Theme files do not need to declare their own layer; existing
+themes that already use `@layer presso.theme` continue to work. A deck chooses
+its theme in `presso.config.ts`:
 
 ```ts
 export default {
@@ -14,33 +17,32 @@ runtime CSS unless the framework is missing a reusable hook.
 
 ## Stable Hooks
 
-Themes should prefer structured slide hooks and the cascade:
+Themes should prefer structured slide hooks and the cascade. Scope visual rules
+to slide content unless the rule is intentionally a deck-wide token:
 
 ```css
-@layer presso.theme {
-  :root {
-    --presso-bg: #10131a;
-    --presso-fg: #f8f3ea;
-    --presso-accent: #e1b45c;
-    --presso-column-gap: 2.4rem;
-  }
+:root {
+  --presso-bg: #10131a;
+  --presso-fg: #f8f3ea;
+  --presso-accent: #e1b45c;
+  --presso-column-gap: 2.4rem;
+}
 
-  .presso-slide {
-    color: var(--presso-fg);
-    background-color: var(--presso-bg-color, var(--presso-bg));
-  }
+.presso-slide {
+  color: var(--presso-fg);
+  background-color: var(--presso-bg-color, var(--presso-bg));
+}
 
-  .presso-slide[data-layout="image-title"] h1 {
-    background: rgb(0 0 0 / 72%);
-  }
+.presso-slide[data-layout="image-title"] h1 {
+  background: rgb(0 0 0 / 72%);
+}
 
-  .presso-slide[data-background~="color"] {
-    color: #141821;
-  }
+.presso-slide[data-background~="color"] {
+  color: #141821;
+}
 
-  .presso-slide.brands .presso-logos img {
-    max-height: 4.5rem;
-  }
+.presso-slide.brands .presso-logos img {
+  max-height: 4.5rem;
 }
 ```
 
@@ -52,6 +54,38 @@ Useful hooks:
 - `[data-background~="image"]` and `[data-background~="color"]` for background-aware rules.
 - `.presso-columns`, `.presso-column`, and `.presso-logos` for first-class directives.
 - Frontmatter `class` values for deck-specific slide variants.
+
+Avoid broad selectors for visual styling:
+
+```css
+/* Avoid: this also matches presenter notes and controller chrome. */
+body,
+main,
+section,
+article,
+h1,
+p {
+  font-size: 2rem;
+}
+
+/* Prefer: this only styles rendered slide content. */
+.presso-slide :where(h1, h2, p, ul, ol) {
+  font-size: 2rem;
+}
+```
+
+If a theme needs route-specific behavior, scope it to the route mode:
+
+```css
+body[data-mode="deck"] .presso-stage {
+  --presso-stage-padding: 2rem;
+}
+
+body[data-mode="deck"] .presso-slide,
+body[data-mode="embed"] .presso-slide {
+  border: .25rem solid var(--presso-accent);
+}
+```
 
 ## Backgrounds
 

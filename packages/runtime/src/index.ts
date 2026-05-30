@@ -112,6 +112,7 @@ export function renderPage(deck: Deck, mode: RenderMode, options: RenderOptions 
 
 function renderDocument(deck: Deck, mode: RenderMode, body: string, context: RenderContext): string {
   const printMode = mode.startsWith('print-');
+  const themeHref = normalizeHref(deck.config.theme, context.assetPrefix);
   return renderTemplate('document', {
     body,
     editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
@@ -139,7 +140,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     runtimeScriptHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso-runtime.js`,
     runtimeStyle: escapeAttr(`--presso-slide-width: ${deck.config.size.width}px; --presso-slide-height: ${deck.config.size.height}px; --presso-slide-ratio: ${deck.config.size.width} / ${deck.config.size.height};`),
     shortcutsOverlay: printMode ? '' : renderTemplate('shortcutsOverlay'),
-    themeHref: normalizeHref(deck.config.theme, context.assetPrefix),
+    themeImportCss: renderThemeImportCss(themeHref),
     title: escapeHtml(deck.config.title),
     notesVisible: deck.config.notes.public === 'visible' ? 'true' : 'false'
   });
@@ -517,4 +518,16 @@ function escapeAttr(value: string): string {
 
 function cssString(value: string): string {
   return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
+}
+
+function cssImportString(value: string): string {
+  return cssString(value)
+    .replaceAll('\n', '\\a ')
+    .replaceAll('\r', '\\d ')
+    .replaceAll('\f', '\\c ')
+    .replaceAll('<', '\\3c ');
+}
+
+function renderThemeImportCss(href: string): string {
+  return `@import url("${cssImportString(href)}") layer(presso.theme);`;
 }

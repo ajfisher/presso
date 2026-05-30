@@ -29,6 +29,10 @@
   const teleprompterMaxWpm = 220;
   const teleprompterStepWpm = 10;
   const teleprompterMaxLagMs = 8000;
+  const presenterNotesDefaultPx = 20;
+  const presenterNotesMinPx = 14;
+  const presenterNotesMaxPx = 38;
+  const presenterNotesStepPx = 2.4;
   const builtInLayouts = ['title', 'section', 'statement', 'bullets', 'image', 'image-title', 'two-column', 'logos', 'code', 'demo', 'blank'];
   const initialHashIndex = parseHashIndex(location.hash);
   let index = clampIndex(initialHashIndex ?? 0);
@@ -38,7 +42,7 @@
   let wakeLockRequested = false;
   let selectedControllerUrl = null;
   let controllerUrlSelectedByUser = false;
-  let presenterNotesSize = clampNumber(Number(sessionStorage.getItem(notesSizeKey)) || 1.25, 0.9, 2.4);
+  let presenterNotesSize = readPresenterNotesSize();
   let presenterStart = Number(sessionStorage.getItem(timerStartKey)) || Date.now();
   let teleprompterEnabled = sessionStorage.getItem(teleprompterEnabledKey) === 'true';
   let teleprompterPaused = sessionStorage.getItem(teleprompterPausedKey) === 'true';
@@ -637,10 +641,18 @@
   }
 
   function setPresenterNotesSize(next) {
-    presenterNotesSize = clampNumber(next, 0.9, 2.4);
-    document.documentElement.style.setProperty('--presenter-notes-size', presenterNotesSize.toFixed(2) + 'rem');
+    presenterNotesSize = clampNumber(next, presenterNotesMinPx, presenterNotesMaxPx);
+    document.documentElement.style.setProperty('--presenter-notes-size', presenterNotesSize.toFixed(1) + 'px');
     sessionStorage.setItem(notesSizeKey, String(presenterNotesSize));
     restartTeleprompter(false);
+  }
+
+  function readPresenterNotesSize() {
+    const stored = sessionStorage.getItem(notesSizeKey);
+    if (!stored) return presenterNotesDefaultPx;
+    const parsed = Number.parseFloat(stored);
+    if (!Number.isFinite(parsed)) return presenterNotesDefaultPx;
+    return parsed <= 3 ? parsed * 16 : parsed;
   }
 
   function toggleTeleprompter() {
@@ -1178,8 +1190,8 @@
       if (option instanceof HTMLElement && option.dataset.editLayoutOption) selectEditLayout(option.dataset.editLayoutOption);
     }
     if (action === 'edit-layout-custom') selectCustomEditLayout();
-    if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + 0.15);
-    if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - 0.15);
+    if (action === 'font-plus') setPresenterNotesSize(presenterNotesSize + presenterNotesStepPx);
+    if (action === 'font-minus') setPresenterNotesSize(presenterNotesSize - presenterNotesStepPx);
     if (action === 'timer-reset') resetPresenterTimer();
     if (action === 'teleprompter-toggle') toggleTeleprompter();
     if (action === 'teleprompter-pause') toggleTeleprompterPause();

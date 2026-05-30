@@ -151,6 +151,32 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('keeps presenter and control chrome stable under broad deck theme selectors', async () => {
+    const dist = await buildHostileThemeDeck();
+    const staticServer = await serveStatic(dist);
+    const playwright = await import('playwright');
+    const browser = await launchBrowser(playwright.chromium);
+
+    try {
+      const page = await browser.newPage();
+      await page.setViewportSize({ width: 1366, height: 768 });
+      await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
+      await expectActiveSlide(page);
+      await expectText(page, '[data-current-notes]', 'Presenter note should stay readable.');
+      await expectPresenterChromeIgnoresHostileTheme(page);
+      await expectSlidePreviewKeepsTheme(page);
+
+      await page.goto(`${staticServer.origin}/control/`, { waitUntil: 'networkidle' });
+      await expectRuntimeAssets(page);
+      await expectText(page, 'button[data-action="next"]', 'Next');
+      await expectControlChromeIgnoresHostileTheme(page);
+    } finally {
+      await browser.close();
+      await staticServer.close();
+    }
+  }, 60000);
+
   it('syncs controller state with the deck and presenter over the dev server', async () => {
     const devServer = await startDevServer();
     const playwright = await import('playwright');
@@ -403,6 +429,84 @@ async function buildExampleDeck(): Promise<string> {
   const dist = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-browser-'));
   tmpRoots.push(dist);
   return buildStatic(path.resolve('examples/basic'), dist);
+}
+
+async function buildHostileThemeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-hostile-theme-'));
+  const dist = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-hostile-theme-dist-'));
+  tmpRoots.push(root, dist);
+  await fs.mkdir(path.join(root, 'slides'), { recursive: true });
+  await fs.writeFile(path.join(root, 'theme.css'), `html {
+  font-size: 44px;
+}
+
+body,
+main,
+section,
+aside,
+article,
+nav,
+header,
+footer,
+div,
+p,
+h1,
+h2,
+h3,
+button,
+span,
+strong {
+  margin: 40px;
+  padding: 40px;
+  color: rgb(255 0 128);
+  font-family: Georgia, serif;
+  font-size: 72px;
+  line-height: 3;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+}
+
+.presso-stage {
+  padding: 10rem;
+  background: rgb(255 0 0);
+}
+
+.presso-slide {
+  background: rgb(1 2 3);
+  color: rgb(245 245 245);
+}
+
+.presso-slide h1 {
+  color: rgb(12 34 56);
+  font-size: 5rem;
+}
+`);
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Hostile Theme Smoke',
+  source: { type: 'folder', path: './slides' },
+  theme: './theme.css',
+  notes: { public: 'toggle' }
+};
+`);
+  await fs.writeFile(path.join(root, 'slides/001-title.md'), `---
+id: hostile
+layout: title
+---
+
+# Hostile Theme
+
+:::notes
+Presenter note should stay readable.
+:::
+`);
+  await fs.writeFile(path.join(root, 'slides/002-next.md'), `---
+id: next
+layout: statement
+---
+
+## Next slide
+`);
+  return buildStatic(root, dist);
 }
 
 async function createPdfSmokeDeck(): Promise<string> {
@@ -826,13 +930,79 @@ async function expectPresentationControlsOpacity(page: Page, expected: number): 
 }
 
 async function expectRuntimeAssets(page: Page): Promise<void> {
-  const assetHrefs = await page.evaluate(() => [
-    ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).map((link) => link.href),
-    ...Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]')).map((script) => script.src)
-  ]);
+  const { assetHrefs, themeStyles } = await page.evaluate(() => ({
+    assetHrefs: [
+      ...Array.from(document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]')).map((link) => link.href),
+      ...Array.from(document.querySelectorAll<HTMLScriptElement>('script[src]')).map((script) => script.src)
+    ],
+    themeStyles: Array.from(document.querySelectorAll<HTMLStyleElement>('style[data-presso-theme]')).map((style) => style.textContent || '')
+  }));
   expect(assetHrefs.some((href) => href.includes('/_presso/presso.css'))).toBe(true);
   expect(assetHrefs.some((href) => href.includes('/_presso/presso-runtime.js'))).toBe(true);
-  expect(assetHrefs.some((href) => href.endsWith('/theme.css'))).toBe(true);
+  expect(themeStyles.some((style) => style.includes('theme.css') && style.includes('layer(presso.theme)'))).toBe(true);
+}
+
+async function expectPresenterChromeIgnoresHostileTheme(page: Page): Promise<void> {
+  const metrics = await page.locator('article[data-current-notes]').evaluate((notes) => {
+    const paragraph = notes.querySelector('p');
+    if (!(paragraph instanceof HTMLElement)) throw new Error('Presenter notes paragraph was not rendered.');
+    const notesStyle = getComputedStyle(notes);
+    const paragraphStyle = getComputedStyle(paragraph);
+    const nextButton = document.querySelector('button[data-action="next"]');
+    if (!(nextButton instanceof HTMLElement)) throw new Error('Presenter next button was not rendered.');
+    const buttonStyle = getComputedStyle(nextButton);
+    const buttonRect = nextButton.getBoundingClientRect();
+    return {
+      buttonFontFamily: buttonStyle.fontFamily,
+      buttonFontSize: parseFloat(buttonStyle.fontSize),
+      buttonHeight: buttonRect.height,
+      notesColor: notesStyle.color,
+      notesFontFamily: notesStyle.fontFamily,
+      notesFontSize: parseFloat(notesStyle.fontSize),
+      notesLineHeight: parseFloat(notesStyle.lineHeight),
+      paragraphColor: paragraphStyle.color,
+      paragraphFontSize: parseFloat(paragraphStyle.fontSize),
+      paragraphTextTransform: paragraphStyle.textTransform
+    };
+  });
+  expect(metrics.notesFontFamily).not.toContain('Georgia');
+  expect(metrics.notesFontSize).toBeCloseTo(20, 0);
+  expect(metrics.notesLineHeight).toBeCloseTo(29, 0);
+  expect(metrics.notesColor).toBe('rgb(255, 255, 255)');
+  expect(metrics.paragraphFontSize).toBeCloseTo(20, 0);
+  expect(metrics.paragraphColor).toBe('rgb(255, 255, 255)');
+  expect(metrics.paragraphTextTransform).toBe('none');
+  expect(metrics.buttonFontFamily).not.toContain('Georgia');
+  expect(metrics.buttonFontSize).toBeLessThan(24);
+  expect(metrics.buttonHeight).toBeLessThan(80);
+}
+
+async function expectControlChromeIgnoresHostileTheme(page: Page): Promise<void> {
+  const metrics = await page.locator('button[data-action="next"]').evaluate((button) => {
+    const style = getComputedStyle(button);
+    const rect = button.getBoundingClientRect();
+    return {
+      fontFamily: style.fontFamily,
+      fontSize: parseFloat(style.fontSize),
+      height: rect.height
+    };
+  });
+  expect(metrics.fontFamily).not.toContain('Georgia');
+  expect(metrics.fontSize).toBeLessThan(60);
+  expect(metrics.height).toBeLessThan(180);
+}
+
+async function expectSlidePreviewKeepsTheme(page: Page): Promise<void> {
+  const metrics = await page.locator('.presso-slide.is-active').evaluate((slide) => {
+    const heading = slide.querySelector('h1');
+    if (!(heading instanceof HTMLElement)) throw new Error('Active slide heading was not rendered.');
+    return {
+      background: getComputedStyle(slide).backgroundColor,
+      headingColor: getComputedStyle(heading).color
+    };
+  });
+  expect(metrics.background).toBe('rgb(1, 2, 3)');
+  expect(metrics.headingColor).toBe('rgb(12, 34, 56)');
 }
 
 async function hoverPresentationControls(page: Page): Promise<void> {
