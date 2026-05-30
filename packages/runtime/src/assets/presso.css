@@ -1646,6 +1646,16 @@
         padding-left: 1.35em;
       }
 
+      :where(li) {
+        color: inherit;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        letter-spacing: 0;
+        text-align: start;
+        text-transform: none;
+      }
+
       :where(pre) {
         overflow: auto;
         padding: .85rem;
