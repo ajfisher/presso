@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.3.0...@ajfisher/presso-runtime-v0.3.1) (2026-05-30)
+
+
+### Bug Fixes
+
+* **runtime:** isolate presenter chrome from deck themes ([dab813e](https://github.com/ajfisher/presso/commit/dab813e648d6aae1f458087765fa163c9d59adc1)), closes [#95](https://github.com/ajfisher/presso/issues/95)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.3.0 to ^0.3.1
+
 ## [0.3.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.2.0...@ajfisher/presso-runtime-v0.3.0) (2026-05-23)
 
 
