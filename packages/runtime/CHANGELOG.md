@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.3](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.3.2...@ajfisher/presso-runtime-v0.3.3) (2026-05-30)
+
+
+### Bug Fixes
+
+* **runtime:** inherit presenter note bullet sizing ([a442180](https://github.com/ajfisher/presso/commit/a442180811b9555096f937d275d40a9496a44faf))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.3.2 to ^0.3.3
+
 ## [0.3.2](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.3.1...@ajfisher/presso-runtime-v0.3.2) (2026-05-30)
 
 
