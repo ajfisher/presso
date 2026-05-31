@@ -15,6 +15,26 @@ describe('markdown rendering', () => {
     expect(rendered.bodyHtml).toContain('<div class=\"raw\">ok</div>');
   });
 
+  it('appends custom classes to inline directive roots', () => {
+    const rendered = renderSlideMarkdown(`::iframe{src="https://example.com" title="Demo" class="live-demo wide"}
+::qr{value="https://example.com" label="Example" class="qr-hook compact"}
+::video{src="./assets/demo.mp4" class="video-hook"}
+::chart{type="bar" mount="sales" data="[]" class="chart-hook"}
+::unknown{class="unknown-hook"}`);
+
+    expect(rendered.bodyHtml).toContain('<iframe class="presso-iframe live-demo wide"');
+    expect(rendered.bodyHtml).toContain('<div class="presso-qr qr-hook compact"');
+    expect(rendered.bodyHtml).toContain('<video class="presso-video video-hook"');
+    expect(rendered.bodyHtml).toContain('<div class="presso-chart chart-hook"');
+    expect(rendered.bodyHtml).toContain('<div class="unknown-hook" data-directive="unknown"></div>');
+  });
+
+  it('escapes custom directive classes before rendering html', () => {
+    const rendered = renderSlideMarkdown('::iframe{src="https://example.com" class="safe<tag>"}');
+
+    expect(rendered.bodyHtml).toContain('class="presso-iframe safe&lt;tag&gt;"');
+  });
+
   it('renders soft line breaks as slide line breaks', () => {
     const rendered = renderSlideMarkdown('First line\nSecond line');
     expect(rendered.bodyHtml).toContain('First line<br>Second line');
@@ -63,6 +83,33 @@ Left **body**
     expect(rendered.bodyHtml).toContain('<li>Two</li>');
   });
 
+  it('appends custom classes to container directive roots', () => {
+    const rendered = renderSlideMarkdown(`:::columns{class="dense-grid"}
+:::column{class="primary"}
+Left
+:::
+
+:::column{class="secondary"}
+Right
+:::
+:::
+
+:::logos{class="partner-strip"}
+![Logo](./assets/logo.svg)
+:::
+
+:::quote-image{class="pull-quote"}
+> Quote
+:::
+`);
+
+    expect(rendered.bodyHtml).toContain('<div class="presso-columns dense-grid" data-directive="columns">');
+    expect(rendered.bodyHtml).toContain('<section class="presso-column primary" data-directive="column">');
+    expect(rendered.bodyHtml).toContain('<section class="presso-column secondary" data-directive="column">');
+    expect(rendered.bodyHtml).toContain('<div class="presso-logos partner-strip" data-directive="logos">');
+    expect(rendered.bodyHtml).toContain('<div class="presso-quote-image pull-quote" data-directive="quote-image">');
+  });
+
   it('keeps legacy simple column wrappers working', () => {
     const rendered = renderSlideMarkdown(`:::columns
 ![Diagram](./assets/diagram.svg)
@@ -90,6 +137,18 @@ Left **body**
     expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="1">First</li>');
     expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="2">Second</li>');
     expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="3">Third</li>');
+  });
+
+  it('appends custom classes to fragment directive roots', () => {
+    const rendered = renderSlideMarkdown(`:::fragment{class="staged-list"}
+- First
+- Second
+:::
+`);
+
+    expect(rendered.buildSteps).toBe(2);
+    expect(rendered.bodyHtml).toContain('<div class="presso-fragment staged-list" data-directive="fragment">');
+    expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="1">First</li>');
   });
 
   it('counts non-list fragment blocks as build steps', () => {
@@ -191,12 +250,12 @@ Unclosed column`);
   });
 
   it('strips nested container directive wrappers for transcript output', () => {
-    expect(stripContainerDirectives(`:::columns
-:::column
+    expect(stripContainerDirectives(`:::columns{class="dense-grid"}
+:::column{class="primary"}
 Left
 :::
 
-:::column
+:::column{class="secondary"}
 Right
 :::
 :::`)).toBe('Left\n\nRight');
