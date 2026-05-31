@@ -243,6 +243,27 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('renders public HTML iframe demos in static export and dev server routes', async () => {
+    const deck = await createIframeDemoDeck();
+    const dist = await buildStatic(deck, path.join(deck, 'dist'));
+    const staticServer = await serveStatic(dist);
+    const devServer = await startDevServer(deck);
+    const playwright = await import('playwright');
+    const browser = await launchBrowser(playwright.chromium);
+
+    try {
+      const page = await browser.newPage();
+      for (const origin of [staticServer.origin, devServer.origin]) {
+        await page.goto(`${origin}/embed/#/0`, { waitUntil: 'domcontentloaded' });
+        await expectPublicDemoFrame(page);
+      }
+    } finally {
+      await browser.close();
+      await staticServer.close();
+      await devServer.close();
+    }
+  }, 60000);
+
   it('syncs controller state with the deck and presenter over the dev server', async () => {
     const devServer = await startDevServer();
     const playwright = await import('playwright');
@@ -687,6 +708,44 @@ Fixed theme sizes are intentionally used here to expose any mismatch between a s
   return buildStatic(root, dist);
 }
 
+async function createIframeDemoDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-iframe-demo-'));
+  tmpRoots.push(root);
+  await fs.mkdir(path.join(root, 'slides'), { recursive: true });
+  await fs.mkdir(path.join(root, 'public/demos/widget'), { recursive: true });
+  await fs.writeFile(path.join(root, 'theme.css'), ':root { --presso-accent: #2fc7ff; }\n');
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Iframe Demo Smoke',
+  source: { type: 'folder', path: './slides' },
+  theme: './theme.css'
+};
+`);
+  await fs.writeFile(path.join(root, 'slides/001-demo.md'), `---
+id: iframe-demo
+layout: demo
+---
+
+::iframe{src="./demos/widget/" title="Widget demo"}
+`);
+  await fs.writeFile(path.join(root, 'public/demos/widget/index.html'), `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Widget demo</title>
+  <link rel="stylesheet" href="./widget.css">
+</head>
+<body>
+  <h1>Widget demo loaded</h1>
+  <p id="state">pending</p>
+  <script src="./widget.js"></script>
+</body>
+</html>
+`);
+  await fs.writeFile(path.join(root, 'public/demos/widget/widget.css'), 'body { font-family: sans-serif; }\n');
+  await fs.writeFile(path.join(root, 'public/demos/widget/widget.js'), 'document.getElementById("state").textContent = "script loaded";\n');
+  return root;
+}
+
 async function createPdfSmokeDeck(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pdf-smoke-'));
   tmpRoots.push(root);
@@ -1000,6 +1059,32 @@ async function collectScaledSlideLayout(page: Page): Promise<{
       viewport: { height: window.innerHeight, width: window.innerWidth }
     };
   });
+}
+
+async function expectPublicDemoFrame(page: Page): Promise<void> {
+  await page.waitForSelector('iframe[title="Widget demo"]');
+  await page.waitForFunction(() => {
+    const iframe = document.querySelector('iframe[title="Widget demo"]') as HTMLIFrameElement | null;
+    const doc = iframe?.contentDocument;
+    const text = doc?.body?.textContent ?? '';
+    return doc?.contentType === 'text/html'
+      && text.includes('Widget demo loaded')
+      && text.includes('script loaded');
+  });
+
+  const demo = await page.evaluate(() => {
+    const iframe = document.querySelector('iframe[title="Widget demo"]') as HTMLIFrameElement | null;
+    const doc = iframe?.contentDocument;
+    return {
+      contentType: doc?.contentType,
+      location: iframe?.contentWindow?.location.href,
+      text: doc?.body?.textContent
+    };
+  });
+  expect(demo.contentType).toBe('text/html');
+  expect(demo.location).toContain('/demos/widget/');
+  expect(demo.text).toContain('Widget demo loaded');
+  expect(demo.text).toContain('script loaded');
 }
 
 async function expectTeleprompter(page: Page): Promise<void> {

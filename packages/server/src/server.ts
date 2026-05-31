@@ -5,7 +5,7 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, createSlideSource, pathExists, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
+import { compileDeck, createSlideSource, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
@@ -191,23 +191,37 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 }
 
 async function serveStatic(cwd: string, pathname: string, res: ServerResponse): Promise<boolean> {
-  const clean = decodeURIComponent(pathname).replace(/^\/+/, '');
   const roots = [
     cwd,
     path.join(cwd, 'public')
   ];
   for (const root of roots) {
-    const file = path.resolve(root, clean);
-    if (!isInside(root, file)) continue;
-    if (await pathExists(file)) {
-      const stat = await fs.stat(file);
-      if (!stat.isFile()) continue;
+    const file = await resolveStaticFile(root, pathname);
+    if (file) {
       res.writeHead(200, { 'content-type': contentType(file) });
       res.end(await fs.readFile(file));
       return true;
     }
   }
   return false;
+}
+
+async function resolveStaticFile(root: string, pathname: string): Promise<string | undefined> {
+  const clean = decodeURIComponent(pathname).replace(/^\/+/, '');
+  const candidate = path.resolve(root, clean);
+  if (!isInside(root, candidate)) return undefined;
+
+  const stat = await fs.stat(candidate).catch(() => undefined);
+  if (stat?.isDirectory()) {
+    return resolveStaticFile(root, path.join(pathname, 'index.html'));
+  }
+  if (stat?.isFile()) return candidate;
+  if (!path.extname(candidate)) {
+    const indexPath = path.join(candidate, 'index.html');
+    const indexStat = await fs.stat(indexPath).catch(() => undefined);
+    if (indexStat?.isFile() && isInside(root, indexPath)) return indexPath;
+  }
+  return undefined;
 }
 
 function isInside(root: string, file: string): boolean {
@@ -337,13 +351,15 @@ export function clampStateBuildStep(value: unknown, buildSteps: number): number 
 }
 
 function contentType(file: string): string {
-  if (file.endsWith('.css')) return 'text/css; charset=utf-8';
-  if (file.endsWith('.js')) return 'text/javascript; charset=utf-8';
-  if (file.endsWith('.json')) return 'application/json; charset=utf-8';
-  if (file.endsWith('.svg')) return 'image/svg+xml';
-  if (file.endsWith('.png')) return 'image/png';
-  if (file.endsWith('.jpg') || file.endsWith('.jpeg')) return 'image/jpeg';
-  if (file.endsWith('.webp')) return 'image/webp';
+  const extension = path.extname(file).toLowerCase();
+  if (extension === '.html' || extension === '.htm') return 'text/html; charset=utf-8';
+  if (extension === '.css') return 'text/css; charset=utf-8';
+  if (extension === '.js') return 'text/javascript; charset=utf-8';
+  if (extension === '.json') return 'application/json; charset=utf-8';
+  if (extension === '.svg') return 'image/svg+xml';
+  if (extension === '.png') return 'image/png';
+  if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
+  if (extension === '.webp') return 'image/webp';
   return 'application/octet-stream';
 }
 
