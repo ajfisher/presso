@@ -385,6 +385,27 @@
     border: 0;
     background: white;
   }
+
+  body[data-mode="deck"] .presso-slide[data-build-current-step] [data-build-item],
+  body[data-mode="embed"] .presso-slide[data-build-current-step] [data-build-item],
+  body[data-mode="presenter"] .presso-slide[data-build-current-step] [data-build-item] {
+    transition: opacity .18s ease;
+  }
+
+  body[data-mode="deck"] .presso-slide[data-build-current-step] [data-build-visible="false"],
+  body[data-mode="embed"] .presso-slide[data-build-current-step] [data-build-visible="false"],
+  body[data-mode="presenter"] .presso-slide[data-build-current-step] [data-build-visible="false"] {
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body[data-mode="deck"] .presso-slide[data-build-current-step] [data-build-item],
+    body[data-mode="embed"] .presso-slide[data-build-current-step] [data-build-item],
+    body[data-mode="presenter"] .presso-slide[data-build-current-step] [data-build-item] {
+      transition: none;
+    }
+  }
 }
 
 @layer presso.controls {

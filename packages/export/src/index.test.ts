@@ -66,6 +66,7 @@ describe('static export', () => {
       title: 'title',
       layout: 'image',
       class: ['featured', 'print-friendly'],
+      buildSteps: 0,
       background: {
         image: './assets/example.svg',
         fit: 'contain'

@@ -3,7 +3,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { clampStateIndex, controlUrlsFromTailscaleServeStatus, startDevServer, type DevServer } from './server.js';
+import { clampStateBuildStep, clampStateIndex, controlUrlsFromTailscaleServeStatus, startDevServer, type DevServer } from './server.js';
 
 const tmpRoots: string[] = [];
 const servers: DevServer[] = [];
@@ -20,6 +20,14 @@ describe('dev server state', () => {
     expect(clampStateIndex(-4, 5)).toBe(0);
     expect(clampStateIndex('3', 5)).toBe(3);
     expect(clampStateIndex('nope', 5, 2)).toBe(2);
+  });
+
+  it('clamps requested build steps to the slide bounds', () => {
+    expect(clampStateBuildStep(2, 5)).toBe(2);
+    expect(clampStateBuildStep(20, 5)).toBe(5);
+    expect(clampStateBuildStep(-4, 5)).toBe(0);
+    expect(clampStateBuildStep('3', 5)).toBe(3);
+    expect(clampStateBuildStep('nope', 5)).toBe(0);
   });
 
   it('finds tailnet HTTPS controller URLs for the active dev server port', () => {

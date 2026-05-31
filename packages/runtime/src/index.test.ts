@@ -24,6 +24,7 @@ const deck: Deck = {
       title: 'One',
       layout: 'title',
       class: [],
+      buildSteps: 0,
       bodyMarkdown: '# One',
       bodyHtml: '<h1>One</h1>',
       notesMarkdown: 'Speaker notes',
@@ -37,6 +38,7 @@ const deck: Deck = {
       title: 'Two',
       layout: 'bullets',
       class: [],
+      buildSteps: 0,
       bodyMarkdown: '## Two',
       bodyHtml: '<h2>Two</h2>',
       notesMarkdown: '',
@@ -164,6 +166,31 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-notes-visible="true"');
   });
 
+  it('renders build metadata without hiding print output', () => {
+    const buildDeck: Deck = {
+      ...deck,
+      slides: [{
+        ...deck.slides[0]!,
+        buildSteps: 2,
+        bodyHtml: '<h2>Build</h2><ul><li data-build-item data-build-step="1">First</li><li data-build-item data-build-step="2">Second</li></ul>'
+      }]
+    };
+    const html = renderPage(buildDeck, 'deck');
+    const config = runtimeConfig(html);
+
+    expect(html).toContain('data-build-steps="2"');
+    expect(config.slides).toEqual([
+      { buildSteps: 2, id: 'one', index: 0, title: 'One' }
+    ]);
+
+    const print = renderPage(buildDeck, 'print-slides');
+    expect(print).toContain('data-mode="print-slides"');
+    expect(print).toContain('data-build-item data-build-step="1"');
+    expect(print).toContain('First');
+    expect(print).toContain('Second');
+    expect(print).not.toContain('data-build-visible="false"');
+  });
+
   it('renders print PDF layouts with local notes and public privacy boundaries', () => {
     expect(renderPage(deck, 'print-slides')).toContain('data-mode="print-slides"');
     expect(renderPage(deck, 'print-slides')).not.toContain('Speaker notes');
@@ -286,6 +313,10 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-slide-preview-template="1"');
     expect(html).toContain('<h2>Two</h2>');
     expect(config.controlUrls).toEqual(['http://192.0.2.1:3030/control']);
+    expect(config.slides).toEqual([
+      { buildSteps: 0, id: 'one', index: 0, title: 'One' },
+      { buildSteps: 0, id: 'two', index: 1, title: 'Two' }
+    ]);
   });
 
   it('renders local edit overlay only for server folder deck and presenter routes', () => {
@@ -349,8 +380,8 @@ describe('runtime renderer', () => {
     expect(html).toContain('data-action="wake-lock"');
     expect(html).toContain('type="checkbox"');
     expect(config.slides).toEqual([
-      { id: 'one', index: 0, title: 'One' },
-      { id: 'two', index: 1, title: 'Two' }
+      { buildSteps: 0, id: 'one', index: 0, title: 'One' },
+      { buildSteps: 0, id: 'two', index: 1, title: 'Two' }
     ]);
     expect(JSON.stringify(config)).not.toContain('Speaker notes');
   });
