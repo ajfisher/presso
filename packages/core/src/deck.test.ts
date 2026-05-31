@@ -58,6 +58,31 @@ id: second
     expect(deck.slides[1]!.title).toBe('Second');
   });
 
+  it('normalizes multiple slide classes from list and string metadata', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-slide-classes-'));
+    await fs.mkdir(path.join(dir, 'slides'));
+    await fs.writeFile(path.join(dir, 'presso.config.ts'), 'export default { source: { type: "folder", path: "./slides" } };\n');
+    await fs.writeFile(path.join(dir, 'slides', '001-list.md'), `---
+id: list
+class:
+  - dense
+  - two-column
+---
+# List
+`);
+    await fs.writeFile(path.join(dir, 'slides', '002-string.md'), `---
+id: string
+class: hero invert
+---
+# String
+`);
+
+    const deck = await compileDeck(dir);
+
+    expect(deck.slides[0]!.class).toEqual(['dense', 'two-column']);
+    expect(deck.slides[1]!.class).toEqual(['hero', 'invert']);
+  });
+
   it('normalizes slide background shorthand and object metadata', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-backgrounds-'));
     await fs.mkdir(path.join(dir, 'slides'));

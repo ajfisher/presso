@@ -163,6 +163,7 @@ background: ./assets/map2.webp
 time: "6:00"
 class:
   - question
+  - dense
 ---
 
 ## Where are we?
@@ -197,6 +198,7 @@ title: Where are we?
 layout: image
 class:
   - question
+  - dense
 background:
   image: ./assets/map2.webp
   fit: cover
@@ -209,7 +211,8 @@ Recommended fields:
   analytics.
 - `title`: human-readable title for presenter view and transcript output.
 - `layout`: named layout handled by CSS.
-- `class`: additional class names or layout variants.
+- `class`: additional class names or layout variants, as a YAML list or
+  space-separated string.
 - `background`: image shorthand, colour shorthand, or a structured background
   object.
 - `time`: key timing marker such as `"6:00"` or `"00:06:00"`.
@@ -375,6 +378,22 @@ Deck authors can define any additional layout name in CSS.
 ## Directives
 
 Directives are the first-class alternative to raw HTML for common slide needs.
+Directive `class` attributes are appended to Presso's built-in classes on the
+rendered directive root element:
+
+```markdown
+::iframe{src="https://example.com/demo" title="Live demo" class="live-demo wide"}
+
+:::columns{class="dense-grid"}
+:::column{class="primary"}
+Left
+:::
+
+:::column{class="secondary"}
+Right
+:::
+:::
+```
 
 ### Columns
 
@@ -414,7 +433,7 @@ Older simple column wrappers remain supported for existing decks:
 ### Iframe
 
 ```markdown
-::iframe{src="https://example.com/demo" title="Live demo"}
+::iframe{src="https://example.com/demo" title="Live demo" class="live-demo"}
 ```
 
 Local development should also allow localhost resources:

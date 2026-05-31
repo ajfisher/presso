@@ -3,7 +3,7 @@ import { marked } from 'marked';
 const NOTES_RE = /^:::notes\s*\n([\s\S]*?)\n:::\s*$/m;
 const INLINE_DIRECTIVE_RE = /^::([a-zA-Z][\w-]*)(\{[^}]*\})?\s*$/gm;
 const CONTAINER_DIRECTIVES = new Set(['columns', 'column', 'logos', 'quote-image', 'fragment']);
-const CONTAINER_DIRECTIVE_OPEN_RE = /^:::([a-zA-Z][\w-]*)\s*$/;
+const CONTAINER_DIRECTIVE_OPEN_RE = /^:::([a-zA-Z][\w-]*)(\{[^}]*\})?\s*$/;
 const CONTAINER_DIRECTIVE_CLOSE_RE = /^:::\s*$/;
 
 marked.use({
@@ -29,6 +29,11 @@ interface RenderContext {
 interface MarkdownToken {
   raw?: string;
   type?: string;
+}
+
+interface ContainerDirective {
+  name: string;
+  attrs: Record<string, string>;
 }
 
 export function renderSlideMarkdown(markdown: string): RenderedMarkdown {
@@ -79,24 +84,24 @@ function transformDirectives(markdown: string, options: Required<RenderMarkdownO
     if (name === 'iframe') {
       const src = escapeHtml(attrs.src ?? '');
       const title = escapeHtml(attrs.title ?? 'Embedded content');
-      return `<iframe class="presso-iframe" data-directive="iframe" src="${src}" title="${title}" loading="lazy" allowfullscreen></iframe>`;
+      return `<iframe${classAttr('presso-iframe', attrs)} data-directive="iframe" src="${src}" title="${title}" loading="lazy" allowfullscreen></iframe>`;
     }
     if (name === 'qr') {
       const value = escapeHtml(attrs.value ?? '');
       const label = escapeHtml(attrs.label ?? value);
-      return `<div class="presso-qr" data-directive="qr" data-value="${value}">${label}</div>`;
+      return `<div${classAttr('presso-qr', attrs)} data-directive="qr" data-value="${value}">${label}</div>`;
     }
     if (name === 'video') {
       const src = escapeHtml(attrs.src ?? '');
-      return `<video class="presso-video" data-directive="video" src="${src}" controls></video>`;
+      return `<video${classAttr('presso-video', attrs)} data-directive="video" src="${src}" controls></video>`;
     }
     if (name === 'chart') {
       const type = escapeHtml(attrs.type ?? 'custom');
       const mount = escapeHtml(attrs.mount ?? 'chart');
       const data = escapeHtml(attrs.data ?? '');
-      return `<div class="presso-chart" data-directive="chart" data-chart-type="${type}" data-chart-mount="${mount}" data-chart-data="${data}"></div>`;
+      return `<div${classAttr('presso-chart', attrs)} data-directive="chart" data-chart-type="${type}" data-chart-mount="${mount}" data-chart-data="${data}"></div>`;
     }
-    return `<div data-directive="${escapeHtml(name)}"></div>`;
+    return `<div${classAttr(undefined, attrs)} data-directive="${escapeHtml(name)}"></div>`;
   });
 
   return output;
@@ -124,11 +129,11 @@ function transformDirectiveRange(
   const output: string[] = [];
   let index = start;
   while (index < end) {
-    const name = containerDirectiveName(lines[index] ?? '');
-    if (name) {
+    const directive = containerDirective(lines[index] ?? '');
+    if (directive) {
       const block = readDirectiveBlock(lines, index + 1, end);
       if (block) {
-        output.push(renderContainerDirective(name, block.content.join('\n'), options, context, collectBuilds));
+        output.push(renderContainerDirective(directive.name, directive.attrs, block.content.join('\n'), options, context, collectBuilds));
         index = block.nextIndex;
         continue;
       }
@@ -143,8 +148,8 @@ function stripDirectiveRange(lines: string[], start: number, end: number): strin
   const output: string[] = [];
   let index = start;
   while (index < end) {
-    const name = containerDirectiveName(lines[index] ?? '');
-    if (name) {
+    const directive = containerDirective(lines[index] ?? '');
+    if (directive) {
       const block = readDirectiveBlock(lines, index + 1, end);
       if (block) {
         const content = stripDirectiveRange(block.content, 0, block.content.length).trim();
@@ -162,7 +167,7 @@ function stripDirectiveRange(lines: string[], start: number, end: number): strin
 function readDirectiveBlock(lines: string[], start: number, end: number): { content: string[]; nextIndex: number } | undefined {
   let depth = 0;
   for (let index = start; index < end; index += 1) {
-    if (containerDirectiveName(lines[index] ?? '')) {
+    if (containerDirective(lines[index] ?? '')) {
       depth += 1;
       continue;
     }
@@ -179,33 +184,46 @@ function readDirectiveBlock(lines: string[], start: number, end: number): { cont
   return undefined;
 }
 
-function containerDirectiveName(line: string): string | undefined {
-  const name = line.match(CONTAINER_DIRECTIVE_OPEN_RE)?.[1];
-  return name && CONTAINER_DIRECTIVES.has(name) ? name : undefined;
+function containerDirective(line: string): ContainerDirective | undefined {
+  const match = line.match(CONTAINER_DIRECTIVE_OPEN_RE);
+  const name = match?.[1];
+  if (!name || !CONTAINER_DIRECTIVES.has(name)) {
+    return undefined;
+  }
+  return {
+    name,
+    attrs: parseAttrs(match[2] ?? '')
+  };
 }
 
 function renderContainerDirective(
   name: string,
+  attrs: Record<string, string>,
   content: string,
   options: Required<RenderMarkdownOptions>,
   context?: RenderContext,
   collectBuilds = false
 ): string {
   if (name === 'fragment' && collectBuilds && context) {
-    return renderBuildFragment(content, options, context);
+    return renderBuildFragment(content, attrs, options, context);
   }
   const html = renderMarkdownInternal(content.trim(), options, context, collectBuilds);
   if (name === 'column') {
-    return `<section class="presso-column" data-directive="column">${html}</section>`;
+    return `<section${classAttr('presso-column', attrs)} data-directive="column">${html}</section>`;
   }
-  return `<div class="presso-${name}" data-directive="${name}">${html}</div>`;
+  return `<div${classAttr(`presso-${name}`, attrs)} data-directive="${name}">${html}</div>`;
 }
 
-function renderBuildFragment(content: string, options: Required<RenderMarkdownOptions>, context: RenderContext): string {
+function renderBuildFragment(
+  content: string,
+  attrs: Record<string, string>,
+  options: Required<RenderMarkdownOptions>,
+  context: RenderContext
+): string {
   const prepared = transformDirectives(content.trim(), options, context, false);
   const tokens = buildTokens(prepared);
   const html = tokens.map((token) => renderBuildToken(token, options, context)).join('\n');
-  return `<div class="presso-fragment" data-directive="fragment">${html}</div>`;
+  return `<div${classAttr('presso-fragment', attrs)} data-directive="fragment">${html}</div>`;
 }
 
 function buildTokens(markdown: string): MarkdownToken[] {
@@ -254,6 +272,12 @@ function addBuildAttrsToTag(tag: string, step: number): string {
 function nextBuildStep(context: RenderContext): number {
   context.buildSteps += 1;
   return context.buildSteps;
+}
+
+function classAttr(baseClass: string | undefined, attrs: Record<string, string>): string {
+  const customClass = attrs.class?.trim();
+  const classes = [baseClass, customClass].filter(Boolean).join(' ');
+  return classes ? ` class="${escapeHtml(classes)}"` : '';
 }
 
 function parseAttrs(raw: string): Record<string, string> {
