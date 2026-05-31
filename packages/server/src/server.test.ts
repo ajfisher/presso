@@ -80,6 +80,39 @@ describe('dev server state', () => {
   });
 });
 
+describe('dev server static files', () => {
+  it('serves public HTML demos as documents with directory index fallback', async () => {
+    const root = await createFolderDeck();
+    await fs.mkdir(path.join(root, 'public/demos/widget'), { recursive: true });
+    await fs.writeFile(path.join(root, 'public/demos/widget/index.html'), '<!doctype html><h1>Widget demo</h1>\n');
+    await fs.writeFile(path.join(root, 'public/demos/widget/frame.htm'), '<!doctype html><h1>Widget frame</h1>\n');
+    const server = await startTestServer(root);
+
+    const direct = await fetch(`${server.origin}/demos/widget/index.html`);
+    expect(direct.status).toBe(200);
+    expect(direct.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(await direct.text()).toContain('Widget demo');
+
+    const directory = await fetch(`${server.origin}/demos/widget/`);
+    expect(directory.status).toBe(200);
+    expect(directory.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(await directory.text()).toContain('Widget demo');
+
+    const extensionlessDirectory = await fetch(`${server.origin}/demos/widget`);
+    expect(extensionlessDirectory.status).toBe(200);
+    expect(extensionlessDirectory.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(await extensionlessDirectory.text()).toContain('Widget demo');
+
+    const htm = await fetch(`${server.origin}/demos/widget/frame.htm`);
+    expect(htm.status).toBe(200);
+    expect(htm.headers.get('content-type')).toBe('text/html; charset=utf-8');
+    expect(await htm.text()).toContain('Widget frame');
+
+    const traversal = await fetch(`${server.origin}/%2e%2e%2fpresso.config.mjs`);
+    expect(traversal.status).toBe(404);
+  });
+});
+
 describe('dev server slide editing', () => {
   it('reads and writes editable folder slide source', async () => {
     const root = await createFolderDeck();
