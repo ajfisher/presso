@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.5.0...@ajfisher/presso-server-v0.5.1) (2026-05-31)
+
+
+### Bug Fixes
+
+* **server:** serve public html demos as documents ([0da7d4e](https://github.com/ajfisher/presso/commit/0da7d4ed8e571865e5aa03715ff84cf90912d64c))
+* **server:** serve public html demos as documents ([747610a](https://github.com/ajfisher/presso/commit/747610a7dfaa816da03a1409ca1af12b0d7e3e15)), closes [#114](https://github.com/ajfisher/presso/issues/114)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.5.0 to ^0.5.1
+    * @ajfisher/presso-create bumped from ^0.5.0 to ^0.5.1
+    * @ajfisher/presso-export bumped from ^0.5.0 to ^0.5.1
+    * @ajfisher/presso-runtime bumped from ^0.5.0 to ^0.5.1
+
 ## [0.5.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.4.0...@ajfisher/presso-server-v0.5.0) (2026-05-31)
 
 
