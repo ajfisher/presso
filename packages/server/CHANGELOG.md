@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.4.0...@ajfisher/presso-server-v0.5.0) (2026-05-31)
+
+
+### Miscellaneous Chores
+
+* **@ajfisher/presso-server:** Synchronize Presso packages versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.4.0 to ^0.5.0
+    * @ajfisher/presso-create bumped from ^0.4.0 to ^0.5.0
+    * @ajfisher/presso-export bumped from ^0.4.0 to ^0.5.0
+    * @ajfisher/presso-runtime bumped from ^0.4.0 to ^0.5.0
+
 ## [0.4.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.3.3...@ajfisher/presso-server-v0.4.0) (2026-05-31)
 
 
