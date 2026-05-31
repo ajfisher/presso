@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.3.3...@ajfisher/presso-server-v0.4.0) (2026-05-31)
+
+
+### Features
+
+* add slide builds ([3f7693f](https://github.com/ajfisher/presso/commit/3f7693fe7554cf0edfe4b1f48ac6ef705ab93248))
+* **runtime:** add click-through slide builds ([bd84159](https://github.com/ajfisher/presso/commit/bd8415958463c8a91912169fa8f9cd8aac160a9c))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.3.3 to ^0.4.0
+    * @ajfisher/presso-create bumped from ^0.3.3 to ^0.4.0
+    * @ajfisher/presso-export bumped from ^0.3.3 to ^0.4.0
+    * @ajfisher/presso-runtime bumped from ^0.3.3 to ^0.4.0
+
 ## [0.3.3](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.3.2...@ajfisher/presso-server-v0.3.3) (2026-05-30)
 
 

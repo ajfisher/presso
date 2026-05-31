@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.4.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.3.3...@ajfisher/presso-core-v0.4.0) (2026-05-31)
+
+
+### Features
+
+* add slide builds ([3f7693f](https://github.com/ajfisher/presso/commit/3f7693fe7554cf0edfe4b1f48ac6ef705ab93248))
+* **core:** add slide build metadata ([402ec2d](https://github.com/ajfisher/presso/commit/402ec2dd84fad5cc43e93e0d6493f7521fc1d5e9))
+* **core:** support nested column builds ([096382e](https://github.com/ajfisher/presso/commit/096382eb9cd2f427c799a7f524006123245eaa28))
+
 ## [0.3.3](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.3.2...@ajfisher/presso-core-v0.3.3) (2026-05-30)
 
 
