@@ -64,8 +64,15 @@
 @layer presso.deck {
   body[data-mode="deck"],
   body[data-mode="embed"] {
+    --presso-slide-scale: 1;
+    --presso-scaled-slide-width: var(--presso-slide-width);
+    --presso-scaled-slide-height: var(--presso-slide-height);
     --presso-viewport-width: calc(100vw - var(--presso-stage-padding) - var(--presso-stage-padding));
     --presso-viewport-height: calc(100vh - var(--presso-stage-padding) - var(--presso-stage-padding));
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+    padding: var(--presso-stage-padding);
     overflow: hidden;
   }
 
@@ -73,6 +80,7 @@
     body[data-mode="deck"],
     body[data-mode="embed"] {
       --presso-viewport-height: calc(100dvh - var(--presso-stage-padding) - var(--presso-stage-padding));
+      min-height: 100dvh;
     }
   }
 
@@ -86,7 +94,8 @@
 
   .presso-slide {
     display: none;
-    width: min(100vw, calc(100vh * var(--presso-slide-ratio)));
+    width: var(--presso-slide-width);
+    height: var(--presso-slide-height);
     aspect-ratio: var(--presso-slide-ratio);
     position: relative;
     overflow: hidden;
@@ -312,14 +321,6 @@
     }
   }
 
-  body[data-mode="deck"] .presso-slide,
-  body[data-mode="embed"] .presso-slide {
-    width: min(
-      var(--presso-viewport-width),
-      calc(var(--presso-viewport-height) * var(--presso-slide-ratio))
-    );
-  }
-
   .presso-columns {
     --presso-column-gap: 3rem;
     --presso-column-tracks: repeat(2, minmax(0, 1fr));
@@ -352,7 +353,7 @@
   }
 
   @media (max-width: 48rem) {
-    .presso-columns {
+    body:not([data-mode="deck"]):not([data-mode="embed"]):not([data-mode="presenter"]):not([data-mode^="print-"]) .presso-columns {
       grid-template-columns: minmax(0, 1fr);
     }
   }
@@ -1257,6 +1258,29 @@
 }
 
 @layer presso.modes {
+  body[data-mode="deck"] > .presso-stage,
+  body[data-mode="embed"] > .presso-stage {
+    position: relative;
+    display: block;
+    width: var(--presso-scaled-slide-width);
+    height: var(--presso-scaled-slide-height);
+    min-height: auto;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 1rem 4rem rgb(0 0 0 / 35%);
+  }
+
+  body[data-mode="deck"] > .presso-stage > .presso-slide,
+  body[data-mode="embed"] > .presso-stage > .presso-slide {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: var(--presso-slide-width);
+    height: var(--presso-slide-height);
+    box-shadow: none;
+    transform: scale(var(--presso-slide-scale, 1));
+    transform-origin: top left;
+  }
+
   html:has(> body[data-mode="presenter"]),
   html:has(> body[data-mode="control"]) {
     font-size: 16px;
