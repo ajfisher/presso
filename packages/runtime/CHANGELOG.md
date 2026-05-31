@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.4.0...@ajfisher/presso-runtime-v0.5.0) (2026-05-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* **runtime:** Deck and embed modes now render slides against the canonical slide canvas and uniformly transform-scale them, which can affect theme or runtime CSS assumptions that relied on viewport-sized slide boxes.
+
+### Bug Fixes
+
+* **runtime:** scale deck and embed slides from a fixed canvas ([6878f39](https://github.com/ajfisher/presso/commit/6878f398ace773fef676ef0b0c637f2d92d73a2d)), closes [#111](https://github.com/ajfisher/presso/issues/111)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.4.0 to ^0.5.0
+
 ## [0.4.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.3.3...@ajfisher/presso-runtime-v0.4.0) (2026-05-31)
 
 
