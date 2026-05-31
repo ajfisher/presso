@@ -23,6 +23,7 @@ Presso creates a normal folder of Markdown slides, CSS theme files, and deck-loc
 
 - Markdown-first authoring with folder decks or single-file decks.
 - Speaker view with notes, current and next slide previews, timer, pacing, and teleprompter controls.
+- Slide builds with `:::fragment` blocks for click-through bullet or block reveals.
 - Phone-friendly `/control` route with optional keep-awake support.
 - Public notes and transcript routes for companion publishing.
 - Static builds with isolated runtime assets under `_presso/`.
@@ -72,6 +73,23 @@ Inside this repo, `make create NAME=my-talk` creates the same numbered starter d
 - `p`: open speaker view
 - `n`: toggle notes when public notes are enabled
 - `?`: show or hide shortcuts
+
+`Next` and `Back` also step through slide builds before changing slides. Use a
+`:::fragment` block around content that should reveal during presentation:
+
+```markdown
+## Heading stays visible
+
+:::fragment
+- First point
+- Second point
+- Third point
+:::
+```
+
+Lists reveal one direct item at a time. Other fragment content reveals one
+top-level block at a time. Print, PDF, notes, and transcript outputs render the
+fully built slide.
 
 The speaker view at `/presenter` makes speaker notes the main surface, with compact current and next slide previews, elapsed time, target timing, session-persistent notes font controls, teleprompter controls, and a phone-controller QR code for opening `/control` from another device on the same network.
 

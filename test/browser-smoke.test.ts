@@ -88,8 +88,36 @@ browserDescribe('browser smoke', () => {
       await expectProgress(page, (5 / 10) * 100);
       await page.goto(`${staticServer.origin}/#/10`, { waitUntil: 'networkidle' });
       await expectProgress(page, 100);
+
+      await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
+      await page.keyboard.press('ArrowRight');
+      await expectCurrentSlide(page, 1);
+      await expectCurrentBuildStep(page, 0);
+      await expectBuildItemVisible(page, 1, false);
+      await expectBuildItemVisible(page, 2, false);
+      await page.keyboard.press('ArrowRight');
+      await expectCurrentSlide(page, 1);
+      await expectCurrentBuildStep(page, 1);
+      await expectBuildItemVisible(page, 1, true);
+      await expectBuildItemVisible(page, 2, false);
+      await page.keyboard.press('ArrowLeft');
+      await expectCurrentSlide(page, 1);
+      await expectCurrentBuildStep(page, 0);
+      await expectBuildItemVisible(page, 1, false);
+      for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
+      await expectCurrentSlide(page, 2);
+      await expectCurrentBuildStep(page, 0);
+      await expectBuildItemVisible(page, 1, false);
+      await expectBuildItemVisible(page, 5, false);
+      await page.keyboard.press('ArrowRight');
+      await expectCurrentSlide(page, 2);
+      await expectCurrentBuildStep(page, 1);
+      await expectBuildItemVisible(page, 1, true);
+      await expectBuildItemVisible(page, 5, false);
+
       await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       await expectActiveSlide(page);
+      await expectBuildItemsVisible(page, '[data-next-preview]');
 
       await expectText(page, '[data-next-title]', 'A tiny vertical slice');
       await expectText(page, '[data-next-preview]', 'A tiny vertical slice');
@@ -97,6 +125,14 @@ browserDescribe('browser smoke', () => {
       await expectText(page, '[data-current-position]', '1');
       await expectText(page, '[data-slide-count]', '11');
       await expectPresenterLayout(page);
+      await page.goto(`${staticServer.origin}/presenter/#/1`, { waitUntil: 'networkidle' });
+      await expectCurrentSlide(page, 1);
+      await expectCurrentBuildStep(page, 0);
+      await expectBuildItemVisible(page, 1, false);
+      await page.locator('button[data-action="next"]').click();
+      await expectCurrentSlide(page, 1);
+      await expectCurrentBuildStep(page, 1);
+      await expectBuildItemVisible(page, 1, true);
       for (const index of [5, 7]) {
         await page.goto(`${staticServer.origin}/presenter/#/${index}`, { waitUntil: 'networkidle' });
         await expectActiveSlide(page, index);
@@ -232,13 +268,41 @@ browserDescribe('browser smoke', () => {
       await expectCurrentSlide(deckPage, 1);
       await expectCurrentSlide(presenterPage, 1);
       await expectCurrentSlide(controlPage, 1);
+      await expectCurrentBuildStep(deckPage, 0);
+      await expectCurrentBuildStep(presenterPage, 0);
+      await expectCurrentBuildStep(controlPage, 0);
       await expectText(controlPage, '[data-current-title]', 'A tiny vertical slice');
       await expectText(controlPage, '[data-current-position]', '2');
+
+      await deckPage.keyboard.press('ArrowRight');
+      await expectCurrentSlide(deckPage, 1);
+      await expectCurrentSlide(presenterPage, 1);
+      await expectCurrentSlide(controlPage, 1);
+      await expectCurrentBuildStep(deckPage, 1);
+      await expectCurrentBuildStep(presenterPage, 1);
+      await expectCurrentBuildStep(controlPage, 1);
+      await expectServerState(devServer.origin, 1, 1);
+      await expectBuildItemVisible(deckPage, 1, true);
+      await expectBuildItemVisible(deckPage, 2, false);
+
+      await controlPage.locator('button[data-action="next"]').click();
+      await expectCurrentBuildStep(deckPage, 2);
+      await expectCurrentBuildStep(presenterPage, 2);
+      await expectCurrentBuildStep(controlPage, 2);
+      await expectBuildItemVisible(deckPage, 2, true);
+
+      await deckPage.keyboard.press('ArrowRight');
+      await expectCurrentBuildStep(deckPage, 3);
+      await expectCurrentBuildStep(presenterPage, 3);
+      await expectCurrentBuildStep(controlPage, 3);
 
       await deckPage.keyboard.press('ArrowRight');
       await expectCurrentSlide(deckPage, 2);
       await expectCurrentSlide(presenterPage, 2);
       await expectCurrentSlide(controlPage, 2);
+      await expectCurrentBuildStep(deckPage, 0);
+      await expectCurrentBuildStep(presenterPage, 0);
+      await expectCurrentBuildStep(controlPage, 0);
       await expectText(controlPage, '[data-current-position]', '3');
 
       await deckPage.goto(`${devServer.origin}/#/5`, { waitUntil: 'domcontentloaded' });
@@ -1094,10 +1158,36 @@ async function expectCurrentSlide(page: Page, index: number): Promise<void> {
   expect(await page.locator('body').getAttribute('data-current-slide')).toBe(String(index));
 }
 
-async function expectServerState(origin: string, index: number): Promise<void> {
+async function expectCurrentBuildStep(page: Page, buildStep: number): Promise<void> {
+  await page.waitForFunction((expected) => document.body.dataset.currentBuildStep === String(expected), buildStep);
+  expect(await page.locator('body').getAttribute('data-current-build-step')).toBe(String(buildStep));
+}
+
+async function expectBuildItemVisible(page: Page, step: number, visible: boolean): Promise<void> {
+  await page.waitForFunction(({ step, visible }) => {
+    const item = document.querySelector(`.presso-slide.is-active [data-build-step="${step}"]`);
+    if (!(item instanceof HTMLElement)) return false;
+    const style = getComputedStyle(item);
+    return visible
+      ? item.dataset.buildVisible === 'true' && style.visibility !== 'hidden'
+      : item.dataset.buildVisible === 'false' && style.visibility === 'hidden';
+  }, { step, visible });
+}
+
+async function expectBuildItemsVisible(page: Page, selector: string): Promise<void> {
+  await page.waitForFunction((selector) => {
+    const items = Array.from(document.querySelectorAll(`${selector} [data-build-item]`));
+    return items.length > 0 && items.every((item) => {
+      if (!(item instanceof HTMLElement)) return false;
+      return item.dataset.buildVisible !== 'false' && getComputedStyle(item).visibility !== 'hidden';
+    });
+  }, selector);
+}
+
+async function expectServerState(origin: string, index: number, buildStep = 0): Promise<void> {
   const response = await fetch(`${origin}/state`);
   expect(response.ok).toBe(true);
-  expect(await response.json()).toMatchObject({ index });
+  expect(await response.json()).toMatchObject({ buildStep, index });
 }
 
 async function expectText(page: Page, selector: string, text: string): Promise<void> {

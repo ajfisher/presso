@@ -6,14 +6,28 @@ time: "4:00"
 
 :::columns
 :::column
-![Placeholder](./assets/example.svg)
+:::fragment
+### Authoring
+
+- Markdown first
+- Reviewable source
+- Transcript friendly
+:::
 :::
 
 :::column
-Notes support **Markdown** and are rendered separately.
+:::fragment
+### Delivery
+
+- Speaker notes
+- Controller sync
+- Static export
+:::
 :::
 :::
 
 :::notes
-Speaker notes should stay out of the slide body and remain useful for transcript export.
+This slide demonstrates a two-column build.
+
+The left column title appears first, followed by its bullets. The right column title and bullets then reveal in the same way.
 :::

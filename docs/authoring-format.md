@@ -444,13 +444,82 @@ Static export should warn when a public build references localhost.
 ### Fragments
 
 ```markdown
+## Heading stays visible
+
 :::fragment
-This appears after the first advance.
+- First point
+- Second point
+- Third point
 :::
 ```
 
-Fragments should be supported eventually, but they are not essential for the
-initial cut because current recent decks mostly avoid them.
+Fragments create slide builds in presentation routes. Unmarked content renders
+normally when the slide appears. Each `Next` reveals the next build item before
+advancing to the following slide, and `Back` hides build items before returning
+to the previous slide.
+
+If a fragment contains exactly one list, each direct list item is one build
+step. If a fragment contains a heading followed by a list, the heading is one
+step and each direct list item is a step:
+
+```markdown
+:::fragment
+### Column one
+
+- First point
+- Second point
+:::
+```
+
+Fragments can be nested inside columns for left-to-right build sequences:
+
+```markdown
+:::columns
+:::column
+:::fragment
+### Column one
+
+- First
+- Second
+:::
+:::
+
+:::column
+:::fragment
+### Column two
+
+- Third
+- Fourth
+:::
+:::
+:::
+```
+
+To reveal whole columns one at a time, wrap each `:::column` in its own
+fragment:
+
+```markdown
+:::columns
+:::fragment
+:::column
+### First column
+
+- All visible together
+:::
+:::
+
+:::fragment
+:::column
+### Second column
+
+- All visible together
+:::
+:::
+:::
+```
+
+Static HTML presentation routes keep interactive builds. Notes, transcript,
+print, PDF, and manifest outputs render the fully built slide content.
 
 ### Charts And SVG
 

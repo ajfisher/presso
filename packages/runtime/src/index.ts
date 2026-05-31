@@ -131,6 +131,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
       routes: buildRoutes(mode, context.server),
       server: context.server,
       slides: deck.slides.map((slide) => ({
+        buildSteps: slide.buildSteps,
         id: slide.id,
         index: slide.index,
         title: slide.title
@@ -294,6 +295,7 @@ function renderSlide(slide: Slide, context: RenderContext): string {
     backgroundKind: escapeAttr(background.kind),
     backgroundStyle: background.style ? ` style="${escapeAttr(background.style)}"` : '',
     bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
+    buildSteps: String(slide.buildSteps),
     classNames: escapeAttr(classNames),
     index: String(slide.index),
     layout: escapeAttr(slide.layout),

@@ -50,6 +50,7 @@ const ROUTE_MODES = new Map<string, RenderMode>([
 
 export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<DevServer> {
   let currentIndex = 0;
+  let currentBuildStep = 0;
   let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
@@ -73,7 +74,8 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
         suppressReloadUntil = Date.now() + 500;
         await handleCreateSlide(cwd, req, res, (slideIndex) => {
           currentIndex = slideIndex;
-          broadcast(clients, 'state', { fullscreen: currentFullscreen, index: currentIndex });
+          currentBuildStep = 0;
+          broadcast(clients, 'state', { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex });
         }, () => {
           suppressReloadUntil = 0;
           broadcast(clients, 'reload', {});
@@ -91,23 +93,29 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           'cache-control': 'no-cache',
           connection: 'keep-alive'
         });
-        res.write(`event: state\ndata: ${JSON.stringify({ fullscreen: currentFullscreen, index: currentIndex })}\n\n`);
+        res.write(`event: state\ndata: ${JSON.stringify({ buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex })}\n\n`);
         clients.set(id, { id, res });
         req.on('close', () => clients.delete(id));
         return;
       }
       if (url.pathname === '/state') {
         if (req.method === 'GET') {
-          sendJson(res, { fullscreen: currentFullscreen, index: currentIndex });
+          sendJson(res, { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex });
           return;
         }
         if (req.method === 'POST') {
           const deck = await compileDeck(cwd);
           const body = await readBody(req);
           const state = parseJsonObject(body);
+          const previousIndex = currentIndex;
           currentIndex = clampStateIndex(state.index ?? currentIndex, deck.slides.length, currentIndex);
+          const nextSlide = deck.slides[currentIndex];
+          currentBuildStep = clampStateBuildStep(
+            state.buildStep ?? (currentIndex === previousIndex ? currentBuildStep : 0),
+            nextSlide?.buildSteps ?? 0
+          );
           if (typeof state.fullscreen === 'boolean') currentFullscreen = state.fullscreen;
-          const nextState = { fullscreen: currentFullscreen, index: currentIndex };
+          const nextState = { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex };
           broadcast(clients, 'state', nextState);
           sendJson(res, nextState);
           return;
@@ -318,6 +326,13 @@ export function clampStateIndex(value: unknown, slideCount: number, fallback = 0
   const fallbackIndex = Math.min(max, Math.max(0, Math.trunc(Number(fallback)) || 0));
   const next = Math.trunc(Number(value));
   if (!Number.isFinite(next)) return fallbackIndex;
+  return Math.min(max, Math.max(0, next));
+}
+
+export function clampStateBuildStep(value: unknown, buildSteps: number): number {
+  const max = Math.max(0, Math.trunc(Number(buildSteps)) || 0);
+  const next = Math.trunc(Number(value));
+  if (!Number.isFinite(next)) return 0;
   return Math.min(max, Math.max(0, next));
 }
 

@@ -46,6 +46,7 @@ interface PublicSlideManifest {
   title: string;
   layout: string;
   class: string[];
+  buildSteps: number;
   bodyHtml: string;
   background?: SlideBackground;
   notesHtml?: string;
@@ -394,6 +395,7 @@ function publicSlideManifest(slide: Slide, includeNotes: boolean): PublicSlideMa
     title: slide.title,
     layout: slide.layout,
     class: [...slide.class],
+    buildSteps: slide.buildSteps,
     bodyHtml: slide.bodyHtml
   };
 

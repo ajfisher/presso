@@ -34,8 +34,9 @@
   const presenterNotesMaxPx = 38;
   const presenterNotesStepPx = 2.4;
   const builtInLayouts = ['title', 'section', 'statement', 'bullets', 'image', 'image-title', 'two-column', 'logos', 'code', 'demo', 'blank'];
-  const initialHashIndex = parseHashIndex(location.hash);
-  let index = clampIndex(initialHashIndex ?? 0);
+  const initialHashState = parseHashState(location.hash);
+  let index = clampIndex(initialHashState?.index ?? 0);
+  let buildStep = clampBuildStep(initialHashState?.buildStep ?? 0, index);
   let presentationFullscreen = false;
   let fullscreenDialogMode = 'enter';
   let wakeLock = null;
@@ -72,21 +73,41 @@
     }
   }
 
-  function setIndex(next, source = 'local') {
+  function setIndex(next, source = 'local', nextBuildStep = 0) {
     if (!canNavigateSlides) return;
+    const previousIndex = index;
     index = clampIndex(next);
+    buildStep = clampBuildStep(nextBuildStep, index);
     renderActiveSlide();
     document.body.dataset.currentSlide = String(index);
+    document.body.dataset.currentBuildStep = String(buildStep);
     if (progress && slideCount) progress.style.width = String(progressPercent(index)) + '%';
-    if (canDirectFullscreen && slides.length) history.replaceState(null, '', '#/' + index);
-    updateStateViews();
+    if (canDirectFullscreen && slides.length) history.replaceState(null, '', stateHash(index, buildStep));
+    updateStateViews(source === 'init' || previousIndex !== index);
     localStorage.setItem('presso:index', String(index));
-    if (source === 'local') channel?.postMessage({ index });
-    if (source === 'local') postState(index);
+    localStorage.setItem('presso:buildStep', String(buildStep));
+    if (source === 'local') channel?.postMessage({ buildStep, index });
+    if (source === 'local') postState(index, { buildStep });
   }
 
   function go(delta) {
-    setIndex(index + delta);
+    if (delta > 0) {
+      const maxStep = slideBuildSteps(index);
+      if (buildStep < maxStep) {
+        setIndex(index, 'local', buildStep + 1);
+      } else if (index < slideCount - 1) {
+        setIndex(index + 1);
+      }
+      return;
+    }
+    if (delta < 0) {
+      if (buildStep > 0) {
+        setIndex(index, 'local', buildStep - 1);
+      } else if (index > 0) {
+        const previousIndex = clampIndex(index - 1);
+        setIndex(previousIndex, 'local', slideBuildSteps(previousIndex));
+      }
+    }
   }
 
   function isEditableTarget(target) {
@@ -566,10 +587,33 @@
   }
 
   function renderActiveSlide() {
-    slides.forEach((slide, i) => slide.classList.toggle('is-active', i === index));
+    slides.forEach((slide, i) => {
+      const active = i === index;
+      slide.classList.toggle('is-active', active);
+      if (active) applyBuildStep(slide, buildStep);
+      else clearBuildStep(slide);
+    });
   }
 
-  function updateStateViews() {
+  function applyBuildStep(slide, step) {
+    slide.dataset.buildCurrentStep = String(step);
+    slide.querySelectorAll('[data-build-item]').forEach((item) => {
+      const visible = buildItemStep(item) <= step;
+      item.dataset.buildVisible = visible ? 'true' : 'false';
+      if (visible) item.removeAttribute('aria-hidden');
+      else item.setAttribute('aria-hidden', 'true');
+    });
+  }
+
+  function clearBuildStep(slide) {
+    delete slide.dataset.buildCurrentStep;
+    slide.querySelectorAll('[data-build-item]').forEach((item) => {
+      delete item.dataset.buildVisible;
+      item.removeAttribute('aria-hidden');
+    });
+  }
+
+  function updateStateViews(resetSlide = true) {
     const activeSlide = slides[index];
     const nextSlide = slides[index + 1];
     const activeMetadata = slideMetadata[index];
@@ -601,7 +645,7 @@
     updatePresenterPreviewScales();
     updateNavigationButtons();
     updatePresenterTimer();
-    resetTeleprompterForSlide();
+    if (resetSlide) resetTeleprompterForSlide();
   }
 
   function updatePresenterPreviewScales() {
@@ -863,10 +907,10 @@
 
   function updateNavigationButtons() {
     document.querySelectorAll('button[data-action="prev"]').forEach((button) => {
-      button.disabled = index <= 0;
+      button.disabled = index <= 0 && buildStep <= 0;
     });
     document.querySelectorAll('button[data-action="next"]').forEach((button) => {
-      button.disabled = !slideCount || index >= slideCount - 1;
+      button.disabled = !slideCount || (index >= slideCount - 1 && buildStep >= slideBuildSteps(index));
     });
   }
 
@@ -921,7 +965,7 @@
     return fetch('/state', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ index: next, ...extra })
+      body: JSON.stringify({ buildStep, index: next, ...extra })
     })
       .then(async (response) => {
         if (!response.ok) throw new Error('State update failed');
@@ -975,7 +1019,7 @@
       presentationFullscreen = state.fullscreen;
       updateFullscreenViews();
     }
-    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source);
+    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source, state.buildStep ?? 0);
   }
 
   function showFullscreenPrompt(mode) {
@@ -1225,22 +1269,24 @@
   }, true);
 
   window.addEventListener('hashchange', () => {
-    const next = parseHashIndex(location.hash);
-    if (next !== undefined) setIndex(next);
+    const next = parseHashState(location.hash);
+    if (next) setIndex(next.index, 'local', next.buildStep ?? 0);
   });
   window.addEventListener('resize', updatePresenterPreviewScales);
 
   channel?.addEventListener('message', (event) => {
-    if (canNavigateSlides) setIndex(Number(event.data.index), 'remote');
+    if (canNavigateSlides && Number.isFinite(Number(event.data.index))) {
+      setIndex(Number(event.data.index), 'remote', event.data.buildStep ?? 0);
+    }
   });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
-  if (canNavigateSlides) setIndex(index, 'init');
+  if (canNavigateSlides) setIndex(index, 'init', buildStep);
   openPendingSlideEditor();
   updateFullscreenViews();
   updateTeleprompterViews();
   handleWakeLockUnavailable();
-  if (serverSync && initialHashIndex !== undefined && (mode === 'deck' || mode === 'embed')) {
-    postState(index).finally(connectServerEvents);
+  if (serverSync && initialHashState && (mode === 'deck' || mode === 'embed')) {
+    postState(index, { buildStep }).finally(connectServerEvents);
   } else {
     connectServerEvents();
   }
@@ -1251,9 +1297,16 @@
     if (wakeLockRequested && document.visibilityState === 'visible' && !isWakeLockActive()) requestWakeLock();
   });
 
-  function parseHashIndex(hash) {
-    const match = hash.match(/^#\/(\d+)$/);
-    return match ? Number(match[1]) : undefined;
+  function parseHashState(hash) {
+    const match = hash.match(/^#\/(\d+)(?:\/(\d+))?$/);
+    return match ? {
+      buildStep: match[2] === undefined ? 0 : Number(match[2]),
+      index: Number(match[1])
+    } : undefined;
+  }
+
+  function stateHash(slideIndex, step) {
+    return step > 0 ? `#/${slideIndex}/${step}` : `#/${slideIndex}`;
   }
 
   function secondsToClock(seconds) {
@@ -1288,6 +1341,27 @@
     const max = Math.max(0, slideCount - 1);
     if (!Number.isFinite(numeric)) return 0;
     return Math.min(max, Math.max(0, numeric));
+  }
+
+  function clampBuildStep(value, slideIndex) {
+    const numeric = Math.trunc(Number(value));
+    const max = slideBuildSteps(slideIndex);
+    if (!Number.isFinite(numeric)) return 0;
+    return Math.min(max, Math.max(0, numeric));
+  }
+
+  function slideBuildSteps(slideIndex) {
+    const metadataSteps = Number(slideMetadata[slideIndex]?.buildSteps);
+    const slide = slides[slideIndex];
+    const domSteps = slide
+      ? Math.max(0, ...Array.from(slide.querySelectorAll('[data-build-item]')).map(buildItemStep))
+      : 0;
+    return Math.max(Number.isFinite(metadataSteps) ? metadataSteps : 0, domSteps);
+  }
+
+  function buildItemStep(item) {
+    const step = Number(item.dataset.buildStep);
+    return Number.isFinite(step) ? step : 0;
   }
 
   function progressPercent(value) {
