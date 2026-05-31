@@ -194,7 +194,7 @@ function renderContainerDirective(
   if (name === 'fragment' && collectBuilds && context) {
     return renderBuildFragment(content, options, context);
   }
-  const html = renderMarkdownInternal(content.trim(), options, context, false);
+  const html = renderMarkdownInternal(content.trim(), options, context, collectBuilds);
   if (name === 'column') {
     return `<section class="presso-column" data-directive="column">${html}</section>`;
   }
@@ -204,9 +204,7 @@ function renderContainerDirective(
 function renderBuildFragment(content: string, options: Required<RenderMarkdownOptions>, context: RenderContext): string {
   const prepared = transformDirectives(content.trim(), options, context, false);
   const tokens = buildTokens(prepared);
-  const html = isSingleListFragment(tokens)
-    ? markDirectListItems(marked.parse(prepared, { async: false, gfm: true, breaks: options.breaks }) as string, context)
-    : tokens.map((token) => renderBuildBlock(token, options, context)).join('\n');
+  const html = tokens.map((token) => renderBuildToken(token, options, context)).join('\n');
   return `<div class="presso-fragment" data-directive="fragment">${html}</div>`;
 }
 
@@ -215,13 +213,12 @@ function buildTokens(markdown: string): MarkdownToken[] {
     .filter((token) => token.type !== 'space' && token.raw?.trim());
 }
 
-function isSingleListFragment(tokens: MarkdownToken[]): boolean {
-  return tokens.length === 1 && tokens[0]?.type === 'list';
-}
-
-function renderBuildBlock(token: MarkdownToken, options: Required<RenderMarkdownOptions>, context: RenderContext): string {
-  const step = nextBuildStep(context);
+function renderBuildToken(token: MarkdownToken, options: Required<RenderMarkdownOptions>, context: RenderContext): string {
   const html = marked.parse(token.raw ?? '', { async: false, gfm: true, breaks: options.breaks }) as string;
+  if (token.type === 'list') {
+    return markDirectListItems(html, context);
+  }
+  const step = nextBuildStep(context);
   return addBuildAttrsToFirstTag(html, step);
 }
 

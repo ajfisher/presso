@@ -107,6 +107,13 @@ browserDescribe('browser smoke', () => {
       for (let i = 0; i < 4; i++) await page.keyboard.press('ArrowRight');
       await expectCurrentSlide(page, 2);
       await expectCurrentBuildStep(page, 0);
+      await expectBuildItemVisible(page, 1, false);
+      await expectBuildItemVisible(page, 5, false);
+      await page.keyboard.press('ArrowRight');
+      await expectCurrentSlide(page, 2);
+      await expectCurrentBuildStep(page, 1);
+      await expectBuildItemVisible(page, 1, true);
+      await expectBuildItemVisible(page, 5, false);
 
       await page.goto(`${staticServer.origin}/presenter/`, { waitUntil: 'networkidle' });
       await expectActiveSlide(page);

@@ -459,14 +459,62 @@ advancing to the following slide, and `Back` hides build items before returning
 to the previous slide.
 
 If a fragment contains exactly one list, each direct list item is one build
-step. Otherwise, each top-level rendered block in the fragment is one build
-step:
+step. If a fragment contains a heading followed by a list, the heading is one
+step and each direct list item is a step:
 
 ```markdown
 :::fragment
-First block.
+### Column one
 
-> Second block.
+- First point
+- Second point
+:::
+```
+
+Fragments can be nested inside columns for left-to-right build sequences:
+
+```markdown
+:::columns
+:::column
+:::fragment
+### Column one
+
+- First
+- Second
+:::
+:::
+
+:::column
+:::fragment
+### Column two
+
+- Third
+- Fourth
+:::
+:::
+:::
+```
+
+To reveal whole columns one at a time, wrap each `:::column` in its own
+fragment:
+
+```markdown
+:::columns
+:::fragment
+:::column
+### First column
+
+- All visible together
+:::
+:::
+
+:::fragment
+:::column
+### Second column
+
+- All visible together
+:::
+:::
 :::
 ```
 
