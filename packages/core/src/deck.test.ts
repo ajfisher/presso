@@ -21,6 +21,7 @@ describe('deck compilation', () => {
       'image-title'
     ]);
     expect(deck.slides[0]!.layout).toBe('title');
+    expect(deck.slides[1]!.buildSteps).toBe(3);
     expect(deck.slides[2]!.notesMarkdown).toContain('Speaker notes');
   });
 

@@ -134,6 +134,7 @@ function buildSlide(content: string, filePath: string, rootDir: string, index: n
     layout: String(metadata.layout ?? 'statement'),
     class: classes,
     background: normalizeSlideBackground(metadata, sourcePath),
+    buildSteps: rendered.buildSteps,
     time: metadata.time === undefined ? undefined : String(metadata.time),
     bodyMarkdown: rendered.bodyMarkdown,
     bodyHtml: rendered.bodyHtml,

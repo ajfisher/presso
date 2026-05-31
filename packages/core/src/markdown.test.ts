@@ -75,6 +75,38 @@ Left **body**
     expect(rendered.bodyHtml).not.toContain('class="presso-column"');
   });
 
+  it('counts fragment list items as build steps', () => {
+    const rendered = renderSlideMarkdown(`## Build
+
+:::fragment
+- First
+- Second
+- Third
+:::
+`);
+
+    expect(rendered.buildSteps).toBe(3);
+    expect(rendered.bodyHtml).toContain('<h2>Build</h2>');
+    expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="1">First</li>');
+    expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="2">Second</li>');
+    expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="3">Third</li>');
+  });
+
+  it('counts non-list fragment blocks as build steps', () => {
+    const rendered = renderSlideMarkdown(`## Build
+
+:::fragment
+First paragraph.
+
+> Second block.
+:::
+`);
+
+    expect(rendered.buildSteps).toBe(2);
+    expect(rendered.bodyHtml).toContain('<p data-build-item data-build-step="1">First paragraph.</p>');
+    expect(rendered.bodyHtml).toContain('<blockquote data-build-item data-build-step="2">');
+  });
+
   it('leaves malformed container directives as authored markdown', () => {
     const rendered = renderSlideMarkdown(`:::columns
 :::column
@@ -82,6 +114,7 @@ Unclosed column`);
 
     expect(rendered.bodyMarkdown).toContain(':::columns');
     expect(rendered.bodyHtml).toContain(':::columns');
+    expect(rendered.buildSteps).toBe(0);
   });
 
   it('strips nested container directive wrappers for transcript output', () => {
