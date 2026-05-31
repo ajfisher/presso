@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-core",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Core config, Markdown parsing, and deck model for Presso.",
   "keywords": [
     "presso",
