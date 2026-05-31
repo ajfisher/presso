@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-create-v0.5.1...@ajfisher/presso-create-v0.6.0) (2026-05-31)
+
+
+### Miscellaneous Chores
+
+* **@ajfisher/presso-create:** Synchronize Presso packages versions
+
 ## [0.5.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-create-v0.5.0...@ajfisher/presso-create-v0.5.1) (2026-05-31)
 
 

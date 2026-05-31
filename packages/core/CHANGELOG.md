@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.6.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.5.1...@ajfisher/presso-core-v0.6.0) (2026-05-31)
+
+
+### Features
+
+* **core:** support directive class injection ([9257df9](https://github.com/ajfisher/presso/commit/9257df9c4677d80884b9c67f14302bcd23f8d79b))
+* **core:** support directive class injection ([e1a2ebe](https://github.com/ajfisher/presso/commit/e1a2ebe69d2fdef4fdf9ffee34736e97c4111373)), closes [#117](https://github.com/ajfisher/presso/issues/117)
+
 ## [0.5.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.5.0...@ajfisher/presso-core-v0.5.1) (2026-05-31)
 
 
