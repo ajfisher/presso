@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Deck } from '@ajfisher/presso-core';
-import { renderPage, renderTranscriptMarkdown, type RenderMode } from './index.js';
+import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, type RenderMode } from './index.js';
 
 const deck: Deck = {
   config: {
@@ -66,6 +66,17 @@ describe('runtime renderer', () => {
     expect(html).toContain('<style data-presso-theme>@import url("theme.css") layer(presso.theme);</style>');
     expect(html).toContain('<script src="_presso/presso-runtime.js" type="module"></script>');
     expect(html).not.toContain('function setIndex');
+  });
+
+  it('ships runtime assets for fixed-canvas deck and embed scaling', () => {
+    const css = readRuntimeAsset('presso.css').content;
+    const runtime = readRuntimeAsset('presso-runtime.js').content;
+
+    expect(css).toContain('--presso-slide-scale');
+    expect(css).toContain('width: var(--presso-scaled-slide-width)');
+    expect(css).toContain('transform: scale(var(--presso-slide-scale, 1))');
+    expect(runtime).toContain('function updateDeckSlideScale()');
+    expect(runtime).toContain('--presso-scaled-slide-width');
   });
 
   it('imports deck themes into the theme cascade layer on nested routes', () => {

@@ -226,6 +226,23 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('keeps deck and embed slide layout invariant across scaled 16:9 viewports', async () => {
+    const dist = await buildScalingSmokeDeck();
+    const staticServer = await serveStatic(dist);
+    const playwright = await import('playwright');
+    const browser = await launchBrowser(playwright.chromium);
+
+    try {
+      const page = await browser.newPage();
+      for (const route of ['/', '/embed/']) {
+        await expectScaledSlideLayoutInvariant(page, `${staticServer.origin}${route}`);
+      }
+    } finally {
+      await browser.close();
+      await staticServer.close();
+    }
+  }, 60000);
+
   it('syncs controller state with the deck and presenter over the dev server', async () => {
     const devServer = await startDevServer();
     const playwright = await import('playwright');
@@ -590,6 +607,86 @@ layout: statement
   return buildStatic(root, dist);
 }
 
+async function buildScalingSmokeDeck(): Promise<string> {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-scaling-smoke-'));
+  const dist = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-scaling-smoke-dist-'));
+  tmpRoots.push(root, dist);
+  await fs.mkdir(path.join(root, 'slides'), { recursive: true });
+  await fs.writeFile(path.join(root, 'theme.css'), `.presso-slide {
+  padding: 72px;
+  font-family: Arial, sans-serif;
+}
+
+.presso-slide > .presso-slide-body {
+  align-content: start;
+  gap: 28px;
+}
+
+.presso-slide h1 {
+  max-width: none;
+  margin: 0;
+  font-size: 52px;
+  line-height: 1.04;
+}
+
+.presso-slide h2 {
+  max-width: none;
+  margin: 0;
+  font-size: 34px;
+  line-height: 1.08;
+}
+
+.presso-slide p {
+  max-width: none;
+  margin: 0;
+  font-size: 26px;
+  line-height: 1.16;
+}
+
+.presso-columns {
+  --presso-column-gap: 64px;
+  --presso-column-align: start;
+  --presso-column-content-align: start;
+}
+
+.presso-column {
+  gap: 20px;
+}
+`);
+  await fs.writeFile(path.join(root, 'presso.config.mjs'), `export default {
+  title: 'Scaling Smoke',
+  source: { type: 'folder', path: './slides' },
+  theme: './theme.css'
+};
+`);
+  await fs.writeFile(path.join(root, 'slides/001-scaling.md'), `---
+id: scaling
+layout: two-column
+---
+
+# Dense operations brief
+
+:::columns
+:::column
+## Projector view
+
+The launch plan compresses onboarding, instrumentation, partner training, and field enablement into a single rehearsal window with no spare line height for accidental viewport reflow.
+
+Each section should preserve the same visual rhythm when the slide moves from a monitor to a projector because the authored canvas is the contract.
+:::
+
+:::column
+## Monitor view
+
+The delivery team reviews dependencies, escalation notes, staffing assumptions, and rollout risks side by side so the column balance remains predictable.
+
+Fixed theme sizes are intentionally used here to expose any mismatch between a shrinking slide box and unscaled slide typography.
+:::
+:::
+`);
+  return buildStatic(root, dist);
+}
+
 async function createPdfSmokeDeck(): Promise<string> {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pdf-smoke-'));
   tmpRoots.push(root);
@@ -817,6 +914,92 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
     expect(preview.slideBottom, `${preview.name} preview bottom`).toBeLessThanOrEqual(1);
   }
   expect(previews[0]?.frameBackground, 'preview frame backgrounds').toBe(previews[1]?.frameBackground);
+}
+
+async function expectScaledSlideLayoutInvariant(page: Page, url: string): Promise<void> {
+  const samples = [];
+  const viewports = [
+    { width: 1024, height: 576 },
+    { width: 1920, height: 1080 },
+    { width: 2048, height: 1152 }
+  ];
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.goto(url, { waitUntil: 'networkidle' });
+    await expectActiveSlide(page);
+    await expectSlideFitsViewport(page);
+    samples.push(await collectScaledSlideLayout(page));
+  }
+
+  const base = samples[0]!;
+  for (const sample of samples) {
+    expect(sample.slide.width / sample.slide.height, `${sample.viewport.width} slide ratio`).toBeCloseTo(16 / 9, 2);
+    expect(sample.stage.width, `${sample.viewport.width} stage width`).toBeCloseTo(sample.slide.width, 0);
+    expect(sample.stage.height, `${sample.viewport.width} stage height`).toBeCloseTo(sample.slide.height, 0);
+    expect(sample.controlHeight, `${sample.viewport.width} chrome control height`).toBeCloseTo(base.controlHeight, 0);
+    expect(sample.lines.length, `${sample.viewport.width} measured text elements`).toBe(base.lines.length);
+    for (const [index, line] of sample.lines.entries()) {
+      const expected = base.lines[index]!;
+      expect(line.text, `${sample.viewport.width} text ${index}`).toBe(expected.text);
+      expect(line.rects.length, `${sample.viewport.width} line count for ${line.text}`).toBe(expected.rects.length);
+      for (const [rectIndex, rect] of line.rects.entries()) {
+        const expectedRect = expected.rects[rectIndex]!;
+        expect(rect.left, `${sample.viewport.width} line ${index}.${rectIndex} left`).toBeCloseTo(expectedRect.left, 2);
+        expect(rect.top, `${sample.viewport.width} line ${index}.${rectIndex} top`).toBeCloseTo(expectedRect.top, 2);
+        expect(rect.width, `${sample.viewport.width} line ${index}.${rectIndex} width`).toBeCloseTo(expectedRect.width, 2);
+        expect(rect.height, `${sample.viewport.width} line ${index}.${rectIndex} height`).toBeCloseTo(expectedRect.height, 2);
+      }
+    }
+  }
+}
+
+async function collectScaledSlideLayout(page: Page): Promise<{
+  controlHeight: number;
+  lines: { rects: { height: number; left: number; top: number; width: number }[]; text: string }[];
+  slide: { height: number; width: number };
+  stage: { height: number; width: number };
+  viewport: { height: number; width: number };
+}> {
+  return page.evaluate(() => {
+    const slide = document.querySelector('.presso-slide.is-active');
+    if (!(slide instanceof HTMLElement)) throw new Error('Missing active slide');
+    const stage = slide.closest('.presso-stage');
+    if (!(stage instanceof HTMLElement)) throw new Error('Missing slide stage');
+    const control = document.querySelector('[data-presentation-controls] button');
+    if (!(control instanceof HTMLElement)) throw new Error('Missing presentation control');
+    const slideRect = slide.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const controlRect = control.getBoundingClientRect();
+    const normalizedLineRects = (element: HTMLElement) => {
+      const range = document.createRange();
+      range.selectNodeContents(element);
+      const rects = Array.from(range.getClientRects())
+        .filter((rect) => rect.width > 0 && rect.height > 0)
+        .map((rect) => ({
+          height: (rect.height / slideRect.height),
+          left: ((rect.left - slideRect.left) / slideRect.width),
+          top: ((rect.top - slideRect.top) / slideRect.height),
+          width: (rect.width / slideRect.width)
+        }));
+      range.detach();
+      return rects;
+    };
+
+    return {
+      controlHeight: controlRect.height,
+      lines: Array.from(slide.querySelectorAll('.presso-slide-body h1, .presso-slide-body h2, .presso-slide-body p'))
+        .map((element) => {
+          if (!(element instanceof HTMLElement)) throw new Error('Unexpected measured element');
+          return {
+            rects: normalizedLineRects(element),
+            text: element.textContent?.replace(/\s+/g, ' ').trim() ?? ''
+          };
+        }),
+      slide: { height: slideRect.height, width: slideRect.width },
+      stage: { height: stageRect.height, width: stageRect.width },
+      viewport: { height: window.innerHeight, width: window.innerWidth }
+    };
+  });
 }
 
 async function expectTeleprompter(page: Page): Promise<void> {

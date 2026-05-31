@@ -12,6 +12,7 @@
   const editing = config.editing || {};
   const canNavigateSlides = ['deck', 'embed', 'presenter', 'control'].includes(mode);
   const canDirectFullscreen = mode === 'deck' || mode === 'embed';
+  const canScaleDeckSlide = mode === 'deck' || mode === 'embed';
   const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
   const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
   const canCreateSlides = Boolean(canEditSlides && editing.createEndpoint);
@@ -666,6 +667,36 @@
     });
   }
 
+  function updateDeckSlideScale() {
+    if (!canScaleDeckSlide) return;
+    const bodyStyle = getComputedStyle(document.body);
+    const slideWidth = readPositivePixelValue(bodyStyle.getPropertyValue('--presso-slide-width'));
+    const slideHeight = readPositivePixelValue(bodyStyle.getPropertyValue('--presso-slide-height'));
+    if (!slideWidth || !slideHeight) return;
+    const viewport = window.visualViewport;
+    const viewportWidth = viewport?.width ?? window.innerWidth;
+    const viewportHeight = viewport?.height ?? window.innerHeight;
+    const horizontalPadding = readPixelValue(bodyStyle.paddingLeft) + readPixelValue(bodyStyle.paddingRight);
+    const verticalPadding = readPixelValue(bodyStyle.paddingTop) + readPixelValue(bodyStyle.paddingBottom);
+    const availableWidth = Math.max(1, viewportWidth - horizontalPadding);
+    const availableHeight = Math.max(1, viewportHeight - verticalPadding);
+    const scale = Math.min(availableWidth / slideWidth, availableHeight / slideHeight);
+    const safeScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+    document.body.style.setProperty('--presso-slide-scale', String(safeScale));
+    document.body.style.setProperty('--presso-scaled-slide-width', `${slideWidth * safeScale}px`);
+    document.body.style.setProperty('--presso-scaled-slide-height', `${slideHeight * safeScale}px`);
+  }
+
+  function readPixelValue(value) {
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+
+  function readPositivePixelValue(value) {
+    const parsed = readPixelValue(value);
+    return parsed > 0 ? parsed : 0;
+  }
+
   function updatePresenterTimer() {
     const elapsedSeconds = Math.max(0, Math.floor((Date.now() - presenterStart) / 1000));
     document.querySelectorAll('[data-elapsed]').forEach((el) => {
@@ -1183,6 +1214,7 @@
 
   document.addEventListener('fullscreenchange', () => {
     document.body.dataset.fullscreen = document.fullscreenElement ? 'true' : 'false';
+    updateDeckSlideScale();
     if (canDirectFullscreen) {
       presentationFullscreen = Boolean(document.fullscreenElement);
       hideFullscreenPrompt();
@@ -1272,7 +1304,12 @@
     const next = parseHashState(location.hash);
     if (next) setIndex(next.index, 'local', next.buildStep ?? 0);
   });
-  window.addEventListener('resize', updatePresenterPreviewScales);
+  window.addEventListener('resize', () => {
+    updateDeckSlideScale();
+    updatePresenterPreviewScales();
+  });
+  window.addEventListener('load', updateDeckSlideScale);
+  window.visualViewport?.addEventListener('resize', updateDeckSlideScale);
 
   channel?.addEventListener('message', (event) => {
     if (canNavigateSlides && Number.isFinite(Number(event.data.index))) {
@@ -1280,6 +1317,7 @@
     }
   });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
+  updateDeckSlideScale();
   if (canNavigateSlides) setIndex(index, 'init', buildStep);
   openPendingSlideEditor();
   updateFullscreenViews();
