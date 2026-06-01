@@ -141,9 +141,11 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     runtimeScriptHref: `${context.assetPrefix}${RUNTIME_ASSET_DIR}presso-runtime.js`,
     runtimeStyle: escapeAttr(`--presso-slide-width: ${deck.config.size.width}px; --presso-slide-height: ${deck.config.size.height}px; --presso-slide-ratio: ${deck.config.size.width} / ${deck.config.size.height};`),
     shortcutsOverlay: printMode ? '' : renderTemplate('shortcutsOverlay'),
+    serving: context.server ? 'server' : 'static',
     themeImportCss: renderThemeImportCss(themeHref),
     title: escapeHtml(deck.config.title),
-    notesVisible: deck.config.notes.public === 'visible' ? 'true' : 'false'
+    notesVisible: deck.config.notes.public === 'visible' ? 'true' : 'false',
+    public: context.public ? 'true' : 'false'
   });
 }
 
