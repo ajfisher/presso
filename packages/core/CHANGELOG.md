@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.6.0...@ajfisher/presso-core-v0.7.0) (2026-06-01)
+
+
+### Miscellaneous Chores
+
+* **@ajfisher/presso-core:** Synchronize Presso packages versions
+
 ## [0.6.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-core-v0.5.1...@ajfisher/presso-core-v0.6.0) (2026-05-31)
 
 
