@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.6.0...@ajfisher/presso-runtime-v0.7.0) (2026-06-01)
+
+
+### Features
+
+* **runtime:** expose render context on body ([7134781](https://github.com/ajfisher/presso/commit/71347818fcc38ed93e416f2b21ccf462c9da4740))
+* **runtime:** expose render context on body ([803b330](https://github.com/ajfisher/presso/commit/803b330892bd8b6577ec9d5e5eb7ad53375aedf8)), closes [#120](https://github.com/ajfisher/presso/issues/120)
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.6.0 to ^0.7.0
+
 ## [0.6.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.5.1...@ajfisher/presso-runtime-v0.6.0) (2026-05-31)
 
 
