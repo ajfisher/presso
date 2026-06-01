@@ -68,6 +68,28 @@ describe('runtime renderer', () => {
     expect(html).not.toContain('function setIndex');
   });
 
+  it('marks server render context on the document body', () => {
+    const html = renderPage(deck, 'deck', { server: true });
+
+    expect(html).toContain('data-mode="deck"');
+    expect(html).toContain('data-presso-serving="server"');
+    expect(html).toContain('data-presso-public="false"');
+  });
+
+  it('marks public static render context on the document body', () => {
+    const html = renderPage(deck, 'deck', { public: true });
+
+    expect(html).toContain('data-presso-serving="static"');
+    expect(html).toContain('data-presso-public="true"');
+  });
+
+  it('marks private static render context on the document body', () => {
+    const html = renderPage(deck, 'deck');
+
+    expect(html).toContain('data-presso-serving="static"');
+    expect(html).toContain('data-presso-public="false"');
+  });
+
   it('ships runtime assets for fixed-canvas deck and embed scaling', () => {
     const css = readRuntimeAsset('presso.css').content;
     const runtime = readRuntimeAsset('presso-runtime.js').content;
