@@ -76,6 +76,12 @@
     overflow: hidden;
   }
 
+  body[data-presso-serving="static"][data-mode="deck"],
+  body[data-presso-serving="static"][data-mode="embed"] {
+    touch-action: pan-y pinch-zoom;
+    overscroll-behavior-x: contain;
+  }
+
   @supports (height: 100dvh) {
     body[data-mode="deck"],
     body[data-mode="embed"] {

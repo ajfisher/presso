@@ -14,6 +14,7 @@
   const canDirectFullscreen = mode === 'deck' || mode === 'embed';
   const canScaleDeckSlide = mode === 'deck' || mode === 'embed';
   const canRemoteControlFullscreen = mode === 'presenter' || mode === 'control';
+  const canSwipeNavigate = !serverSync && (mode === 'deck' || mode === 'embed');
   const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
   const canCreateSlides = Boolean(canEditSlides && editing.createEndpoint);
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
@@ -34,6 +35,9 @@
   const presenterNotesMinPx = 14;
   const presenterNotesMaxPx = 38;
   const presenterNotesStepPx = 2.4;
+  const swipeMinDistance = 48;
+  const swipeMaxDistance = 96;
+  const swipeDistanceRatio = 1.5;
   const builtInLayouts = ['title', 'section', 'statement', 'bullets', 'image', 'image-title', 'two-column', 'logos', 'code', 'demo', 'blank'];
   const initialHashState = parseHashState(location.hash);
   let index = clampIndex(initialHashState?.index ?? 0);
@@ -59,6 +63,7 @@
   let editReturnFocus = null;
   let editSaving = false;
   let editCreating = false;
+  let swipeGesture = null;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -1105,6 +1110,62 @@
     return null;
   }
 
+  function handleSwipePointerDown(event) {
+    if (!canStartSwipe(event)) return;
+    swipeGesture = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY
+    };
+  }
+
+  function handleSwipePointerUp(event) {
+    if (!swipeGesture || event.pointerId !== swipeGesture.pointerId) return;
+    const dx = event.clientX - swipeGesture.startX;
+    const dy = event.clientY - swipeGesture.startY;
+    swipeGesture = null;
+    const distance = Math.abs(dx);
+    if (distance < swipeDistanceThreshold() || distance < Math.abs(dy) * swipeDistanceRatio) return;
+    event.preventDefault();
+    go(dx < 0 ? 1 : -1);
+  }
+
+  function handleSwipePointerCancel(event) {
+    if (!swipeGesture || event.pointerId !== swipeGesture.pointerId) return;
+    swipeGesture = null;
+  }
+
+  function canStartSwipe(event) {
+    if (!canSwipeNavigate || event.isPrimary === false) return false;
+    if (!['touch', 'pen'].includes(event.pointerType)) return false;
+    const target = event.target instanceof Element ? event.target : null;
+    return Boolean(target && !isSwipeBlockedTarget(target));
+  }
+
+  function isSwipeBlockedTarget(target) {
+    return Boolean(target.closest([
+      '[data-presso-chrome]',
+      '[data-action]',
+      'a[href]',
+      'button',
+      'input',
+      'textarea',
+      'select',
+      'iframe',
+      'video',
+      'audio',
+      'canvas',
+      'pre',
+      'code',
+      '[contenteditable]'
+    ].join(',')));
+  }
+
+  function swipeDistanceThreshold() {
+    const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+    return Math.max(swipeMinDistance, Math.min(swipeMaxDistance, viewportWidth * 0.12));
+  }
+
   document.addEventListener('keydown', (event) => {
     if (isEditOpen()) {
       if (trapEditFocus(event)) return;
@@ -1295,6 +1356,10 @@
     event.preventDefault();
     saveSlideEditor();
   });
+
+  document.addEventListener('pointerdown', handleSwipePointerDown);
+  document.addEventListener('pointerup', handleSwipePointerUp);
+  document.addEventListener('pointercancel', handleSwipePointerCancel);
 
   document.addEventListener('scroll', (event) => {
     if (event.target === currentNotesElement()) updateNotesProgress();

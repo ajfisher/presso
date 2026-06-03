@@ -85,8 +85,8 @@ browserDescribe('browser smoke', () => {
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
       await expectProgress(page, 0);
       await page.goto(`${staticServer.origin}/#/5`, { waitUntil: 'networkidle' });
-      await expectProgress(page, (5 / 10) * 100);
-      await page.goto(`${staticServer.origin}/#/10`, { waitUntil: 'networkidle' });
+      await expectProgress(page, (5 / 11) * 100);
+      await page.goto(`${staticServer.origin}/#/11`, { waitUntil: 'networkidle' });
       await expectProgress(page, 100);
 
       await page.goto(`${staticServer.origin}/`, { waitUntil: 'networkidle' });
@@ -123,7 +123,7 @@ browserDescribe('browser smoke', () => {
       await expectText(page, '[data-next-preview]', 'A tiny vertical slice');
       await expectText(page, '[data-current-notes]', 'Opening notes for the basic fixture.');
       await expectText(page, '[data-current-position]', '1');
-      await expectText(page, '[data-slide-count]', '11');
+      await expectText(page, '[data-slide-count]', '12');
       await expectPresenterLayout(page);
       await page.goto(`${staticServer.origin}/presenter/#/1`, { waitUntil: 'networkidle' });
       await expectCurrentSlide(page, 1);
@@ -181,6 +181,44 @@ browserDescribe('browser smoke', () => {
       expect(await page.locator('body').getAttribute('data-notes-visible')).toBe('true');
 
       expect(brokenResponses).toEqual([]);
+    } finally {
+      await browser.close();
+      await staticServer.close();
+    }
+  }, 60000);
+
+  it('supports touch swipe navigation on static deck and embed routes', async () => {
+    const dist = await buildExampleDeck();
+    const staticServer = await serveStatic(dist);
+    const playwright = await import('playwright');
+    const browser = await launchBrowser(playwright.chromium);
+
+    try {
+      const page = await browser.newPage();
+      await page.setViewportSize({ width: 390, height: 844 });
+      for (const route of ['/', '/embed/']) {
+        await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'networkidle' });
+        await expectCurrentSlide(page, 0);
+
+        await dispatchTouchSwipe(page, 'left');
+        await expectCurrentSlide(page, 1);
+        await expectCurrentBuildStep(page, 0);
+        await expectBuildItemVisible(page, 1, false);
+
+        await dispatchTouchSwipe(page, 'left');
+        await expectCurrentSlide(page, 1);
+        await expectCurrentBuildStep(page, 1);
+        await expectBuildItemVisible(page, 1, true);
+
+        await dispatchTouchSwipe(page, 'right');
+        await expectCurrentSlide(page, 1);
+        await expectCurrentBuildStep(page, 0);
+        await expectBuildItemVisible(page, 1, false);
+
+        await dispatchTouchSwipe(page, 'right');
+        await expectCurrentSlide(page, 0);
+        await expectCurrentBuildStep(page, 0);
+      }
     } finally {
       await browser.close();
       await staticServer.close();
@@ -351,10 +389,10 @@ browserDescribe('browser smoke', () => {
       await expectText(controlPage, '[data-current-position]', '6');
 
       await deckPage.keyboard.press('End');
-      await expectCurrentSlide(deckPage, 10);
-      await expectCurrentSlide(presenterPage, 10);
-      await expectCurrentSlide(controlPage, 10);
-      await expectText(controlPage, '[data-current-position]', '11');
+      await expectCurrentSlide(deckPage, 11);
+      await expectCurrentSlide(presenterPage, 11);
+      await expectCurrentSlide(controlPage, 11);
+      await expectText(controlPage, '[data-current-position]', '12');
 
       await deckPage.keyboard.press('Home');
       await expectCurrentSlide(deckPage, 0);
@@ -973,6 +1011,28 @@ async function expectPresenterPreviewsFit(page: Page): Promise<void> {
     expect(preview.slideBottom, `${preview.name} preview bottom`).toBeLessThanOrEqual(1);
   }
   expect(previews[0]?.frameBackground, 'preview frame backgrounds').toBe(previews[1]?.frameBackground);
+}
+
+async function dispatchTouchSwipe(page: Page, direction: 'left' | 'right'): Promise<void> {
+  await page.evaluate((direction) => {
+    const target = document.querySelector('.presso-slide.is-active') || document.body;
+    if (!(target instanceof Element)) throw new Error('Missing swipe target');
+    const rect = target.getBoundingClientRect();
+    const startX = rect.left + rect.width * (direction === 'left' ? 0.8 : 0.2);
+    const endX = rect.left + rect.width * (direction === 'left' ? 0.2 : 0.8);
+    const y = rect.top + rect.height * 0.5;
+    const init = {
+      bubbles: true,
+      cancelable: true,
+      clientY: y,
+      isPrimary: true,
+      pointerId: 17,
+      pointerType: 'touch'
+    };
+    target.dispatchEvent(new PointerEvent('pointerdown', { ...init, clientX: startX }));
+    target.dispatchEvent(new PointerEvent('pointermove', { ...init, clientX: endX }));
+    target.dispatchEvent(new PointerEvent('pointerup', { ...init, clientX: endX }));
+  }, direction);
 }
 
 async function expectScaledSlideLayoutInvariant(page: Page, url: string): Promise<void> {
