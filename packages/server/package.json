@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-server",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Presso CLI, dev server, controller sync, and authoring helpers.",
   "keywords": [
     "presso",
@@ -45,9 +45,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ajfisher/presso-core": "^0.7.0",
-    "@ajfisher/presso-create": "^0.7.0",
-    "@ajfisher/presso-export": "^0.7.0",
-    "@ajfisher/presso-runtime": "^0.7.0"
+    "@ajfisher/presso-core": "^0.7.1",
+    "@ajfisher/presso-create": "^0.7.1",
+    "@ajfisher/presso-export": "^0.7.1",
+    "@ajfisher/presso-runtime": "^0.7.1"
   }
 }

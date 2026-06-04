@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.7.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.7.0...@ajfisher/presso-runtime-v0.7.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **runtime:** support swipe navigation in static decks ([44083de](https://github.com/ajfisher/presso/commit/44083de4e0f7a0ce981c54f8b39398fc79094665))
+* **runtime:** support swipe navigation in static decks ([8667a72](https://github.com/ajfisher/presso/commit/8667a7213c0edbaa9d1d1ea6ab80c000eda45444))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.7.0 to ^0.7.1
+
 ## [0.7.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.6.0...@ajfisher/presso-runtime-v0.7.0) (2026-06-01)
 
 
