@@ -18,7 +18,8 @@ describe('deck compilation', () => {
       'code',
       'demo',
       'blank',
-      'image-title'
+      'image-title',
+      'mobile-swipe'
     ]);
     expect(deck.slides[0]!.layout).toBe('title');
     expect(deck.slides[1]!.buildSteps).toBe(3);
