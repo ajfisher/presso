@@ -1,6 +1,6 @@
 {
   "name": "@ajfisher/presso-export",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "description": "Static, transcript, and PDF export helpers for Presso.",
   "keywords": [
     "presso",
@@ -42,8 +42,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@ajfisher/presso-core": "^0.7.1",
-    "@ajfisher/presso-runtime": "^0.7.1"
+    "@ajfisher/presso-core": "^0.8.0",
+    "@ajfisher/presso-runtime": "^0.8.0"
   },
   "optionalDependencies": {
     "playwright": "^1.57.0"

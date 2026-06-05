@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.8.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.7.1...@ajfisher/presso-runtime-v0.8.0) (2026-06-05)
+
+
+### Miscellaneous Chores
+
+* **@ajfisher/presso-runtime:** Synchronize Presso packages versions
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.7.1 to ^0.8.0
+
 ## [0.7.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-runtime-v0.7.0...@ajfisher/presso-runtime-v0.7.1) (2026-06-04)
 
 
