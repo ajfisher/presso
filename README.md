@@ -177,6 +177,23 @@ make transcript TRANSCRIPT_ARGS="--profile=full --fragment --out=talk-notes.md"
 
 Use slide frontmatter for exceptions: `transcript: false` omits a slide, `transcriptVisual` forces or suppresses a visual, and `transcriptBody: statement` includes a short statement in `notes-visuals`.
 
+## Publish
+
+`presso publish s3` syncs an existing static build directory to S3. It defaults
+to `dist/`, runs a live sync with `--delete`, and inherits AWS environment from
+the shell:
+
+```bash
+presso build
+AWS_PROFILE=prod presso publish s3 talk.example.test
+presso publish s3 talk.example.test custom-dist --exclude-file=.presso-publishignore
+```
+
+Exclude files use one S3 exclude pattern per line. Blank lines and `#` comments
+are ignored. The older `presso deploy [deckDir] [--yes]` command remains
+available for config-driven S3 deploys and still dry-runs unless `--yes` is
+passed.
+
 ## Static Metadata
 
 `presso build` writes `dist/metadata.json` for site integration. Required fields are always present:

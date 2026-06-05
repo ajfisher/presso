@@ -636,6 +636,14 @@ export default {
 };
 ```
 
+For direct publishing without deck config, build first and sync the output
+directory:
+
+```bash
+presso build
+presso publish s3 aj-web-wdcl2024
+```
+
 Static builds emit `dist/metadata.json` from these deck-level fields. Required
 metadata is `title`, `author`, and `tags`; optional fields such as `event`,
 `date`, `excerpt`, `featureImage`, `baseUrl`, and derived public URLs are
