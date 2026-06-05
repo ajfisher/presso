@@ -2,6 +2,7 @@
 import path from 'node:path';
 import { startDevServer } from './server.js';
 import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, migrateRevealDeck, orderAppend, orderCheck, orderInit } from './commands.js';
+import { parsePublishArgs, publishS3 } from './publish.js';
 import { resolvePdfLayout } from '@ajfisher/presso-export';
 import { resolveTranscriptProfile, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
@@ -51,6 +52,13 @@ async function main(command = 'help', args: string[]): Promise<void> {
     const cwd = resolveDeckDir(args);
     await deploy(cwd, !args.includes('--yes'));
     return;
+  }
+  if (command === 'publish') {
+    const publish = parsePublishArgs(args);
+    if (publish.provider === 's3') {
+      await publishS3(publish.options);
+      return;
+    }
   }
   if (command === 'slide' && args[0] === 'add') {
     const cwd = resolveDeckDir(args, 1);
@@ -186,6 +194,7 @@ function printHelp(): void {
   presso build [deckDir]
   presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
   presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
+  presso publish s3 <bucket-name> [directory] [--exclude-file=file]
   presso deploy [deckDir] [--yes]
   presso slide add [deckDir]
   presso order init|check|append [deckDir]

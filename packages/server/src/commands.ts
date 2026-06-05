@@ -5,6 +5,7 @@ import { compileDeck, createSlideSource, listMarkdownFiles, parseOrderFile, chec
 import { buildStatic, exportPdf, exportPdfs, exportTranscript } from '@ajfisher/presso-export';
 import { createDeck } from '@ajfisher/presso-create';
 import { migrateRevealDeck } from './reveal.js';
+import { publishS3, type CommandRunner } from './publish.js';
 
 export async function addSlide(cwd = process.cwd()): Promise<string> {
   const source = await createSlideSource(cwd);
@@ -41,17 +42,21 @@ export async function orderCheck(cwd = process.cwd()): Promise<string> {
   }, null, 2);
 }
 
-export async function deploy(cwd = process.cwd(), dryRun = true): Promise<void> {
+export async function deploy(cwd = process.cwd(), dryRun = true, runner?: CommandRunner): Promise<void> {
   const deck = await compileDeck(cwd);
   if (deck.config.deploy.target !== 's3' || !deck.config.deploy.bucket) {
     throw new Error('deploy.target must be \"s3\" and deploy.bucket must be configured.');
   }
   const dist = await buildStatic(cwd);
-  const args = ['s3', 'sync', dist, `s3://${deck.config.deploy.bucket}/`, '--delete'];
-  if (dryRun) args.push('--dryrun');
-  await run('aws', args);
+  await publishS3({
+    bucket: deck.config.deploy.bucket,
+    cwd,
+    dryRun,
+    runner,
+    sourceDir: dist
+  });
   if (!dryRun && deck.config.deploy.cloudfrontDistributionId) {
-    await run('aws', ['cloudfront', 'create-invalidation', '--distribution-id', deck.config.deploy.cloudfrontDistributionId, '--paths', '/*']);
+    await (runner ?? run)('aws', ['cloudfront', 'create-invalidation', '--distribution-id', deck.config.deploy.cloudfrontDistributionId, '--paths', '/*']);
   }
 }
 

@@ -30,6 +30,7 @@ presso dev [deckDir] [--port=3030]
 presso build [deckDir]
 presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
 presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
+presso publish s3 <bucket-name> [directory] [--exclude-file=file]
 presso deploy [deckDir] [--yes]
 presso slide add [deckDir]
 presso order init|check|append [deckDir]
@@ -54,4 +55,3 @@ The dev server and static build expose the same presentation surfaces:
 - [Presso README](https://github.com/ajfisher/presso#readme)
 - [Authoring format](https://github.com/ajfisher/presso/blob/main/docs/authoring-format.md)
 - [Release process](https://github.com/ajfisher/presso/blob/main/docs/release-process.md)
-
