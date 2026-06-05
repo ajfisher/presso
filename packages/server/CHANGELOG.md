@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.7.1...@ajfisher/presso-server-v0.8.0) (2026-06-05)
+
+
+### Features
+
+* **server:** add s3 publish command ([eb3057f](https://github.com/ajfisher/presso/commit/eb3057f06a273e11892677b4a1bff781829a8938))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.7.1 to ^0.8.0
+    * @ajfisher/presso-create bumped from ^0.7.1 to ^0.8.0
+    * @ajfisher/presso-export bumped from ^0.7.1 to ^0.8.0
+    * @ajfisher/presso-runtime bumped from ^0.7.1 to ^0.8.0
+
 ## [0.7.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.7.0...@ajfisher/presso-server-v0.7.1) (2026-06-04)
 
 
