@@ -76,13 +76,12 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           currentIndex = slideIndex;
           currentBuildStep = 0;
           broadcast(clients, 'state', { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex });
-        }, () => {
-          suppressReloadUntil = 0;
-          broadcast(clients, 'reload', {});
+          broadcast(clients, 'slide-created', {});
         });
         return;
       }
       if (url.pathname === '/edit/slide') {
+        if (req.method === 'PUT') suppressReloadUntil = 0;
         await handleEditSlide(cwd, req, res, url);
         return;
       }
@@ -247,8 +246,7 @@ async function handleCreateSlide(
   cwd: string,
   req: http.IncomingMessage,
   res: ServerResponse,
-  onCreated: (index: number) => void,
-  afterResponse: () => void
+  onCreated: (index: number) => void
 ): Promise<void> {
   try {
     if (req.method !== 'POST') {
@@ -259,7 +257,6 @@ async function handleCreateSlide(
     const created = await createSlideSource(cwd, input);
     onCreated(created.index);
     sendJson(res, created);
-    setTimeout(afterResponse, 50);
   } catch (error) {
     sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
   }

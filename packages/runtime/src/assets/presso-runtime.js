@@ -1047,6 +1047,10 @@
       }
     });
     events.addEventListener('reload', () => location.reload());
+    events.addEventListener('slide-created', () => {
+      // The creating page records the new slide in its URL before reloading.
+      if (!editCreating) location.reload();
+    });
     events.addEventListener('error', () => setSyncStatus('Reconnecting'));
   }
 

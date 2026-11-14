@@ -548,7 +548,12 @@ browserDescribe('browser smoke', () => {
       await page.locator('[data-edit-tab="notes"]').click();
       await expectFieldValue(page, '[data-edit-notes]', 'Add speaker notes here.');
       await page.locator('[data-edit-notes]').fill('Created single-file notes.');
-      await page.locator('[data-edit-save]').click();
+      const [saveResponse] = await Promise.all([
+        page.waitForResponse((response) => response.request().method() === 'PUT' &&
+          new URL(response.url()).pathname === '/edit/slide', { timeout: 5000 }),
+        page.locator('[data-edit-save]').click()
+      ]);
+      expect(saveResponse.ok()).toBe(true);
       await expectText(page, '.presso-slide.is-active', 'Created single-file slide');
 
       const createdSource = await fs.readFile(path.join(deck, 'slides.md'), 'utf8');
@@ -1482,12 +1487,12 @@ async function expectSlideFitsViewport(page: Page): Promise<void> {
 }
 
 async function expectCurrentSlide(page: Page, index: number): Promise<void> {
-  await page.waitForFunction((expected) => document.body.dataset.currentSlide === String(expected), index);
+  await page.waitForFunction((expected) => document.body.dataset.currentSlide === String(expected), index, { polling: 50 });
   expect(await page.locator('body').getAttribute('data-current-slide')).toBe(String(index));
 }
 
 async function expectCurrentBuildStep(page: Page, buildStep: number): Promise<void> {
-  await page.waitForFunction((expected) => document.body.dataset.currentBuildStep === String(expected), buildStep);
+  await page.waitForFunction((expected) => document.body.dataset.currentBuildStep === String(expected), buildStep, { polling: 50 });
   expect(await page.locator('body').getAttribute('data-current-build-step')).toBe(String(buildStep));
 }
 
@@ -1522,7 +1527,8 @@ async function expectText(page: Page, selector: string, text: string): Promise<v
   await page.waitForSelector(selector);
   await page.waitForFunction(
     ({ selector, text }) => document.querySelector(selector)?.textContent?.includes(text),
-    { selector, text }
+    { selector, text },
+    { polling: 50 }
   );
   expect(await page.locator(selector).first().textContent()).toContain(text);
 }
