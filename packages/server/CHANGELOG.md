@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.8.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.8.0...@ajfisher/presso-server-v0.8.1) (2026-11-15)
+
+
+### Bug Fixes
+
+* **editing:** prevent duplicate reload after slide creation ([daccdd3](https://github.com/ajfisher/presso/commit/daccdd3470c5ff8e50dfdde3226c0d629250bb02))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.8.0 to ^0.8.1
+    * @ajfisher/presso-create bumped from ^0.8.0 to ^0.8.1
+    * @ajfisher/presso-export bumped from ^0.8.0 to ^0.8.1
+    * @ajfisher/presso-runtime bumped from ^0.8.0 to ^0.8.1
+
 ## [0.8.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.7.1...@ajfisher/presso-server-v0.8.0) (2026-06-05)
 
 
