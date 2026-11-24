@@ -114,11 +114,13 @@ export function setupRehearsal(deckId, slides, currentIndex) {
           const opening = run.visits.findLastIndex((visit) => visit.startMs <= offset);
           run.visits = run.visits.slice(opening).map((visit) => ({ ...visit, startMs: Math.max(0, visit.startMs - offset) }));
         }
+        const storedVisits = run.visits.length;
         await store.save(run);
-        capture.runStored.resolve(true);
         capture.ready = true;
-        if (capture.audioError) {
-          void stop(capture.audioError);
+        if (run.visits.length !== storedVisits) await store.save(run);
+        capture.runStored.resolve(true);
+        if (capture.stopping || capture.audioError) {
+          if (!capture.stopping) void stop(capture.audioError);
           await promise;
           return;
         }

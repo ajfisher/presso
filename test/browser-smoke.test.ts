@@ -586,6 +586,7 @@ browserDescribe('browser smoke', () => {
       await page.getByRole('button', { name: 'Download audio' }).waitFor({ state: 'hidden' });
       await page.reload();
       await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      await page.getByRole('dialog', { name: 'Rehearsals' }).waitFor();
       expect(await page.getByRole('button', { name: 'Download audio' }).isVisible()).toBe(false);
       expect(await page.locator('[data-rehearsal-visits] tr').count()).toBe(1);
     } finally {
