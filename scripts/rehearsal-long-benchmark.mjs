@@ -27,13 +27,13 @@ const server = await startDevServer(resolve(process.env.DECK), 64134);
 
 try {
   const baseline = await benchmark('uninterrupted', 'lecture-baseline');
-  await writeFile(process.env.BENCHMARK_RESULT, JSON.stringify({
-    visits, samples: sampleCount, segments: baseline.segments, metrics: baseline.metrics
-  }));
+  await saveEvidence(baseline.segments, baseline.metrics);
 
-  const beforeClose = await benchmark('interrupt', 'lecture-restart');
+  // Reuse the already verified prefix so the second pass tests resumption
+  // of the full recording without decoding its known prefix a second time.
+  const beforeClose = await benchmark('interrupt', 'lecture-restart', baseline.segments.slice(0, interruption));
   const afterReopen = await benchmark('resume', 'lecture-restart');
-  assert.deepEqual(beforeClose.windows, baseline.windows.slice(0, interruption + 1));
+  assert.deepEqual(beforeClose.windows, baseline.windows.slice(interruption, interruption + 1));
   assert.deepEqual(afterReopen.windows, baseline.windows.slice(interruption));
   assert.deepEqual(afterReopen.segments.slice(0, interruption), beforeClose.segments);
   const comparable = (segments) => segments.map(({ index, endMs, words }) => ({ index, endMs, words }));
@@ -45,7 +45,13 @@ try {
   await source.close();
 }
 
-async function benchmark(mode, id) {
+function saveEvidence(segments, metrics) {
+  return writeFile(process.env.BENCHMARK_RESULT, JSON.stringify({
+    visits, samples: sampleCount, segments, metrics, complete: segments.length === segmentCount
+  }));
+}
+
+async function benchmark(mode, id, prefix = []) {
   const offline = mode !== 'uninterrupted';
   const context = await chromium.launchPersistentContext(profile, {
     channel: 'chrome',
@@ -54,6 +60,9 @@ async function benchmark(mode, id) {
   });
 
   try {
+    if (process.env.FORCE_WASM === '1') {
+      await context.addInitScript(() => Object.defineProperty(navigator, 'gpu', { value: undefined }));
+    }
     const page = context.pages()[0];
     const windows = [];
     const backends = [];
@@ -106,9 +115,11 @@ async function benchmark(mode, id) {
     let startedAt = openedAt;
     if (mode !== 'resume') {
       await seed(page, id);
+      if (prefix.length) await seedCheckpoint(page, id, prefix);
       await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
       startedAt = performance.now();
-      await page.getByRole('button', { name: 'Transcribe in English' }).click();
+      const action = prefix.length ? 'Resume transcription' : 'Transcribe in English';
+      await page.getByRole('button', { name: action }).click();
       await page.getByRole('button', { name: 'Close', exact: true }).click();
     }
 
@@ -130,9 +141,13 @@ async function benchmark(mode, id) {
         lastCheckpoint = checkpoint?.next;
         lastProgress = performance.now();
         console.log(mode, 'checkpoint', lastCheckpoint, 'of', segmentCount);
+        if (mode === 'uninterrupted' && lastCheckpoint && lastCheckpoint % 12 === 0) {
+          const { segments } = await loadTranscript(page, id);
+          await saveEvidence(segments);
+        }
       }
       if (mode === 'interrupt' && checkpoint?.next === interruption && activeWindow
-        && windows.length === interruption) {
+        && windows.length === 0) {
         assert.equal(checkpoint.state, 'processing');
         const pending = activeWindow;
         const { segments } = await loadTranscript(page, id);
@@ -140,8 +155,8 @@ async function benchmark(mode, id) {
         assert.equal(segments.length, interruption);
         assert.equal(segments.at(-1).endMs, interruption * 24000);
         assert.equal(external, 0);
-        console.log('Closing Chrome during window', windowNumber, 'with speech saved through', interruption * 24, 'seconds');
-        return { windows: [...windows, pending.samples], segments };
+        console.log('Closing Chrome during window', interruption + 1, 'with speech saved through', interruption * 24, 'seconds');
+        return { windows: [pending.samples], segments };
       }
       if (checkpoint?.state === 'done') {
         assert.notEqual(mode, 'interrupt', 'The intended interrupted window was already committed');
@@ -253,6 +268,16 @@ async function seed(page, id) {
       }
     }
   }, { id, sampleCount, visits });
+}
+
+async function seedCheckpoint(page, id, prefix) {
+  await page.evaluate(async ({ id, prefix }) => {
+    for (const { index, endMs, words } of prefix) {
+      const segment = { index, endMs, words };
+      const transcript = { state: 'paused', next: index + 1, message: 'Transcription paused.' };
+      await window.benchmarkStore.saveSpeech(id, transcript, segment);
+    }
+  }, { id, prefix });
 }
 
 function loadTranscript(page, id) {

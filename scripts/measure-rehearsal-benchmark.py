@@ -45,6 +45,7 @@ def midpoint(word):
 
 # Mirror the Markdown export's overlap rule for the timestamped WER estimate.
 segments = result['segments']
+covered_through = segments[-1]['endMs'] / 1000
 kept = {}
 for segment in segments:
     index = segment['index']
@@ -82,7 +83,7 @@ def sample(start, end):
 
 for start, end in [(10, 70), (230, 290), (1020, 1080), (1835, 1895), (2630, 2690), (2690, 2738)]:
     reference, actual = sample(start, end)
-    if reference:
+    if reference and end <= covered_through:
         errors = edit_distance(reference, actual)
         print(f'{start}–{end}s: {errors}/{len(reference)} edits ({100 * errors / len(reference):.1f}% sampled WER)')
 
@@ -93,11 +94,15 @@ for label, start, end, terms in [
     ('bounds', 1835, 1895, ('omega', 'theta')),
     ('closing examples', 2630, 2738, ('python', 'dictionary', 'recursive algorithm'))
 ]:
+    if end > covered_through:
+        continue
     reference, actual = map(' '.join, sample(start, end))
     print(label, [(term, term in reference, term in actual) for term in terms])
 
 for boundary_ms, _ in result['visits'][1:]:
     boundary = boundary_ms / 1000
+    if boundary + 6 > covered_through:
+        continue
     before_ref, before_words = sample(boundary - 6, boundary)
     after_ref, after_words = sample(boundary, boundary + 6)
     before = sorted(set(before_ref) & set(before_words))
@@ -105,6 +110,6 @@ for boundary_ms, _ in result['visits'][1:]:
     print(f'Slide marker {boundary:.0f}s also crosses a decode seam: '
           f'{len(before)} common caption terms before, {len(after)} after the marker')
 
-print(f'{len(words)} exported word candidates. '
+print(f'{len(words)} word candidates in saved prefix through {covered_through:.2f}s. '
       f'Last decoded word ends at {words[-1]["endMs"] / 1000:.2f}s, '
       f'last spoken caption at {captions[-1][1]:.2f}s, audio at {result["samples"] / 16000:.2f}s.')

@@ -131,9 +131,13 @@ self.postMessage = (...args) => {
       await page.getByRole('button', { name: 'Transcribe in English' }).click();
       await page.getByRole('button', { name: 'Close', exact: true }).click();
     }
-    const from = await page.evaluate(() => [document.body.dataset.currentSlide, document.body.dataset.currentBuildStep]);
+    const from = await page.evaluate(() => {
+      const config = JSON.parse(document.getElementById('presso-runtime-config').textContent);
+      return [document.body.dataset.currentSlide, document.body.dataset.currentBuildStep, config.slides.length - 1];
+    });
     const navigationStarted = performance.now();
-    await page.keyboard.press('ArrowRight');
+    const direction = Number(from[0]) === from[2] ? 'ArrowLeft' : 'ArrowRight';
+    await page.keyboard.press(direction);
     await page.waitForFunction(([index, step]) =>
       document.body.dataset.currentSlide !== index || document.body.dataset.currentBuildStep !== step, from);
     const navigationMs = performance.now() - navigationStarted;
