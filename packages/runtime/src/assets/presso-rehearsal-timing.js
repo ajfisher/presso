@@ -94,7 +94,9 @@ export function setupTimingReview(dialog, deckId, slides, formatClock, requireRe
     }
   }
 
-  form.addEventListener('change', () => {
+  form.addEventListener('change', (event) => {
+    // The length field refreshes during input. Its later blur must not disable Apply.
+    if (event.target === length) return;
     length.disabled = !fit.checked;
     void refresh();
   });
