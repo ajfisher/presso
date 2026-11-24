@@ -1,5 +1,6 @@
 import { SAMPLE_RATE, setupAudioReview, setupMicrophone } from './presso-rehearsal-audio.js';
 import { openRehearsalStore } from './presso-rehearsal-store.js';
+import { setupTranscription } from './presso-rehearsal-transcript.js';
 import { setupTimingReview } from './presso-rehearsal-timing.js';
 
 export function setupRehearsal(deckId, slides, currentIndex) {
@@ -28,9 +29,11 @@ export function setupRehearsal(deckId, slides, currentIndex) {
     status.textContent = 'Reload the deck to use the saved targets.';
   });
 
+  const transcription = setupTranscription(dialog, deckId, () => store, controls.querySelector('[data-transcription-progress]'), formatClock);
   const audioReview = setupAudioReview(dialog, () => store, deckId, (run) => {
     const option = runPicker.selectedOptions[0];
     if (option?.value === run.id) option.textContent = new Date(run.startedAt).toLocaleString();
+    transcription.show(undefined);
     runPicker.focus();
   });
   const microphoneSetup = setupMicrophone(
@@ -48,6 +51,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
     store = localStore;
     updateStartControls();
     open.disabled = false;
+    void store.list(deckId).then(transcription.resume).catch(() => {});
   }).catch(() => {
     status.textContent = 'Chrome could not open storage for rehearsals.';
   });
@@ -94,6 +98,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
         const run = {
           id: crypto.randomUUID(),
           deckId,
+          title: document.title,
           startedAt: Date.now(),
           slideIds: slides.map(({ id }) => id),
           visits: [slideVisit(slide, 0)],
@@ -113,6 +118,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
           const offset = capture.started - requestedAt;
           const opening = run.visits.findLastIndex((visit) => visit.startMs <= offset);
           run.visits = run.visits.slice(opening).map((visit) => ({ ...visit, startMs: Math.max(0, visit.startMs - offset) }));
+          if (run.interruptedMs !== undefined) run.interruptedMs = Math.max(0, run.interruptedMs - offset);
         }
         const storedVisits = run.visits.length;
         await store.save(run);
@@ -145,6 +151,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
       capture?.runStored.resolve(false);
       if (mic) mic.close();
       resetControls(timer);
+      if (capture?.savedAudio) transcription.recorded(capture.run);
     }
   }
 
@@ -190,6 +197,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
     capture.run.finishedMs = capture.run.interrupted || reason ? null : finish;
     try {
       await store.save(capture.run);
+      capture.savedAudio = Boolean(capture.run.audio?.samples);
       status.textContent = reason ?? (capture.run.interrupted
         ? 'Partial rehearsal saved. Reload the deck to start again.'
         : capture.mic ? 'Recording saved.' : 'Rehearsal saved.');
@@ -236,13 +244,17 @@ export function setupRehearsal(deckId, slides, currentIndex) {
   dialog.addEventListener('close', () => {
     microphoneSetup.hide();
     audioReview.clear();
+    transcription.show(undefined);
     reload.hidden = !reloadPending;
   });
 
   function showHistory(run) {
     empty.hidden = Boolean(run);
     history.hidden = !run;
-    void audioReview.show(run);
+    transcription.show(undefined);
+    void audioReview.show(run).then((hasAudio) => {
+      if (hasAudio && dialog.open && runPicker.value === run.id) transcription.show(run);
+    });
     timingReview.show(run);
     if (!run) return;
     dialog.querySelector('[data-rehearsal-summary]').textContent = run.finishedMs === null
@@ -276,9 +288,11 @@ export function setupRehearsal(deckId, slides, currentIndex) {
       });
     },
     interruptTimeline() {
-      if (!active || active.run.interrupted) return;
+      if (!active || active.stopping || active.run.interrupted) return;
       reloadPending = true;
       active.run.interrupted = true;
+      active.run.interruptedMs = Math.max(0, performance.now() - active.started);
+      if (active.ready) void store.save(active.run).catch(() => {});
       status.textContent = 'Deck order changed. Earlier visits are saved.';
     },
     deferReload() {
