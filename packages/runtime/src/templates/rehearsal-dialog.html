@@ -3,10 +3,12 @@
     <h2 id="rehearsal-title">Rehearsals</h2>
     <form method="dialog"><button>Close</button></form>
   </header>
+  {{microphone}}
   <p data-rehearsal-empty>No saved rehearsals. Start timing from the presenter controls.</p>
   <div data-rehearsal-history hidden>
     <label>Rehearsal <select data-rehearsal-run></select></label>
     <p data-rehearsal-summary></p>
+    {{recording}}
     {{timing}}
     <h3>Slide visits</h3>
     <table>

@@ -16,7 +16,10 @@ export type RenderMode =
   | 'print-notes-pages'
   | 'transcript';
 export const runtimeAssetNames = ['presso.css', 'presso-runtime.js'] as const;
-export const rehearsalAssetNames = ['presso-rehearsal.js', 'presso-rehearsal-timing.js'] as const;
+export const rehearsalAssetNames = [
+  'presso-rehearsal.js', 'presso-rehearsal-timing.js', 'presso-rehearsal-store.js',
+  'presso-rehearsal-audio.js', 'presso-audio-worklet.js'
+] as const;
 export type RuntimeAssetName = typeof runtimeAssetNames[number] | typeof rehearsalAssetNames[number];
 
 interface RenderOptions {
@@ -49,7 +52,10 @@ const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: strin
   'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
   'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' },
   'presso-rehearsal.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal.js' },
-  'presso-rehearsal-timing.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-timing.js' }
+  'presso-rehearsal-timing.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-timing.js' },
+  'presso-rehearsal-store.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-store.js' },
+  'presso-rehearsal-audio.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-audio.js' },
+  'presso-audio-worklet.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-audio-worklet.js' }
 };
 
 const templates = {
@@ -71,6 +77,8 @@ const templates = {
   rehearsalControls: readTemplate('rehearsal-controls.html'),
   rehearsalDialog: readTemplate('rehearsal-dialog.html'),
   rehearsalTiming: readTemplate('rehearsal-timing.html'),
+  rehearsalMicrophone: readTemplate('rehearsal-microphone.html'),
+  rehearsalRecording: readTemplate('rehearsal-recording.html'),
   printHandout: readTemplate('print-handout.html'),
   printHandoutPage: readTemplate('print-handout-page.html'),
   printNotes: readTemplate('print-notes.html'),
@@ -125,7 +133,9 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
     fullscreenPrompt: printMode ? '' : renderTemplate('fullscreenPrompt'),
     mode,
-    rehearsalDialog: context.rehearsalDeckId ? renderTemplate('rehearsalDialog', { timing: templates.rehearsalTiming }) : '',
+    rehearsalDialog: context.rehearsalDeckId ? renderTemplate('rehearsalDialog', {
+      microphone: templates.rehearsalMicrophone, recording: templates.rehearsalRecording, timing: templates.rehearsalTiming
+    }) : '',
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,

@@ -97,6 +97,8 @@ Open `/presenter` on localhost in desktop Chrome and select **Start timing** to 
 
 In a saved rehearsal, **Use rehearsal timings** proposes the measured finish times. **Fit to a talk length** scales the same run to your slot. Review the current and proposed targets, choose which slides to update, then select **Apply timing targets**. Each selected slide gets its own elapsed finish target in the source Markdown.
 
+Select **Record talk** to capture one microphone along with the slide changes. Check the input level before selecting **Start recording**. After **Stop recording**, open **Rehearsals** to play or download the WAV. Audio is saved in your browser as you talk. An interrupted recording can still contain the audio saved up to that point. **Delete recording** clears the audio and keeps the slide visits.
+
 ## Local Editing
 
 In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide or single-file deck section. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide source. Static builds do not include the editor or slide source.
