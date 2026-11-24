@@ -595,6 +595,90 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('resumes saved speech after the tab closes and downloads only the actual slide visits', async () => {
+    const root = await createEditableSmokeDeck();
+    const server = await startDevServer(root);
+    const { chromium } = await import('playwright');
+    let browser: Browser | undefined;
+    let reopening = false;
+
+    try {
+      browser = await launchBrowser(chromium);
+      const context = await browser.newContext();
+      context.setDefaultTimeout(7000);
+      await context.route('**/presso-transcription-worker.js', async (route) => {
+        await route.fulfill({
+          contentType: 'text/javascript',
+          body: `self.onmessage = ({ data }) => {
+            if (data.type === 'prepare') self.postMessage({ type: 'ready', device: data.device });
+            if (data.type !== 'decode') return;
+            const first = data.audio[0] === 0;
+            if (!first && !${reopening}) return;
+            if (first && ${reopening}) {
+              self.postMessage({ type: 'error', text: 'Reprocessed a completed segment' });
+              return;
+            }
+            self.postMessage({ type: 'words', words: first
+              ? [{ text: 'Opening', timestamp: [1, 2] }, { text: 'Middle', timestamp: [20, 21] }, { text: 'Seam', timestamp: [23.6, 24.1] }]
+              : [{ text: 'Seam', timestamp: [1.9, 2.3] }, { text: 'Later', timestamp: [3, 4] }, { text: 'Return', timestamp: [14, 15] }]
+            });
+          }
+`
+        });
+      });
+
+      let page = await context.newPage();
+      await page.goto(server.origin + '/presenter');
+      await page.evaluate(async () => {
+        const asset = '/_presso/presso-rehearsal-store.js';
+        const { openRehearsalStore } = await import(asset);
+        const store = await openRehearsalStore();
+        const config = JSON.parse(document.getElementById('presso-runtime-config')!.textContent!);
+        const id = 'speech-resume-fixture';
+        await store.save({
+          id, deckId: config.rehearsalDeckId, title: 'Recorded title', startedAt: Date.now(),
+          slideIds: ['original', 'untouched'], finishedMs: 48000,
+          visits: [
+            { slideId: 'original', title: 'Original title during the talk', startMs: 0 },
+            { slideId: 'untouched', title: 'Untouched slide', startMs: 15000 },
+            { slideId: 'original', title: 'Original title during the talk', startMs: 35000 }
+          ],
+          audio: { finished: true, samples: 48000 * 16 }
+        });
+        for (let index = 0; index < 24; index += 1) {
+          await store.saveAudio(id, index, new Int16Array(32000).fill(index));
+        }
+      });
+      await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      await page.getByRole('button', { name: 'Transcribe in English' }).click();
+      await expectText(page, '[data-transcript-commands] [role="status"]', 'Transcribing 50%');
+      await page.close();
+
+      reopening = true;
+      page = await context.newPage();
+      await page.goto(server.origin + '/presenter');
+      await expectText(page, '[data-transcription-progress]', 'Transcript ready in Rehearsals.');
+      await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download transcript' }).click();
+      const file = await (await download).path();
+      if (!file) throw new Error('The transcript download was not saved.');
+      expect(await fs.readFile(file, 'utf8')).toBe([
+        '# Recorded title — spoken transcript', '',
+        '## 0:00 · Original title during the talk', '', 'Opening', '',
+        '## 0:15 · Untouched slide', '', 'Middle Seam Later', '',
+        '## 0:35 · Original title during the talk', '', 'Return', ''
+      ].join('\n'));
+
+      const output = await buildStatic(root);
+      expect(await fs.readFile(path.join(output, 'transcript.md'), 'utf8')).not.toContain('Recorded title');
+      expect((await fs.readdir(path.join(output, '_presso'))).sort()).toEqual(['presso-runtime.js', 'presso.css']);
+    } finally {
+      await browser?.close();
+      await server.close();
+    }
+  }, 60000);
+
   it('edits active folder slide source over the dev server', async () => {
     const deck = await createEditableSmokeDeck();
     const devServer = await startDevServer(deck);

@@ -18,7 +18,8 @@ export type RenderMode =
 export const runtimeAssetNames = ['presso.css', 'presso-runtime.js'] as const;
 export const rehearsalAssetNames = [
   'presso-rehearsal.js', 'presso-rehearsal-timing.js', 'presso-rehearsal-store.js',
-  'presso-rehearsal-audio.js', 'presso-audio-worklet.js'
+  'presso-rehearsal-audio.js', 'presso-audio-worklet.js',
+  'presso-rehearsal-transcript.js', 'presso-transcription-worker.js'
 ] as const;
 export type RuntimeAssetName = typeof runtimeAssetNames[number] | typeof rehearsalAssetNames[number];
 
@@ -55,7 +56,9 @@ const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: strin
   'presso-rehearsal-timing.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-timing.js' },
   'presso-rehearsal-store.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-store.js' },
   'presso-rehearsal-audio.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-audio.js' },
-  'presso-audio-worklet.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-audio-worklet.js' }
+  'presso-audio-worklet.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-audio-worklet.js' },
+  'presso-rehearsal-transcript.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-transcript.js' },
+  'presso-transcription-worker.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-transcription-worker.js' }
 };
 
 const templates = {

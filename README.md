@@ -97,7 +97,9 @@ Open `/presenter` on localhost in desktop Chrome and select **Start timing** to 
 
 In a saved rehearsal, **Use rehearsal timings** proposes the measured finish times. **Fit to a talk length** scales the same run to your slot. Review the current and proposed targets, choose which slides to update, then select **Apply timing targets**. Each selected slide gets its own elapsed finish target in the source Markdown.
 
-Select **Record talk** to capture one microphone along with the slide changes. Check the input level before selecting **Start recording**. After **Stop recording**, open **Rehearsals** to play or download the WAV. Audio is saved in your browser as you talk. An interrupted recording can still contain the audio saved up to that point. **Delete recording** clears the audio and keeps the slide visits.
+Select **Record talk** to capture one microphone along with the slide changes. Check the input level before selecting **Start recording**. After **Stop recording**, open **Rehearsals** to play or download the WAV. Audio is saved in your browser as you talk. An interrupted recording can still contain the audio saved up to that point. **Delete recording** clears the audio and its spoken transcript and keeps the slide visits.
+
+In a recording, choose **Transcribe in English** to process it locally. **Prepare transcription** in the microphone dialog downloads the model in advance so you can work offline. Closing Chrome preserves completed sections. Reopen Presso at the same address to resume processing. **Download transcript** saves Markdown in delivery order. When speech spans a slide change, each word goes with the slide that was on screen at its midpoint.
 
 ## Local Editing
 

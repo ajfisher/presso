@@ -99,7 +99,7 @@ export function setupMicrophone(dialog, onStart, onLevel, onLost) {
   const panel = dialog.querySelector('[data-rehearsal-microphone]');
   const input = panel.querySelector('[data-microphone-input]');
   const meter = panel.querySelector('meter');
-  const status = panel.querySelector('[role="status"]');
+  const status = panel.querySelector(':scope > [role="status"]');
   const check = panel.querySelector('[data-microphone-check]');
   const start = panel.querySelector('[data-microphone-start]');
   let microphone;
@@ -187,7 +187,7 @@ export function setupAudioReview(dialog, store, deckId, onDelete) {
   const panel = dialog.querySelector('[data-rehearsal-recording]');
   const audio = panel.querySelector('audio');
   const actions = panel.querySelector('[data-audio-actions]');
-  const status = panel.querySelector('[role="status"]');
+  const status = panel.querySelector(':scope > [role="status"]');
   let selected;
   let waveUrl;
   let waveRequest;
@@ -221,6 +221,7 @@ export function setupAudioReview(dialog, store, deckId, onDelete) {
       selected = run;
       actions.hidden = false;
       status.textContent = run.audio.finished ? '' : 'Recovered audio from an interrupted recording.';
+      return true;
     } catch {
       if (attempt !== version) return;
       panel.hidden = false;
@@ -266,12 +267,16 @@ export function setupAudioReview(dialog, store, deckId, onDelete) {
   });
   panel.querySelector('[data-audio-delete]').addEventListener('click', async () => {
     const run = selected;
-    if (!run || !window.confirm('Delete this recording? The slide timings will stay.')) return;
+    if (!run || !window.confirm('Delete this recording and its transcript? The slide timings will stay.')) return;
     try {
       await navigator.locks.request(`presso:rehearsal:${deckId}`, { ifAvailable: true }, async (lock) => {
         if (!lock) throw new Error('Stop the rehearsal in the other tab before deleting a recording.');
-        await store().deleteAudio(run.id);
-        delete run.audio;
+        await navigator.locks.request('presso:transcription', { ifAvailable: true }, async (speechLock) => {
+          if (!speechLock) throw new Error('Pause transcription before deleting the recording.');
+          await store().deleteAudio(run.id);
+          delete run.audio;
+          delete run.transcript;
+        });
       });
       if (selected === run) {
         clear();
