@@ -25,12 +25,11 @@ jobs:
       - run: npm run build
       - name: Obtain the public reference clip
         run: |
-          curl --fail --location --retry 2 --max-time 45 https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$RUNNER_TEMP/rehearsal-reference.wav"
-          ffmpeg -hide_banner -loglevel error -threads 1 -i "$RUNNER_TEMP/rehearsal-reference.wav" -ac 1 -ar 16000 -c:a pcm_s16le -f s16le "$RUNNER_TEMP/rehearsal-reference.pcm"
+          curl --silent --show-error --fail --location --retry 2 --max-time 45 https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$RUNNER_TEMP/rehearsal-reference.wav"
       - name: Decode in Chrome with and without network
         env:
           DECK: examples/basic
-          INPUT_PCM: ${{ runner.temp }}/rehearsal-reference.pcm
+          INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
         run: |
           command -v google-chrome
           lscpu | awk -F: '/^Model name:/{print $2}'

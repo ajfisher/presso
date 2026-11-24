@@ -5,7 +5,7 @@ import { join, resolve } from 'node:path';
 import { chromium } from 'playwright';
 import { startDevServer } from '../packages/server/dist/index.js';
 
-const bytes = await readFile(process.env.INPUT_PCM);
+const bytes = await readFile(process.env.INPUT_WAV);
 const clip = bytes.toString('base64');
 const profile = await mkdtemp(join(tmpdir(), 'presso-engine-probe-'));
 const server = await startDevServer(resolve(process.env.DECK), 64134);
@@ -60,7 +60,7 @@ self.addEventListener('message', ({data}) => {
     await page.goto(server.origin + '/presenter');
     assert.equal(await page.evaluate(() => navigator.gpu === undefined), true, 'CPU probe unexpectedly exposes WebGPU');
     const baseline = await page.evaluate(() => navigator.storage.estimate().then(({ usage }) => usage));
-    await seed(page, name);
+    const samples = await seed(page, name);
     await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
     const submitted = performance.now();
     await page.getByRole('button', { name: 'Transcribe in English' }).click();
@@ -92,7 +92,7 @@ self.addEventListener('message', ({data}) => {
 
     const storage = await page.evaluate(() => navigator.storage.estimate().then(({ usage }) => usage));
     console.log('Metrics', JSON.stringify({
-      name, clipSeconds: bytes.length / 32000, backend: 'wasm', words: words.length,
+      name, clipSeconds: samples / 16000, backend: 'wasm', words: words.length,
       wallMs: Math.round(performance.now() - started), submissionMs: Math.round(performance.now() - submitted),
       navigationMs: Math.round(navigationMs), storageDeltaBytes: storage - baseline, storageBytes: storage,
       workerExternalGets: downloads
@@ -104,13 +104,19 @@ self.addEventListener('message', ({data}) => {
 }
 
 async function seed(page, id) {
-  await page.evaluate(async ({ id, clip }) => {
+  return page.evaluate(async ({ id, clip }) => {
     const { openRehearsalStore } = await import('/_presso/presso-rehearsal-store.js');
     const store = await openRehearsalStore();
     window.probeStore = store;
     const config = JSON.parse(document.getElementById('presso-runtime-config').textContent);
     const bytes = Uint8Array.from(atob(clip), (character) => character.charCodeAt(0));
-    const pcm = new Int16Array(bytes.buffer);
+    const decoded = await new OfflineAudioContext(1, 1, 16000).decodeAudioData(bytes.buffer);
+    const channels = Array.from({ length: decoded.numberOfChannels }, (_, i) => decoded.getChannelData(i));
+    const pcm = new Int16Array(decoded.length);
+    for (let i = 0; i < pcm.length; i += 1) {
+      const mean = channels.reduce((sum, channel) => sum + channel[i], 0) / channels.length;
+      pcm[i] = Math.round(32767 * Math.max(-1, Math.min(1, mean)));
+    }
     await store.save({
       id, startedAt: Date.now(), title: 'Public reference speech', deckId: config.rehearsalDeckId,
       slideIds: config.slides.map((slide) => slide.id), finishedMs: pcm.length / 16,
@@ -123,5 +129,6 @@ async function seed(page, id) {
     for (let start = 0; start < pcm.length; start += 32000) {
       await store.saveAudio(id, start / 32000, pcm.slice(start, start + 32000));
     }
+    return pcm.length;
   }, { id, clip });
 }
