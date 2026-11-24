@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { chromium } from 'playwright';
 import { startDevServer } from '../packages/server/dist/index.js';
 
@@ -81,11 +82,7 @@ self.addEventListener('message', ({data}) => {
       document.body.dataset.currentSlide !== index || document.body.dataset.currentBuildStep !== step, from);
     const navigationMs = performance.now() - navigationStarted;
     console.log(name, 'presenter advanced during transcription in', Math.round(navigationMs), 'ms');
-    await page.waitForFunction(async (id) => {
-      return ['done', 'error'].includes((await window.probeStore.get(id))?.transcript?.state);
-    }, name, { polling: 500, timeout: 140000 });
-
-    const result = await page.evaluate((id) => window.probeStore.readTranscript(id), name);
+    const result = await waitForTranscript(page, name);
     assert.equal(result.run.transcript.state, 'done', result.run.transcript.message);
     const words = result.segments.flatMap((segment) => segment.words);
     assert.ok(words.length > 12, 'Expected recognizable speech');
@@ -140,4 +137,17 @@ async function seed(page, id) {
     }
     return pcm.length;
   }, { id, clip });
+}
+
+async function waitForTranscript(page, id) {
+  const deadline = performance.now() + 140000;
+  let checkpoint;
+  while (performance.now() < deadline) {
+    checkpoint = await page.evaluate(async (key) => (await window.probeStore.get(key))?.transcript, id);
+    if (['done', 'error'].includes(checkpoint?.state)) {
+      return page.evaluate((key) => window.probeStore.readTranscript(key), id);
+    }
+    await delay(400);
+  }
+  throw new Error('Worker did not reach a terminal state: ' + (checkpoint?.message ?? 'no checkpoint'));
 }
