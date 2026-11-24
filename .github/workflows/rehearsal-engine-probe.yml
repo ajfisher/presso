@@ -15,9 +15,6 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    env:
-      DECK: ${{ runner.temp }}/fit-fixture
-      INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -28,6 +25,9 @@ jobs:
       - run: npm run build
       - name: Prepare an editable deck and the public reference clip
         run: |
+          DECK="$RUNNER_TEMP/fit-fixture"
+          INPUT_WAV="$RUNNER_TEMP/rehearsal-reference.wav"
+          printf 'DECK=%s\nINPUT_WAV=%s\n' "$DECK" "$INPUT_WAV" >> "$GITHUB_ENV"
           curl --silent --show-error --fail --location --retry 2 --max-time 45 \
             https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$INPUT_WAV"
           mkdir -p "$DECK/slides"
@@ -78,7 +78,6 @@ jobs:
     timeout-minutes: 10
     env:
       DECK: examples/basic
-      INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
       COMPARE_BACKENDS: '1'
     steps:
       - uses: actions/checkout@v7.0.1
@@ -90,6 +89,8 @@ jobs:
       - run: npm run build
       - name: Download the public reference clip
         run: |
+          INPUT_WAV="$RUNNER_TEMP/rehearsal-reference.wav"
+          printf 'INPUT_WAV=%s\n' "$INPUT_WAV" >> "$GITHUB_ENV"
           curl --silent --show-error --fail --location --retry 2 --max-time 45 \
             https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$INPUT_WAV"
       - name: Compare automatic WebGPU selection and CPU inference on Apple silicon
