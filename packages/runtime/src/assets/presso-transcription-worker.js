@@ -33,7 +33,7 @@ async function prepare(device) {
     const [module, binary] = await Promise.all([cachedAsset(cache, wasmModule), cachedAsset(cache, wasmBinary)]);
     const factory = URL.createObjectURL(new Blob([await module.arrayBuffer()], { type: 'text/javascript' }));
     try {
-      // The pipeline also looks up model metadata without passing the revision.
+      // Transformers.js probes metadata without passing the pipeline revision.
       env.remotePathTemplate = `{model}/resolve/${revision}/`;
       env.useBrowserCache = true;
       env.useWasmCache = false;
@@ -42,27 +42,19 @@ async function prepare(device) {
       env.backends.onnx.wasm.wasmPaths = { mjs: factory };
       const options = { device, dtype: 'q8', revision };
       const task = 'automatic-speech-recognition';
-      const fromCache = await modelIsCached();
-      if (fromCache) {
-        // The loader still probes for optional files that are absent in this revision.
-        env.fetch = async () => new Response(null, { status: 404 });
-      }
       const transcribe = await pipeline(task, model, {
         ...options,
         progress_callback: ({ status, progress }) => {
           if (status === 'progress_total' && Number.isFinite(progress)) self.postMessage({ type: 'progress', progress });
         }
       });
-      return { transcribe, offlineReady: fromCache || await modelIsCached() };
-
-      async function modelIsCached() {
-        try {
-          return await ModelRegistry.is_pipeline_cached(task, model, options);
-        } catch {
-          // Inference can still run if Chrome could not cache every model file.
-          return false;
-        }
+      let offlineReady = false;
+      try {
+        offlineReady = await ModelRegistry.is_pipeline_cached(task, model, options);
+      } catch {
+        // Inference can still run if Chrome could not cache every model file.
       }
+      return { transcribe, offlineReady };
     } finally {
       URL.revokeObjectURL(factory);
     }
