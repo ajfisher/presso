@@ -547,6 +547,53 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('saves the final microphone samples and defers deck reloads during recording', async () => {
+    const root = await createEditableSmokeDeck();
+    const server = await startDevServer(root);
+    const { chromium } = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(chromium, ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']);
+      const page = await browser.newPage();
+      page.setDefaultTimeout(7000);
+      await page.goto(server.origin + '/presenter');
+      await page.getByRole('button', { name: 'Record talk', exact: true }).click();
+      await page.getByRole('button', { name: 'Check microphone' }).click();
+      await page.getByRole('button', { name: 'Start recording' }).click();
+      await page.getByRole('button', { name: 'Stop recording' }).waitFor();
+      await fs.appendFile(path.join(root, 'slides/002-untouched.md'), '\nA change during recording.\n');
+      await expectText(page, '[data-rehearsal-status]', 'Deck changes are ready to reload.');
+      await page.waitForFunction(() => Number(document.querySelector('[data-rehearsal-elapsed]')?.textContent?.split(':').at(-1)) >= 3);
+      await page.getByRole('button', { name: 'Stop recording' }).click();
+      await expectText(page, '[data-rehearsal-status]', 'Recording saved.');
+      await page.reload();
+
+      await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      const download = page.waitForEvent('download');
+      await page.getByRole('button', { name: 'Download audio' }).click();
+      const file = await (await download).path();
+      if (!file) throw new Error('The WAV download was not saved.');
+      const wave = await fs.readFile(file);
+      expect(wave.subarray(0, 4).toString()).toBe('RIFF');
+      expect(wave.readUInt32LE(24)).toBe(16000);
+      expect(wave.readUInt32LE(40)).toBe(wave.length - 44);
+      expect(wave.readUInt32LE(40)).toBeGreaterThan(16000 * 2 * 2);
+      expect(wave.subarray(44).some((value) => value > 0)).toBe(true);
+
+      page.once('dialog', (confirmation) => void confirmation.accept());
+      await page.getByRole('button', { name: 'Delete recording' }).click();
+      await page.getByRole('button', { name: 'Download audio' }).waitFor({ state: 'hidden' });
+      await page.reload();
+      await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      expect(await page.getByRole('button', { name: 'Download audio' }).isVisible()).toBe(false);
+      expect(await page.locator('[data-rehearsal-visits] tr').count()).toBe(1);
+    } finally {
+      await browser?.close();
+      await server.close();
+    }
+  }, 60000);
+
   it('edits active folder slide source over the dev server', async () => {
     const deck = await createEditableSmokeDeck();
     const devServer = await startDevServer(deck);
@@ -1032,11 +1079,9 @@ Original single-file notes.
   return root;
 }
 
-async function launchBrowser(chromium: typeof import('playwright').chromium): Promise<Browser> {
+async function launchBrowser(chromium: typeof import('playwright').chromium, args?: string[]): Promise<Browser> {
   const executablePath = process.env.PRESSO_PLAYWRIGHT_EXECUTABLE ?? localChromePath();
-  return executablePath
-    ? chromium.launch({ executablePath })
-    : chromium.launch();
+  return chromium.launch({ executablePath, args });
 }
 
 function localChromePath(): string | undefined {
