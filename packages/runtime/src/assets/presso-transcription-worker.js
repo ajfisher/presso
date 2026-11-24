@@ -33,6 +33,8 @@ async function prepare(device) {
     const [module, binary] = await Promise.all([cachedAsset(cache, wasmModule), cachedAsset(cache, wasmBinary)]);
     const factory = URL.createObjectURL(new Blob([await module.arrayBuffer()], { type: 'text/javascript' }));
     try {
+      // Transformers.js probes metadata without passing the pipeline revision.
+      env.remotePathTemplate = `{model}/resolve/${revision}/`;
       env.useBrowserCache = true;
       env.useWasmCache = false;
       env.backends.onnx.wasm.numThreads = 1;
