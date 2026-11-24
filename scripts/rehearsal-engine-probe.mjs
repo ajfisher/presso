@@ -54,10 +54,10 @@ self.fetch = (input, init) => {
   if (url.origin !== location.origin) {
     const method = init?.method ?? input.method ?? 'GET';
     if (!['GET', 'HEAD'].includes(method) || ${offline}) {
-      console.info('presso-probe: blocked external ' + method + ' ' + url.hostname);
+      console.info('presso-probe: blocked external ' + method + ' ' + url.hostname + url.pathname);
       throw new Error('Unexpected external request for ' + url.hostname + ' during probe');
     }
-    console.info('presso-probe: external ' + method + ' ' + url.hostname);
+    console.info('presso-probe: external ' + method + ' ' + url.hostname + url.pathname);
   }
   return fetchFromProbe(input, init);
 };
@@ -84,6 +84,7 @@ self.addEventListener('message', ({data}) => {
     console.log(name, 'presenter advanced during transcription in', Math.round(navigationMs), 'ms');
     const result = await waitForTranscript(page, name);
     assert.equal(result.run.transcript.state, 'done', result.run.transcript.message);
+    assert.equal(await page.evaluate(() => localStorage.getItem('presso:transcription-ready:whisper-base.en:fa239a4')), 'yes');
     const words = result.segments.flatMap((segment) => segment.words);
     assert.ok(words.length > 12, 'Expected recognizable speech');
     assert.ok(words.every((word) => Number.isFinite(word.startMs) && Number.isFinite(word.endMs) && word.startMs <= word.endMs));
