@@ -250,6 +250,49 @@ describe('dev server slide editing', () => {
   });
 });
 
+describe('rehearsal timing targets', () => {
+  it('previews interpolation, preserves folder source, and detects changes to retained markers', async () => {
+    const root = await createFolderDeck();
+    const intro = path.join(root, 'slides/001-intro.md');
+    const middle = path.join(root, 'slides/002-middle.md');
+    const closing = path.join(root, 'slides/003-closing.md');
+    const introSource = (await fs.readFile(intro, 'utf8')).replace('custom: keep-me', 'custom: keep-me\ntime: "0:30" # finish by here');
+    const middleSource = '# Keep this interpolated\n';
+    const closingSource = '---\ntime: "3:00"\n---\n# Closing\n';
+    await Promise.all([
+      fs.writeFile(intro, introSource),
+      fs.writeFile(middle, middleSource),
+      fs.writeFile(closing, closingSource)
+    ]);
+
+    const server = await startTestServer(root);
+    const presenter = await (await fetch(server.origin + '/presenter')).text();
+    const deckId = JSON.parse(/id="presso-runtime-config">([^<]*)<\/script>/.exec(presenter)![1]!).rehearsalDeckId;
+    const payload = { deckId, slideIds: ['intro', 'middle', 'closing'], targets: [{ id: 'intro', seconds: 60 }] };
+    const endpoint = server.origin + '/rehearsal/timing';
+    const send = (method: string, body: object, origin = server.origin) => fetch(endpoint, {
+      method,
+      headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+
+    expect((await send('POST', payload, 'http://other.local')).status).toBe(403);
+    const preview = await (await send('POST', payload)).json();
+    expect(preview.rows[1]).toMatchObject({ authored: null, current: 105, proposed: 120, change: null });
+
+    const changedClosing = closingSource.replace('3:00', '3:30');
+    await fs.writeFile(closing, changedClosing);
+    expect((await send('PUT', { ...payload, revision: preview.revision })).status).toBe(409);
+    expect(await fs.readFile(intro, 'utf8')).toBe(introSource);
+
+    const refreshed = await (await send('POST', payload)).json();
+    expect(await (await send('PUT', { ...payload, revision: refreshed.revision })).json()).toEqual({ applied: ['intro'] });
+    expect(await fs.readFile(intro, 'utf8')).toBe(introSource.replace('0:30', '1:00'));
+    expect(await fs.readFile(middle, 'utf8')).toBe(middleSource);
+    expect(await fs.readFile(closing, 'utf8')).toBe(changedClosing);
+  });
+});
+
 async function startTestServer(root: string): Promise<DevServer> {
   const server = await startDevServer(root, await getFreePort());
   servers.push(server);

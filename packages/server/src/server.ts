@@ -6,7 +6,7 @@ import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
-import { compileDeck, createSlideSource, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
+import { compileDeck, createSlideSource, previewTimingTargets, readSlideSource, writeSlideSource, writeTimingTargets, type Deck, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
 import { readRuntimeAsset, rehearsalAssetNames, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
@@ -61,6 +61,13 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   const clients = new Map<number, Client>();
   let controlUrlCache: { expiresAt: number; urls: string[] } | undefined;
   let suppressReloadUntil = 0;
+  let applyingTimings = false;
+  let sourceWrites = Promise.resolve();
+  const queueWrite = (write: () => Promise<void>) => {
+    const result = sourceWrites.then(write);
+    sourceWrites = result.catch(() => {});
+    return result;
+  };
   const state = (updateId?: string) => ({
     buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex,
     slideId: currentSlideId, session: stateSession, revision: stateRevision, updateId
@@ -81,20 +88,36 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
       const localAuthor = isLocalAuthor(req, port);
       if (url.pathname === '/edit/slides') {
-        suppressReloadUntil = Date.now() + 500;
-        await handleCreateSlide(cwd, req, res, (slide) => {
+        await handleCreateSlide(cwd, req, res, queueWrite, (slide) => {
           currentIndex = slide.index;
           currentSlideId = slide.id;
           currentBuildStep = 0;
           stateRevision += 1;
           broadcast(clients, 'state', state());
           broadcast(clients, 'slide-created', {});
-        });
+        }, () => { suppressReloadUntil = Date.now() + 500; });
         return;
       }
       if (url.pathname === '/edit/slide') {
-        if (req.method === 'PUT') suppressReloadUntil = 0;
-        await handleEditSlide(cwd, req, res, url);
+        await handleEditSlide(cwd, req, res, url, queueWrite, () => { suppressReloadUntil = 0; });
+        return;
+      }
+      if (url.pathname === '/rehearsal/timing') {
+        if (!localAuthor || req.headers.origin !== `http://${req.headers.host}`) {
+          sendJson(res, { error: 'Open the presenter on localhost to edit rehearsal timings.' }, 403);
+          return;
+        }
+        await handleRehearsalTiming(deckRoot, cwd, req, res, queueWrite, async (deck, changes) => {
+          applyingTimings = true;
+          try {
+            const result = await writeTimingTargets(deck, changes);
+            if (result.applied.length) broadcast(clients, 'reload', {});
+            return result;
+          } finally {
+            applyingTimings = false;
+            suppressReloadUntil = Date.now() + 300;
+          }
+        });
         return;
       }
       if (req.method === 'GET' && url.pathname === '/events') {
@@ -172,7 +195,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
       const mode = ROUTE_MODES.get(url.pathname);
       if (mode) {
         const rehearsalDeckId = mode === 'presenter' && localAuthor
-          ? createHash('sha256').update(JSON.stringify([deckRoot, deck.config.source])).digest('hex')
+          ? getRehearsalDeckId(deckRoot, deck)
           : undefined;
         sendHtml(res, renderPage(deck, mode, { controlUrls: await controlUrls(), rehearsalDeckId, server: true }));
         return;
@@ -190,7 +213,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
   const watcher = watch(cwd, { recursive: true }, (_event, fileName) => {
     if (fileName && String(fileName).includes('node_modules')) return;
-    if (Date.now() < suppressReloadUntil) return;
+    if (applyingTimings || Date.now() < suppressReloadUntil) return;
     broadcast(clients, 'reload', {});
   });
 
@@ -261,11 +284,15 @@ function sendHtml(res: ServerResponse, html: string): void {
   res.end(html);
 }
 
+type SourceWriteQueue = (write: () => Promise<void>) => Promise<void>;
+
 async function handleCreateSlide(
   cwd: string,
   req: http.IncomingMessage,
   res: ServerResponse,
-  onCreated: (slide: { index: number; id: string }) => void
+  queue: SourceWriteQueue,
+  onCreated: (slide: { index: number; id: string }) => void,
+  beforeWrite: () => void
 ): Promise<void> {
   try {
     if (req.method !== 'POST') {
@@ -273,15 +300,21 @@ async function handleCreateSlide(
       return;
     }
     const input = parseCreateSlideInput(parseJsonObject(await readBody(req)));
-    const created = await createSlideSource(cwd, input);
-    onCreated(created);
-    sendJson(res, created);
+    await queue(async () => {
+      beforeWrite();
+      const created = await createSlideSource(cwd, input);
+      onCreated(created);
+      sendJson(res, created);
+    });
   } catch (error) {
     sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
   }
 }
 
-async function handleEditSlide(cwd: string, req: http.IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
+async function handleEditSlide(
+  cwd: string, req: http.IncomingMessage, res: ServerResponse, url: URL,
+  queue: SourceWriteQueue, beforeWrite: () => void
+): Promise<void> {
   try {
     const index = parseSlideIndex(url);
     if (req.method === 'GET') {
@@ -290,8 +323,10 @@ async function handleEditSlide(cwd: string, req: http.IncomingMessage, res: Serv
     }
     if (req.method === 'PUT') {
       const input = parseEditInput(parseJsonObject(await readBody(req)));
-      const saved = await writeSlideSource(cwd, index, input);
-      sendJson(res, saved);
+      await queue(async () => {
+        beforeWrite();
+        sendJson(res, await writeSlideSource(cwd, index, input));
+      });
       return;
     }
     sendJson(res, { error: 'Edit slide endpoint supports GET and PUT only.' }, 405);
@@ -307,6 +342,58 @@ function parseSlideIndex(url: URL): number {
     throw new Error('A valid non-negative slide index is required.');
   }
   return index;
+}
+
+async function handleRehearsalTiming(
+  deckRoot: string,
+  cwd: string,
+  req: http.IncomingMessage,
+  res: ServerResponse,
+  queue: SourceWriteQueue,
+  apply: typeof writeTimingTargets
+) {
+  if (req.method !== 'POST' && req.method !== 'PUT') {
+    sendJson(res, { error: 'Send POST to preview timings or PUT to apply them.' }, 405);
+    return;
+  }
+  if (req.headers['content-type'] !== 'application/json') {
+    sendJson(res, { error: 'A JSON timing plan is required.' }, 415);
+    return;
+  }
+  try {
+    const input = parseJsonObject(await readBody(req, 1024 * 1024));
+    const slideIds = input.slideIds;
+    if (!Array.isArray(slideIds) || slideIds.some((id) => typeof id !== 'string') || !Array.isArray(input.targets)) {
+      throw new Error('The timing plan needs the rehearsal’s slide order and targets.');
+    }
+    const targets = new Map<string, number>();
+    for (const target of input.targets) {
+      if (!target || typeof target.id !== 'string' || !Number.isSafeInteger(target.seconds)
+        || target.seconds < 0 || targets.has(target.id)) {
+        throw new Error('Each slide can have one whole-second finish target.');
+      }
+      targets.set(target.id, target.seconds);
+    }
+
+    const createPlan = async () => {
+      const deck = await compileDeck(cwd);
+      if (input.deckId !== getRehearsalDeckId(deckRoot, deck)) {
+        return sendJson(res, { error: 'This rehearsal belongs to a different deck.' }, 409);
+      }
+      const plan = previewTimingTargets(deck, slideIds, targets);
+      if (req.method === 'POST') return sendJson(res, { revision: plan.revision, rows: plan.rows, conflict: plan.conflict });
+      if (plan.revision !== input.revision) {
+        return sendJson(res, { error: 'The timing plan changed since the preview. Review the refreshed targets before applying.' }, 409);
+      }
+      if (plan.conflict) return sendJson(res, { error: plan.conflict }, 400);
+      sendJson(res, await apply(deck, plan.changes));
+    };
+    if (req.method === 'PUT') await queue(createPlan);
+    else await createPlan();
+  } catch (error) {
+    const message = error instanceof Error && !('code' in error) ? error.message : 'Presso could not open the deck’s timing plan.';
+    sendJson(res, { error: message }, 400);
+  }
 }
 
 function parseCreateSlideInput(value: Record<string, unknown>): CreateSlideOptions {
@@ -336,9 +423,18 @@ function sendJson(res: ServerResponse, data: unknown, status = 200): void {
   res.end(JSON.stringify(data, null, 2));
 }
 
-async function readBody(req: http.IncomingMessage): Promise<string> {
+async function readBody(req: http.IncomingMessage, limit = Infinity): Promise<string> {
   const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  let length = 0;
+  for await (const chunk of req.iterator({ destroyOnReturn: false })) {
+    const buffer = Buffer.from(chunk);
+    length += buffer.length;
+    if (length > limit) {
+      req.resume();
+      throw new Error('The timing plan is too large.');
+    }
+    chunks.push(buffer);
+  }
   return Buffer.concat(chunks).toString('utf8');
 }
 
@@ -377,6 +473,10 @@ function contentType(file: string): string {
   if (extension === '.jpg' || extension === '.jpeg') return 'image/jpeg';
   if (extension === '.webp') return 'image/webp';
   return 'application/octet-stream';
+}
+
+function getRehearsalDeckId(deckRoot: string, deck: Deck): string {
+  return createHash('sha256').update(JSON.stringify([deckRoot, deck.config.source])).digest('hex');
 }
 
 function isLocalAuthor(req: http.IncomingMessage, port: number): boolean {

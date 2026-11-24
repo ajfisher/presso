@@ -467,18 +467,81 @@ browserDescribe('browser smoke', () => {
       await presenter.getByRole('button', { name: 'Rehearsals', exact: true }).click();
       const dialog = presenter.getByRole('dialog', { name: 'Rehearsals' });
       await dialog.waitFor();
-      const visits = await dialog.locator('tbody tr').evaluateAll((rows) => rows.map((row) => Array.from(row.children, (cell) => cell.textContent)));
+      const visits = await dialog.locator('[data-rehearsal-visits] tr').evaluateAll((rows) => rows.map((row) => Array.from(row.children, (cell) => cell.textContent)));
       expect(visits).toEqual([
         ['Presso', '0:00', '0:05', '0:05'],
         ['A tiny vertical slice', '0:05', '0:15', '0:10'],
         ['Mobile swipe demo', '0:15', '0:20', '0:05'],
         ['Presso', '0:20', '0:25', '0:05']
       ]);
+      const plan = dialog.getByRole('region', { name: 'Set finish targets' });
+      const first = plan.getByRole('combobox', { name: 'Choose finish for Presso', exact: true });
+      const second = plan.getByRole('combobox', { name: 'Choose finish for A tiny vertical slice' });
+      expect(await first.inputValue()).toBe('');
+      await first.selectOption({ label: 'Visit 2 ended at 0:25' });
+      await second.selectOption({ label: '0:15' });
+      await expectText(presenter, '[data-timing-review] [role="status"]', 'The finish target for “A tiny vertical slice” is earlier than the target for “Presso”. Check the selected and existing targets.');
+      expect(await plan.getByRole('button', { name: 'Apply timing targets' }).isDisabled()).toBe(true);
       await presenter.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' });
       await presenter.locator('[data-rehearsal-open]:focus').waitFor();
     } finally {
       releaseUpdate.resolve();
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 60000);
+
+  it('fits a recorded rehearsal to a talk slot and updates both slides in one Markdown file', async () => {
+    const root = await createSingleFileSmokeDeck();
+    const sourcePath = path.join(root, 'slides.md');
+    const source = (await fs.readFile(sourcePath, 'utf8'))
+      .replace('layout: title', 'layout: title\ntime: "3:00" # keep this comment')
+      .replaceAll('\n', '\r\n');
+    await fs.writeFile(sourcePath, source);
+    const devServer = await startDevServer(root);
+    const { chromium } = await import('playwright');
+    let browser: Browser | undefined;
+
+    try {
+      browser = await launchBrowser(chromium);
+      const page = await browser.newPage();
+      page.setDefaultTimeout(7000);
+      await page.clock.install({ time: 0 });
+      await page.clock.pauseAt(1000);
+      await page.goto(devServer.origin + '/presenter');
+      await page.getByRole('button', { name: 'Start timing' }).click();
+      await page.getByRole('button', { name: 'Stop timing' }).waitFor();
+      await page.clock.fastForward(300000);
+      const advanced = page.waitForResponse((response) => response.url().endsWith('/state') && response.request().method() === 'POST');
+      await page.keyboard.press('ArrowRight');
+      await advanced;
+      await expectServerState(devServer.origin, 1);
+      await page.clock.fastForward(1200000);
+      await page.getByRole('button', { name: 'Stop timing' }).click();
+      await page.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+
+      const review = page.getByRole('region', { name: 'Set finish targets' });
+      const proposed = review.locator('tbody tr td:last-child');
+      await review.getByRole('button', { name: 'Apply timing targets' }).waitFor();
+      await expectText(page, '[data-timing-review] tbody tr:first-child td:last-child', '5:00');
+      expect(await proposed.allTextContents()).toEqual(['5:00', '25:00']);
+      await review.getByRole('radio', { name: 'Fit to a talk length' }).check();
+      const input = review.getByRole('textbox', { name: 'Talk length (m:ss)' });
+      await input.fill('20:00');
+      await input.press('Enter');
+      expect(await fs.readFile(sourcePath, 'utf8')).toBe(source);
+      await expectText(page, '[data-timing-review] tbody tr:first-child td:last-child', '4:00');
+      expect(await proposed.allTextContents()).toEqual(['4:00', '20:00']);
+
+      await review.getByRole('button', { name: 'Apply timing targets' }).click();
+      await expectText(page, '[data-timing-review] [role="status"]', 'Saved 2 slide targets.');
+      expect(await fs.readFile(sourcePath, 'utf8')).toBe(source.replace('3:00', '4:00')
+        .replace('id: single-two', 'time: "20:00"\r\nid: single-two'));
+      await page.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Reload deck' }).click();
+      await expectText(page, '[data-current-target-time]', '20:00');
+    } finally {
       await browser?.close();
       await devServer.close();
     }

@@ -576,16 +576,16 @@ Rules:
 
 ## Timing
 
-Timing markers are keyframes:
+A timing marker sets the elapsed time by which you aim to finish that slide.
 
 ```yaml
 time: "15:00"
 ```
 
-The runtime interpolates between known times. For example:
+The runtime interpolates between known finish targets. For example, the following markers describe a 30-minute talk.
 
 ```text
-slide 1:  0:00
+slide 1:  0:30
 slide 5:  6:00
 slide 10: 15:00
 slide 30: 30:00
@@ -600,6 +600,8 @@ implementation can distribute time evenly. Later, timing can be weighted by:
 - Images or diagrams.
 - Fragments.
 - Explicit pause hints.
+
+You can update these markers from a saved rehearsal in the localhost presenter. If you leave slide A at 5:00 and stop on B at 25:00, the measured targets are `time: "5:00"` on A and `time: "25:00"` on B. Fitting the run to 20 minutes suggests `time: "4:00"` and `time: "20:00"`. Review the proposed targets and select the markers you want to apply.
 
 ## Deck Config
 
