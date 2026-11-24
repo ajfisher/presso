@@ -1,0 +1,38 @@
+name: Rehearsal engine probe
+
+on:
+  push:
+    branches: ['codex/rehearsal-engine-probe']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rehearsal-engine-probe
+  cancel-in-progress: false
+
+jobs:
+  decode:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Obtain the public reference clip
+        run: |
+          curl --fail --location --retry 2 --max-time 45 https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$RUNNER_TEMP/rehearsal-reference.wav"
+          ffmpeg -hide_banner -loglevel error -threads 1 -i "$RUNNER_TEMP/rehearsal-reference.wav" -ac 1 -ar 16000 -c:a pcm_s16le -f s16le "$RUNNER_TEMP/rehearsal-reference.pcm"
+      - name: Decode in Chrome with and without network
+        env:
+          DECK: examples/basic
+          INPUT_PCM: ${{ runner.temp }}/rehearsal-reference.pcm
+        run: |
+          command -v google-chrome
+          lscpu | awk -F: '/^Model name:/{print $2}'
+          google-chrome --version
+          python3 scripts/rehearsal-engine-guard.py --duration 330 --log "$RUNNER_TEMP/probe.log" -- node scripts/rehearsal-engine-probe.mjs
