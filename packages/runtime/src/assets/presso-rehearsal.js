@@ -1,3 +1,5 @@
+import { setupTimingReview } from './presso-rehearsal-timing.js';
+
 export function setupRehearsal(deckId, slides, currentIndex) {
   const controls = document.querySelector('[data-control-row="rehearsal"]');
   const dialog = document.querySelector('[data-rehearsal]');
@@ -12,6 +14,11 @@ export function setupRehearsal(deckId, slides, currentIndex) {
   let captureReady = false;
   let reloadPending = false;
   let runs = [];
+  const timingReview = setupTimingReview(dialog, deckId, slides, formatClock, () => {
+    reloadPending = true;
+    toggle.disabled = true;
+    status.textContent = 'Reload the deck to use the saved targets.';
+  });
 
   openDatabase().then((db) => {
     database = db;
@@ -116,6 +123,7 @@ export function setupRehearsal(deckId, slides, currentIndex) {
   function showHistory(run) {
     dialog.querySelector('[data-rehearsal-empty]').hidden = Boolean(run);
     dialog.querySelector('[data-rehearsal-history]').hidden = !run;
+    timingReview.show(run);
     if (!run) return;
     dialog.querySelector('[data-rehearsal-summary]').textContent = run.finishedMs === null
       ? 'Incomplete rehearsal. Only the visits saved so far are shown.'

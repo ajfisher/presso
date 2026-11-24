@@ -1,0 +1,21 @@
+<section data-timing-review aria-labelledby="rehearsal-timing-title" hidden>
+  <h3 id="rehearsal-timing-title">Set finish targets</h3>
+  <form>
+    <fieldset>
+      <div data-timing-options role="group" aria-label="Timing basis">
+        <label><input type="radio" name="timing-mode" value="measured" checked> Use rehearsal timings</label>
+        <label><input type="radio" name="timing-mode" value="fit"> Fit to a talk length</label>
+        <label>Talk length (m:ss) <input type="text" name="talk-length" placeholder="20:00" disabled></label>
+      </div>
+      <p data-timing-note></p>
+      <div data-timing-table>
+        <table>
+          <thead><tr><th scope="col">Slide</th><th scope="col">Use measured finish</th><th scope="col">Current target</th><th scope="col">Proposed target</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <button type="submit" disabled>Apply timing targets</button>
+    </fieldset>
+    <p role="status"></p>
+  </form>
+</section>

@@ -1785,6 +1785,36 @@
 
     h2 { font-size: 1.2rem; }
 
+    [data-timing-review] {
+      border-top: 1px solid rgb(255 255 255 / 18%);
+      margin-top: 1.2rem;
+      padding-top: 1rem;
+
+      h3 { margin: 0 0 .6rem; }
+
+      fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+
+      [data-timing-options] {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: .6rem 1rem;
+      }
+
+      input[type="text"] {
+        width: 5rem;
+        background: #262626;
+        border: 1px solid rgb(255 255 255 / 30%);
+        color: inherit;
+        border-radius: .25rem;
+        padding: .35rem;
+      }
+
+      [data-timing-table] { overflow-x: auto; margin-bottom: .75rem; }
+
+      button:disabled { opacity: .55; }
+    }
+
     :where(button, select) {
       color: inherit;
       background: #333;

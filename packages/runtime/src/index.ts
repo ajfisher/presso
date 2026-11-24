@@ -16,7 +16,7 @@ export type RenderMode =
   | 'print-notes-pages'
   | 'transcript';
 export const runtimeAssetNames = ['presso.css', 'presso-runtime.js'] as const;
-export const rehearsalAssetNames = ['presso-rehearsal.js'] as const;
+export const rehearsalAssetNames = ['presso-rehearsal.js', 'presso-rehearsal-timing.js'] as const;
 export type RuntimeAssetName = typeof runtimeAssetNames[number] | typeof rehearsalAssetNames[number];
 
 interface RenderOptions {
@@ -48,7 +48,8 @@ const HANDOUT_NOTES_CHUNK_BUDGET = 1500;
 const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: string }> = {
   'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
   'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' },
-  'presso-rehearsal.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal.js' }
+  'presso-rehearsal.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal.js' },
+  'presso-rehearsal-timing.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal-timing.js' }
 };
 
 const templates = {
@@ -69,6 +70,7 @@ const templates = {
   presenterPreviewTemplate: readTemplate('presenter-preview-template.html'),
   rehearsalControls: readTemplate('rehearsal-controls.html'),
   rehearsalDialog: readTemplate('rehearsal-dialog.html'),
+  rehearsalTiming: readTemplate('rehearsal-timing.html'),
   printHandout: readTemplate('print-handout.html'),
   printHandoutPage: readTemplate('print-handout-page.html'),
   printNotes: readTemplate('print-notes.html'),
@@ -123,7 +125,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
     fullscreenPrompt: printMode ? '' : renderTemplate('fullscreenPrompt'),
     mode,
-    rehearsalDialog: context.rehearsalDeckId ? renderTemplate('rehearsalDialog') : '',
+    rehearsalDialog: context.rehearsalDeckId ? renderTemplate('rehearsalDialog', { timing: templates.rehearsalTiming }) : '',
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,
