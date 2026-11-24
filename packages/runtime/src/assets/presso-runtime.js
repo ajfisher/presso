@@ -1054,11 +1054,16 @@
       return;
     }
     const events = new EventSource('/events');
-    events.addEventListener('open', () => setSyncStatus('Synced'));
+    let awaitingSnapshot = true;
+    events.addEventListener('open', () => {
+      awaitingSnapshot = true;
+      setSyncStatus('Synced');
+    });
     events.addEventListener('state', (event) => {
       setSyncStatus('Synced');
       if (!canNavigateSlides) return;
-      receiveServerState(JSON.parse(event.data));
+      receiveServerState(JSON.parse(event.data), awaitingSnapshot);
+      awaitingSnapshot = false;
     });
     events.addEventListener('command', (event) => {
       const command = JSON.parse(event.data);
@@ -1079,9 +1084,11 @@
     if (!rehearsal?.deferReload()) location.reload();
   }
 
-  function receiveServerState(state) {
+  function receiveServerState(state, snapshot = false) {
     if (pendingStateAck?.updateId === state.updateId) pendingStateAck?.resolve();
-    if (receivedState && receivedState.session === state.session && receivedState.revision >= state.revision) return;
+    if (receivedState?.session === state.session && receivedState) {
+      if (state.revision < receivedState.revision || (state.revision === receivedState.revision && !snapshot)) return;
+    }
     receivedState = state;
     // Older echoes must not rewind a newer, already visible local advance.
     if (pendingStateWrites > 0) deferredState = state;

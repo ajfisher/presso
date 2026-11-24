@@ -400,6 +400,14 @@ browserDescribe('browser smoke', () => {
       await expectCurrentSlide(controlPage, 0);
       await expectText(controlPage, '[data-current-position]', '1');
 
+      await deckPage.context().setOffline(true);
+      const failedAdvance = deckPage.waitForEvent('requestfailed', { predicate: (request) => request.url().endsWith('/state') });
+      await deckPage.keyboard.press('End');
+      await failedAdvance;
+      await expectCurrentSlide(deckPage, 11);
+      await deckPage.context().setOffline(false);
+      await expectCurrentSlide(deckPage, 0);
+
       await controlPage.locator('button[data-action="fullscreen"]').click();
       await deckPage.waitForFunction(() => Boolean(document.fullscreenElement) || !document.querySelector('[data-fullscreen-prompt]')?.hasAttribute('hidden'));
     } finally {
