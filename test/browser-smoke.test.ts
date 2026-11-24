@@ -408,6 +408,73 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('keeps one timed visit per slide change across delayed sync and controller navigation', async () => {
+    const devServer = await startDevServer();
+    const { chromium } = await import('playwright');
+    let browser: Browser | undefined;
+    const releaseUpdate = Promise.withResolvers<void>();
+
+    try {
+      browser = await launchBrowser(chromium);
+      const presenter = await browser.newPage({ viewport: { width: 800, height: 650 } });
+      const controller = await browser.newPage();
+      presenter.setDefaultTimeout(7000);
+      controller.setDefaultTimeout(7000);
+      await presenter.clock.install({ time: 0 });
+      await presenter.clock.pauseAt(1000);
+      await presenter.goto(`${devServer.origin}/presenter`);
+      await controller.goto(`${devServer.origin}/control`);
+      await expectCurrentSlide(controller, 0);
+      await expectText(controller, '[data-sync-status]', 'Synced');
+      const start = presenter.getByRole('button', { name: 'Start timing' });
+      expect(await start.evaluate((button) => button.getBoundingClientRect().bottom <= window.innerHeight)).toBe(true);
+      await start.click();
+      await presenter.getByRole('button', { name: 'Stop timing' }).waitFor();
+
+      await presenter.route('**/state', async (route) => {
+        const response = await route.fetch();
+        const { index, buildStep } = route.request().postDataJSON();
+        if (index === 1 && buildStep === 0) await releaseUpdate.promise;
+        await route.fulfill({ response });
+      });
+      await presenter.clock.fastForward(5000);
+      await presenter.keyboard.press('Space');
+      await expectCurrentSlide(controller, 1);
+      await presenter.keyboard.press('ArrowRight');
+      await expectCurrentBuildStep(presenter, 1);
+      await presenter.clock.fastForward(10000);
+      await presenter.keyboard.press('End');
+      await expectCurrentSlide(controller, 11);
+      releaseUpdate.resolve();
+      await presenter.clock.fastForward(5000);
+      await controller.keyboard.press('Home');
+      await expectCurrentSlide(presenter, 0);
+      await presenter.clock.fastForward(5000);
+      await presenter.locator('[data-action="timer-reset"]').click();
+      await presenter.getByRole('button', { name: 'Stop timing' }).click();
+      await expectText(presenter, '[data-rehearsal-status]', 'Rehearsal saved.');
+
+      await presenter.reload();
+      await presenter.getByRole('button', { name: 'Rehearsals', exact: true }).click();
+      const dialog = presenter.getByRole('dialog', { name: 'Rehearsals' });
+      await dialog.waitFor();
+      const visits = await dialog.locator('tbody tr').evaluateAll((rows) => rows.map((row) => Array.from(row.children, (cell) => cell.textContent)));
+      expect(visits).toEqual([
+        ['Presso', '0:00', '0:05', '0:05'],
+        ['A tiny vertical slice', '0:05', '0:15', '0:10'],
+        ['Mobile swipe demo', '0:15', '0:20', '0:05'],
+        ['Presso', '0:20', '0:25', '0:05']
+      ]);
+      await presenter.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'hidden' });
+      await presenter.locator('[data-rehearsal-open]:focus').waitFor();
+    } finally {
+      releaseUpdate.resolve();
+      await browser?.close();
+      await devServer.close();
+    }
+  }, 60000);
+
   it('edits active folder slide source over the dev server', async () => {
     const deck = await createEditableSmokeDeck();
     const devServer = await startDevServer(deck);

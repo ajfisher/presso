@@ -18,7 +18,7 @@
   const canEditSlides = Boolean(serverSync && editing.enabled && editing.slideEndpoint && (mode === 'deck' || mode === 'presenter'));
   const canCreateSlides = Boolean(canEditSlides && editing.createEndpoint);
   let controllerUrls = Array.isArray(config.controlUrls) ? config.controlUrls : [];
-  const channel = 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
+  const channel = !serverSync && 'BroadcastChannel' in window ? new BroadcastChannel('presso') : null;
   const notesSizeKey = 'presso:presenter-notes-size';
   const timerStartKey = 'presso:presenter-started-at';
   const teleprompterEnabledKey = 'presso:teleprompter-enabled';
@@ -64,6 +64,12 @@
   let editSaving = false;
   let editCreating = false;
   let swipeGesture = null;
+  let rehearsal;
+  let stateWrites = Promise.resolve();
+  let pendingStateWrites = 0;
+  let pendingStateAck;
+  let receivedState;
+  let deferredState;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -92,6 +98,7 @@
     updateStateViews(source === 'init' || previousIndex !== index);
     localStorage.setItem('presso:index', String(index));
     localStorage.setItem('presso:buildStep', String(buildStep));
+    if (previousIndex !== index) rehearsal?.visit(slideMetadata[index]);
     if (source === 'local') channel?.postMessage({ buildStep, index });
     if (source === 'local') postState(index, { buildStep });
   }
@@ -284,7 +291,7 @@
   }
 
   async function saveSlideEditor() {
-    if (!canEditSlides || editSaving || editCreating || editCurrentIndex === null) return;
+    if (!canEditSlides || editSaving || editCreating || editCurrentIndex === null || rehearsal?.capturing) return;
     setEditSaving(true);
     setEditError('');
     try {
@@ -308,7 +315,7 @@
   }
 
   async function createSlideFromEditor() {
-    if (!canCreateSlides || editSaving || editCreating) return;
+    if (!canCreateSlides || editSaving || editCreating || rehearsal?.capturing) return;
     if (editHasChanges() && !window.confirm('Create a new slide and discard unsaved edits?')) return;
     setEditCreating(true);
     setEditError('');
@@ -998,18 +1005,32 @@
   function postState(next, extra = {}) {
     if (!serverSync || !canNavigateSlides) return Promise.resolve();
     setSyncStatus('Syncing');
-    return fetch('/state', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ buildStep, index: next, ...extra })
-    })
-      .then(async (response) => {
+    const updateId = crypto.getRandomValues(new Uint32Array(3)).join('-');
+    const body = JSON.stringify({ buildStep, index: next, ...extra, updateId });
+    pendingStateWrites += 1;
+    // Send rapid local advances in the order they were displayed.
+    stateWrites = stateWrites.then(async () => {
+      const acknowledged = Promise.withResolvers();
+      pendingStateAck = { updateId, resolve: acknowledged.resolve };
+      const request = fetch('/state', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body,
+        signal: AbortSignal.timeout(5000)
+      }).then(async (response) => {
         if (!response.ok) throw new Error('State update failed');
-        const state = await response.json();
-        setSyncStatus('Synced');
-        applyServerState(state, 'server');
-      })
-      .catch(() => setSyncStatus('Offline'));
+        receiveServerState(await response.json());
+      });
+      // A matching server event confirms the write even if the HTTP reply is delayed.
+      await Promise.race([request, acknowledged.promise]);
+      setSyncStatus('Synced');
+    }).catch(() => setSyncStatus('Offline')).finally(() => {
+      pendingStateAck = undefined;
+      pendingStateWrites -= 1;
+      if (pendingStateWrites === 0 && deferredState) {
+        applyServerState(deferredState);
+        deferredState = undefined;
+      }
+    });
+    return stateWrites;
   }
 
   function postCommand(command) {
@@ -1037,7 +1058,7 @@
     events.addEventListener('state', (event) => {
       setSyncStatus('Synced');
       if (!canNavigateSlides) return;
-      applyServerState(JSON.parse(event.data), 'remote');
+      receiveServerState(JSON.parse(event.data));
     });
     events.addEventListener('command', (event) => {
       const command = JSON.parse(event.data);
@@ -1046,20 +1067,40 @@
         showFullscreenPrompt('enter');
       }
     });
-    events.addEventListener('reload', () => location.reload());
+    events.addEventListener('reload', reloadDeck);
     events.addEventListener('slide-created', () => {
       // The creating page records the new slide in its URL before reloading.
-      if (!editCreating) location.reload();
+      if (!editCreating) reloadDeck();
     });
     events.addEventListener('error', () => setSyncStatus('Reconnecting'));
   }
 
-  function applyServerState(state, source) {
+  function reloadDeck() {
+    if (!rehearsal?.deferReload()) location.reload();
+  }
+
+  function receiveServerState(state) {
+    if (pendingStateAck?.updateId === state.updateId) pendingStateAck?.resolve();
+    if (receivedState && receivedState.session === state.session && receivedState.revision >= state.revision) return;
+    receivedState = state;
+    // Older echoes must not rewind a newer, already visible local advance.
+    if (pendingStateWrites > 0) deferredState = state;
+    else applyServerState(state);
+  }
+
+  function applyServerState(state) {
     if (typeof state.fullscreen === 'boolean') {
       presentationFullscreen = state.fullscreen;
       updateFullscreenViews();
     }
-    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source, state.buildStep ?? 0);
+    const next = Number(state.index);
+    if (!Number.isFinite(next)) return;
+    if (rehearsal?.capturing && state.slideId && slideMetadata[next]?.id !== state.slideId) {
+      rehearsal.interruptTimeline();
+      return;
+    }
+    setIndex(next, 'remote', state.buildStep ?? 0);
+    rehearsal?.enableCapture();
   }
 
   function showFullscreenPrompt(mode) {
@@ -1171,6 +1212,8 @@
   }
 
   document.addEventListener('keydown', (event) => {
+    if (document.querySelector('[data-rehearsal][open]')) return;
+    if (event.key === ' ' && event.target instanceof Element && event.target.closest('[data-control-row="rehearsal"] button')) return;
     if (isEditOpen()) {
       if (trapEditFocus(event)) return;
       if ((event.metaKey || event.ctrlKey) && ['1', '2', '3', '4'].includes(event.key)) {
@@ -1347,7 +1390,7 @@
   });
 
   document.addEventListener('dblclick', (event) => {
-    if (!canEditSlides || isEditableTarget(event.target)) return;
+    if (!canEditSlides || isEditableTarget(event.target) || rehearsal?.capturing) return;
     const target = event.target instanceof Element ? event.target : null;
     if (!target?.closest('.presso-slide.is-active')) return;
     event.preventDefault();
@@ -1399,6 +1442,14 @@
   }
   if (mode === 'presenter') {
     window.setInterval(updatePresenterTimer, 1000);
+  }
+  if (config.rehearsalDeckId) {
+    import('./presso-rehearsal.js').then(({ setupRehearsal }) => {
+      rehearsal = setupRehearsal(config.rehearsalDeckId, slideMetadata, () => index);
+      if (receivedState) rehearsal.enableCapture();
+    }).catch(() => {
+      document.querySelector('[data-rehearsal-status]').textContent = 'Rehearsal controls could not load.';
+    });
   }
   document.addEventListener('visibilitychange', () => {
     if (wakeLockRequested && document.visibilityState === 'visible' && !isWakeLockActive()) requestWakeLock();
