@@ -1,4 +1,4 @@
-name: Rehearsal engine probe
+name: Full-length rehearsal benchmark
 
 on:
   push:
@@ -13,8 +13,8 @@ concurrency:
 
 jobs:
   decode:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    runs-on: macos-15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -23,15 +23,33 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Obtain the public reference clip
+      - name: Prepare the public MIT lecture fixture
         run: |
-          curl --silent --show-error --fail --location --retry 2 --max-time 45 https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$RUNNER_TEMP/rehearsal-reference.wav"
-      - name: Decode in Chrome with and without network
+          curl --silent --show-error --fail --location --retry 2 --max-time 100 \
+            https://archive.org/download/MIT6.006S20/MIT6_006S20_02_04_Lecture_1_300k.mp4 \
+            --output "$RUNNER_TEMP/lecture.mp4"
+          curl --silent --show-error --fail --location --retry 2 --max-time 30 \
+            https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/dd0823c3851b5df3a7e0b447eaa76050_ZA-tUyM_y7s.vtt \
+            --output "$RUNNER_TEMP/lecture.vtt"
+          shasum -a 256 "$RUNNER_TEMP/lecture.mp4" "$RUNNER_TEMP/lecture.vtt"
+          command -v ffmpeg >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
+          ffmpeg -hide_banner -loglevel error -threads 1 -i "$RUNNER_TEMP/lecture.mp4" \
+            -map 0:a:0 -ac 1 -ar 16000 -c:a pcm_s16le -f s16le "$RUNNER_TEMP/lecture.pcm"
+      - name: Transcribe uninterrupted and resume after closing Chrome
         env:
           DECK: examples/basic
-          INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
+          INPUT_PCM: ${{ runner.temp }}/lecture.pcm
+          BENCHMARK_RESULT: ${{ runner.temp }}/benchmark.json
         run: |
-          command -v google-chrome
-          lscpu | awk -F: '/^Model name:/{print $2}'
-          google-chrome --version
-          python3 scripts/rehearsal-engine-guard.py --duration 330 --log "$RUNNER_TEMP/probe.log" -- node scripts/rehearsal-engine-probe.mjs
+          sysctl -n machdep.cpu.brand_string
+          sysctl -n hw.ncpu hw.memsize
+          sw_vers
+          '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --version
+          python3 scripts/rehearsal-engine-guard.py --duration 2350 \
+            --log "$RUNNER_TEMP/probe.log" -- node scripts/rehearsal-long-benchmark.mjs
+      - name: Compare the saved word timings with MIT captions
+        if: always()
+        run: |
+          if test -s "$RUNNER_TEMP/benchmark.json"; then
+            python3 scripts/measure-rehearsal-benchmark.py "$RUNNER_TEMP/benchmark.json" "$RUNNER_TEMP/lecture.vtt"
+          fi
