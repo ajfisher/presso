@@ -619,8 +619,8 @@ browserDescribe('browser smoke', () => {
               return;
             }
             self.postMessage({ type: 'words', words: first
-              ? [{ text: 'Opening', timestamp: [1, 2] }, { text: 'Middle', timestamp: [20, 21] }, { text: 'Seam', timestamp: [23.6, 24.1] }]
-              : [{ text: 'Seam', timestamp: [1.9, 2.3] }, { text: 'Later', timestamp: [3, 4] }, { text: 'Return', timestamp: [14, 15] }]
+              ? [{ text: 'Opening', timestamp: [1, 2] }, { text: 'Middle', timestamp: [20, 21] }, { text: 'Seam', timestamp: [23.6, 24.1] }, { text: 'Recovered', timestamp: [23.9, 24.3] }]
+              : [{ text: 'Recovered', timestamp: [1.7, 2.1] }, { text: 'Seam', timestamp: [1.9, 2.3] }, { text: 'Later', timestamp: [3, 4] }, { text: 'Return', timestamp: [14, 15] }]
             });
           }
 `
@@ -630,8 +630,9 @@ browserDescribe('browser smoke', () => {
       let page = await context.newPage();
       await page.goto(server.origin + '/presenter');
       await page.evaluate(async () => {
-        const asset = '/_presso/presso-rehearsal-store.js';
-        const { openRehearsalStore } = await import(asset);
+        // Import in the browser so the test runner does not rewrite the module path.
+        const loadBrowserModule = new Function('url', 'return import(url)');
+        const { openRehearsalStore } = await loadBrowserModule('/_presso/presso-rehearsal-store.js');
         const store = await openRehearsalStore();
         const config = JSON.parse(document.getElementById('presso-runtime-config')!.textContent!);
         const id = 'speech-resume-fixture';
@@ -666,7 +667,7 @@ browserDescribe('browser smoke', () => {
       expect(await fs.readFile(file, 'utf8')).toBe([
         '# Recorded title — spoken transcript', '',
         '## 0:00 · Original title during the talk', '', 'Opening', '',
-        '## 0:15 · Untouched slide', '', 'Middle Seam Later', '',
+        '## 0:15 · Untouched slide', '', 'Middle Seam Recovered Later', '',
         '## 0:35 · Original title during the talk', '', 'Return', ''
       ].join('\n'));
 

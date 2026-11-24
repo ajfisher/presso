@@ -125,7 +125,9 @@ export function setupTranscription(dialog, deckId, store, progress, formatClock)
             const index = next;
             const done = end === totalSamples;
             const message = done ? 'Transcript ready in Rehearsals.' : `Transcribing ${Math.round(100 * end / totalSamples)}%`;
-            await update(done ? 'done' : 'processing', message, { index, words: segment }, index + 1);
+            await update(done ? 'done' : 'processing', message, {
+              index, words: segment, endMs: end * 1000 / SAMPLE_RATE
+            }, index + 1);
             next = index + 1;
           }
         } catch (error) {
@@ -251,12 +253,47 @@ async function transcribeSegment(store, engine, id, offset, end, totalSamples) {
   return result.words.flatMap(({ text, timestamp }) => {
     const [startSeconds, endSeconds] = timestamp ?? [];
     if (!Number.isFinite(startSeconds) || !text.trim()) return [];
-    const start = from + startSeconds * SAMPLE_RATE;
-    const finish = Math.min(totalSamples, from + (endSeconds ?? startSeconds) * SAMPLE_RATE);
-    const center = (start + finish) / 2;
-    if (center < offset || center >= end) return [];
+    const start = Math.max(from, from + startSeconds * SAMPLE_RATE);
+    const finish = Math.min(to, from + (Number.isFinite(endSeconds) ? endSeconds : startSeconds) * SAMPLE_RATE);
+    if (start >= to || finish < start) return [];
     return [{ startMs: start / SAMPLE_RATE * 1000, endMs: finish / SAMPLE_RATE * 1000, text }];
   });
+}
+
+function mergeSpeechWindows(segments) {
+  const stepMs = STEP_SAMPLES * 1000 / SAMPLE_RATE;
+  const overlapMs = OVERLAP_SAMPLES * 1000 / SAMPLE_RATE;
+  const kept = new Set();
+  for (const { index, endMs, words } of segments) {
+    for (const word of words) {
+      const time = midpoint(word);
+      if (time >= index * stepMs && time < (endMs ?? (index + 1) * stepMs)) kept.add(word);
+    }
+  }
+  for (let index = 1; index < segments.length; index += 1) {
+    const previous = segments[index - 1];
+    const current = segments[index];
+    if (previous.index + 1 !== current.index) continue;
+    const boundary = current.index * stepMs;
+    const left = previous.words.filter((word) => Math.abs(midpoint(word) - boundary) <= overlapMs);
+    const right = current.words.filter((word) => Math.abs(midpoint(word) - boundary) <= overlapMs);
+    for (const word of left) {
+      const normalized = word.text.trim().toLowerCase();
+      const match = right.findIndex((other) => normalized === other.text.trim().toLowerCase()
+        && word.startMs < other.endMs && other.startMs < word.endMs);
+      if (match < 0) continue;
+      const [other] = right.splice(match, 1);
+      // A word can be shifted across the seam in either direction by each window.
+      if (!kept.has(word) && kept.has(other)) continue;
+      kept.delete(other);
+      kept.add(word);
+    }
+  }
+  return [...kept].sort((a, b) => midpoint(a) - midpoint(b));
+}
+
+function midpoint(word) {
+  return (word.startMs + word.endMs) / 2;
 }
 
 function spokenMarkdown(run, segments, formatClock) {
@@ -269,19 +306,11 @@ function spokenMarkdown(run, segments, formatClock) {
   const untracked = [];
   if (run.interrupted) lines.push('*Slide tracking was interrupted during this recording.*', '');
   let index = 0;
-  let previousWords = [];
-  for (const { words } of segments) {
-    // Two overlapping speech windows can return the same word with slightly shifted timestamps.
-    const previousTail = previousWords.slice(-8);
-    previousWords = words.filter((word) => !previousTail.some((other) =>
-      word.text.trim().toLowerCase() === other.text.trim().toLowerCase()
-      && word.startMs < other.endMs && other.startMs < word.endMs));
-    for (const word of previousWords) {
-      const midpoint = (word.startMs + word.endMs) / 2;
-      while (index + 1 < visits.length && visits[index + 1].startMs <= midpoint) index += 1;
-      if (midpoint >= untrackedSince) untracked.push(word.text.trim());
-      else visits[index]?.words.push(word.text.trim());
-    }
+  for (const word of mergeSpeechWindows(segments)) {
+    const time = midpoint(word);
+    while (index + 1 < visits.length && visits[index + 1].startMs <= time) index += 1;
+    if (time >= untrackedSince) untracked.push(word.text.trim());
+    else visits[index]?.words.push(word.text.trim());
   }
   for (const visit of visits) {
     lines.push(`## ${formatClock(visit.startMs)} · ${markdownText(visit.title)}`, '', formatWords(visit.words), '');
