@@ -1,4 +1,4 @@
-name: Full-length rehearsal benchmark
+name: Rehearsal transcript and fitted timings probe
 
 on:
   push:
@@ -12,9 +12,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  decode:
-    runs-on: macos-15
-    timeout-minutes: 45
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DECK: ${{ runner.temp }}/fit-fixture
+      INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-node@v7.1.0
@@ -23,33 +26,75 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Prepare the public MIT lecture fixture
+      - name: Prepare an editable deck and the public reference clip
         run: |
-          curl --silent --show-error --fail --location --retry 2 --max-time 100 \
-            https://archive.org/download/MIT6.006S20/MIT6_006S20_02_04_Lecture_1_300k.mp4 \
-            --output "$RUNNER_TEMP/lecture.mp4"
-          curl --silent --show-error --fail --location --retry 2 --max-time 30 \
-            https://ocw.mit.edu/courses/6-006-introduction-to-algorithms-spring-2020/dd0823c3851b5df3a7e0b447eaa76050_ZA-tUyM_y7s.vtt \
-            --output "$RUNNER_TEMP/lecture.vtt"
-          shasum -a 256 "$RUNNER_TEMP/lecture.mp4" "$RUNNER_TEMP/lecture.vtt"
-          command -v ffmpeg >/dev/null || HOMEBREW_NO_AUTO_UPDATE=1 brew install ffmpeg
-          ffmpeg -hide_banner -loglevel error -threads 1 -i "$RUNNER_TEMP/lecture.mp4" \
-            -map 0:a:0 -ac 1 -ar 16000 -c:a pcm_s16le -f s16le "$RUNNER_TEMP/lecture.pcm"
-      - name: Transcribe uninterrupted and resume after closing Chrome
-        env:
-          DECK: examples/basic
-          INPUT_PCM: ${{ runner.temp }}/lecture.pcm
-          BENCHMARK_RESULT: ${{ runner.temp }}/benchmark.json
+          curl --silent --show-error --fail --location --retry 2 --max-time 45 \
+            https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$INPUT_WAV"
+          mkdir -p "$DECK/slides"
+          cat > "$DECK/presso.config.mjs" <<'DECK_CONFIG'
+          export default {
+            title: 'Timing and speech fixture',
+            source: { type: 'folder', path: './slides' },
+            notes: { public: false }
+          };
+          DECK_CONFIG
+          for index in 1 2 3; do
+            cat > "$DECK/slides/00$index.md" <<SLIDE
+          ---
+          id: slide-$index
+          layout: statement
+          ---
+
+          # Slide $index
+
+          :::notes
+          Unpublished rehearsal fixture notes.
+          :::
+          SLIDE
+          done
+      - name: Resume real speech, apply fitted targets and re-export
+        run: |
+          python3 scripts/rehearsal-engine-guard.py --duration 330 \
+            --log "$RUNNER_TEMP/probe.log" -- node scripts/rehearsal-engine-probe.mjs
+      - name: Verify the rebuilt static deck keeps recorded speech and private notes out
+        run: |
+          node packages/server/dist/cli.js build "$DECK"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          output = Path(os.environ['DECK']) / 'dist'
+          assert (output / 'transcript.md').is_file()
+          assert sorted(p.name for p in (output / '_presso').iterdir()) == ['presso-runtime.js', 'presso.css']
+          for artifact in output.rglob('*'):
+              if artifact.suffix in {'.html', '.md', '.json'}:
+                  content = artifact.read_text()
+                  assert 'fellow Americans' not in content, artifact
+                  assert 'Unpublished rehearsal fixture notes.' not in content, artifact
+          print('PASS public export retained the static deck and excluded private rehearsal data')
+          PY
+
+  compare-apple-backends:
+    runs-on: macos-15
+    timeout-minutes: 10
+    env:
+      DECK: examples/basic
+      INPUT_WAV: ${{ runner.temp }}/rehearsal-reference.wav
+      COMPARE_BACKENDS: '1'
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Download the public reference clip
+        run: |
+          curl --silent --show-error --fail --location --retry 2 --max-time 45 \
+            https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/jfk.wav --output "$INPUT_WAV"
+      - name: Compare automatic WebGPU selection and CPU inference on Apple silicon
         run: |
           sysctl -n machdep.cpu.brand_string
-          sysctl -n hw.ncpu hw.memsize
-          sw_vers
           '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --version
-          python3 scripts/rehearsal-engine-guard.py --duration 2350 \
-            --log "$RUNNER_TEMP/probe.log" -- node scripts/rehearsal-long-benchmark.mjs
-      - name: Compare the saved word timings with MIT captions
-        if: always()
-        run: |
-          if test -s "$RUNNER_TEMP/benchmark.json"; then
-            python3 scripts/measure-rehearsal-benchmark.py "$RUNNER_TEMP/benchmark.json" "$RUNNER_TEMP/lecture.vtt"
-          fi
+          python3 scripts/rehearsal-engine-guard.py --duration 350 \
+            --log "$RUNNER_TEMP/backend-probe.log" -- node scripts/rehearsal-engine-probe.mjs
