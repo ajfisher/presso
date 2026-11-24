@@ -15,7 +15,7 @@ try {
   const offline = await probe('offline', true);
   assert.equal(offline.markdown, online.markdown, 'Restarted offline Markdown differs');
   assert.deepEqual(offline.words, online.words, 'Restarted offline word timings differ');
-  assert.equal(offline.downloads, 0, 'Worker requested external data offline');
+  assert.equal(offline.downloads + offline.blocked, 0, 'Worker requested external data offline');
   assert.ok(online.downloads > 0, 'Fresh profile did not exercise downloads');
   console.log('PASS real WASM model, real Markdown, and same-profile offline Chrome restart');
 } finally {
@@ -24,16 +24,22 @@ try {
 
 async function probe(name, offline) {
   let downloads = 0;
+  let blocked = 0;
   const started = performance.now();
   const context = await chromium.launchPersistentContext(profile, {
-    channel: 'chrome', headless: true, args: ['--disable-blink-features=WebGPU']
+    channel: 'chrome', headless: true,
+    args: offline ? ['--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE localhost'] : []
   });
   try {
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', { value: undefined });
+    });
     const page = context.pages()[0];
     page.on('console', (message) => {
       if (message.text().startsWith('presso-probe:')) {
         console.log(message.text());
-        if (message.text().includes('external GET')) downloads += 1;
+        if (message.text().includes('external GET') || message.text().includes('external HEAD')) downloads += 1;
+        if (message.text().includes('blocked external')) blocked += 1;
       } else if (['warning', 'error'].includes(message.type())) {
         console.log('Chrome:', message.text().slice(0, 260));
       }
@@ -46,8 +52,11 @@ self.fetch = (input, init) => {
   const url = new URL(input.url ?? input, location.href);
   if (url.origin !== location.origin) {
     const method = init?.method ?? input.method ?? 'GET';
-    if (method !== 'GET' || ${offline}) throw new Error('Unexpected external request for ' + url.hostname + ' during probe');
-    console.info('presso-probe: external GET ' + url.hostname);
+    if (!['GET', 'HEAD'].includes(method) || ${offline}) {
+      console.info('presso-probe: blocked external ' + method + ' ' + url.hostname);
+      throw new Error('Unexpected external request for ' + url.hostname + ' during probe');
+    }
+    console.info('presso-probe: external ' + method + ' ' + url.hostname);
   }
   return fetchFromProbe(input, init);
 };
@@ -85,19 +94,19 @@ self.addEventListener('message', ({data}) => {
     const downloadEvent = page.waitForEvent('download');
     await page.getByRole('button', { name: 'Download transcript' }).click();
     const markdown = await readFile(await (await downloadEvent).path(), 'utf8');
-    assert.match(markdown, /fellow Americans/i);
-    assert.match(markdown, /do for your country/i);
-    assert.match(markdown, /0:00 · Opening/);
-    assert.match(markdown, /0:05 · Second visit/);
+    const [opening, second] = markdown.split('## 0:05 · Second visit');
+    assert.match(opening, /0:00 · Opening/);
+    assert.match(opening, /fellow Americans/i);
+    assert.match(second, /do for your country/i);
 
     const storage = await page.evaluate(() => navigator.storage.estimate().then(({ usage }) => usage));
     console.log('Metrics', JSON.stringify({
       name, clipSeconds: samples / 16000, backend: 'wasm', words: words.length,
       wallMs: Math.round(performance.now() - started), submissionMs: Math.round(performance.now() - submitted),
       navigationMs: Math.round(navigationMs), storageDeltaBytes: storage - baseline, storageBytes: storage,
-      workerExternalGets: downloads
+      workerExternalDownloads: downloads, blockedExternalRequests: blocked
     }));
-    return { markdown, words, downloads };
+    return { markdown, words, downloads, blocked };
   } finally {
     await context.close();
   }
