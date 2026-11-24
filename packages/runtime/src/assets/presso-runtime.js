@@ -70,6 +70,7 @@
   let pendingStateAck;
   let receivedState;
   let deferredState;
+  let serverEvents;
   if (mode === 'presenter') {
     sessionStorage.setItem(timerStartKey, String(presenterStart));
     setPresenterNotesSize(presenterNotesSize);
@@ -1053,7 +1054,9 @@
       setSyncStatus('Unsupported');
       return;
     }
+    serverEvents?.close();
     const events = new EventSource('/events');
+    serverEvents = events;
     let awaitingSnapshot = true;
     events.addEventListener('open', () => {
       awaitingSnapshot = true;
@@ -1447,6 +1450,7 @@
   } else {
     connectServerEvents();
   }
+  if (serverSync) window.addEventListener('online', connectServerEvents);
   if (mode === 'presenter') {
     window.setInterval(updatePresenterTimer, 1000);
   }

@@ -406,6 +406,7 @@ browserDescribe('browser smoke', () => {
       await failedAdvance;
       await expectCurrentSlide(deckPage, 11);
       await deckPage.context().setOffline(false);
+      await deckPage.evaluate(() => window.dispatchEvent(new Event('online')));
       await expectCurrentSlide(deckPage, 0);
 
       await controlPage.locator('button[data-action="fullscreen"]').click();
