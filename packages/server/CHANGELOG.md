@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.8.1...@ajfisher/presso-server-v0.9.0) (2026-11-27)
+
+
+### Features
+
+* **create:** support npm create presso ([a137a90](https://github.com/ajfisher/presso/commit/a137a90f7d79b1da841ba330cc571f24e6596920))
+
+
+### Dependencies
+
+* The following workspace dependencies were updated
+  * dependencies
+    * @ajfisher/presso-core bumped from ^0.8.1 to ^0.9.0
+    * @ajfisher/presso-create bumped from ^0.8.1 to ^0.9.0
+    * @ajfisher/presso-export bumped from ^0.8.1 to ^0.9.0
+    * @ajfisher/presso-runtime bumped from ^0.8.1 to ^0.9.0
+
 ## [0.8.1](https://github.com/ajfisher/presso/compare/@ajfisher/presso-server-v0.8.0...@ajfisher/presso-server-v0.8.1) (2026-11-15)
 
 
