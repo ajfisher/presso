@@ -94,6 +94,8 @@ fully built slide.
 
 The speaker view at `/presenter` makes speaker notes the main surface, with compact current and next slide previews, elapsed time, target timing, session-persistent notes font controls, teleprompter controls, and a phone-controller QR code for opening `/control` from another device on the same network.
 
+Open `/presenter` on localhost in desktop Chrome and select **Start timing** to measure a rehearsal. Advance from the presenter, projected deck, or phone controller, then select **Stop timing** to record when you finished the final slide. **Rehearsals** shows when you started and finished each visit, including slides you returned to. The history is saved in your browser profile. Reopen the same localhost address and port to find it later.
+
 ## Local Editing
 
 In `presso dev`, double-click the active slide in `/` or `/presenter` to edit a folder-deck slide or single-file deck section. The editor exposes metadata YAML, body Markdown, and speaker notes as separate tabs, then saves back to only that active slide source. Static builds do not include the editor or slide source.

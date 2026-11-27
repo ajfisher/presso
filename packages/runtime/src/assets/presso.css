@@ -1559,6 +1559,24 @@
           grid-template-columns: repeat(3, 2.75rem) minmax(5.6rem, 1fr) repeat(2, 2.75rem);
         }
 
+        [data-control-row="rehearsal"] {
+          align-items: center;
+
+          [hidden] { display: none; }
+
+          time { font-variant-numeric: tabular-nums; }
+
+          [role="status"] {
+            flex-basis: 100%;
+            color: var(--presso-muted);
+            font-size: .85rem;
+
+            &:empty { position: absolute; }
+          }
+
+          button:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+        }
+
         [data-control-heading] {
           grid-column: 1 / -1;
           color: var(--presso-muted);
@@ -1733,9 +1751,61 @@
     @media (max-width: 900px) {
       grid-template-columns: 1fr;
 
+      &:has([data-control-row="rehearsal"]) {
+        grid-template-rows: minmax(10rem, 1fr) auto;
+        overflow-y: auto;
+      }
+
       > aside {
         grid-template-rows: auto auto minmax(12rem, 1fr) minmax(12rem, 1fr);
       }
+    }
+  }
+
+  body[data-mode="presenter"] > dialog[data-rehearsal] {
+    box-sizing: border-box;
+    width: min(48rem, calc(100vw - 2rem));
+    max-height: 85dvh;
+    padding: 1.2rem;
+    border: 1px solid rgb(255 255 255 / 18%);
+    border-radius: .45rem;
+    background: #161616;
+    color: white;
+    overflow: auto;
+
+    &::backdrop { background: rgb(0 0 0 / 65%); }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    h2 { font-size: 1.2rem; }
+
+    :where(button, select) {
+      color: inherit;
+      background: #333;
+      border: 1px solid rgb(255 255 255 / 20%);
+      border-radius: .25rem;
+      font: inherit;
+      padding: .4rem .65rem;
+
+      &:focus-visible { outline: 2px solid white; outline-offset: 2px; }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-variant-numeric: tabular-nums;
+    }
+
+    :where(th, td) {
+      padding: .55rem .35rem;
+      text-align: left;
+      border-bottom: 1px solid rgb(255 255 255 / 15%);
     }
   }
 

@@ -1,12 +1,13 @@
 import fs from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { execFile } from 'node:child_process';
+import { createHash, randomUUID } from 'node:crypto';
 import http, { type ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { promisify } from 'node:util';
 import { compileDeck, createSlideSource, readSlideSource, writeSlideSource, type CreateSlideOptions, type EditableSlideInput } from '@ajfisher/presso-core';
-import { readRuntimeAsset, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
+import { readRuntimeAsset, rehearsalAssetNames, renderPage, runtimeAssetNames, type RenderMode, type RuntimeAssetName } from '@ajfisher/presso-runtime';
 
 interface Client {
   id: number;
@@ -49,13 +50,21 @@ const ROUTE_MODES = new Map<string, RenderMode>([
 ]);
 
 export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<DevServer> {
+  const deckRoot = await fs.realpath(cwd);
+  const stateSession = randomUUID();
+  let stateRevision = 0;
   let currentIndex = 0;
+  let currentSlideId: string | undefined;
   let currentBuildStep = 0;
   let currentFullscreen = false;
   let clientId = 0;
   const clients = new Map<number, Client>();
   let controlUrlCache: { expiresAt: number; urls: string[] } | undefined;
   let suppressReloadUntil = 0;
+  const state = (updateId?: string) => ({
+    buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex,
+    slideId: currentSlideId, session: stateSession, revision: stateRevision, updateId
+  });
 
   const controlUrls = async (): Promise<string[]> => {
     if (controlUrlCache && Date.now() < controlUrlCache.expiresAt) return controlUrlCache.urls;
@@ -70,12 +79,15 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
   const server = http.createServer(async (req, res) => {
     try {
       const url = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`);
+      const localAuthor = isLocalAuthor(req, port);
       if (url.pathname === '/edit/slides') {
         suppressReloadUntil = Date.now() + 500;
-        await handleCreateSlide(cwd, req, res, (slideIndex) => {
-          currentIndex = slideIndex;
+        await handleCreateSlide(cwd, req, res, (slide) => {
+          currentIndex = slide.index;
+          currentSlideId = slide.id;
           currentBuildStep = 0;
-          broadcast(clients, 'state', { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex });
+          stateRevision += 1;
+          broadcast(clients, 'state', state());
           broadcast(clients, 'slide-created', {});
         });
         return;
@@ -92,29 +104,32 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
           'cache-control': 'no-cache',
           connection: 'keep-alive'
         });
-        res.write(`event: state\ndata: ${JSON.stringify({ buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex })}\n\n`);
+        res.write(`event: state\ndata: ${JSON.stringify(state())}\n\n`);
         clients.set(id, { id, res });
         req.on('close', () => clients.delete(id));
         return;
       }
       if (url.pathname === '/state') {
         if (req.method === 'GET') {
-          sendJson(res, { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex });
+          sendJson(res, state());
           return;
         }
         if (req.method === 'POST') {
           const deck = await compileDeck(cwd);
           const body = await readBody(req);
-          const state = parseJsonObject(body);
+          const update = parseJsonObject(body);
           const previousIndex = currentIndex;
-          currentIndex = clampStateIndex(state.index ?? currentIndex, deck.slides.length, currentIndex);
+          currentIndex = clampStateIndex(update.index ?? currentIndex, deck.slides.length, currentIndex);
           const nextSlide = deck.slides[currentIndex];
+          currentSlideId = nextSlide?.id;
           currentBuildStep = clampStateBuildStep(
-            state.buildStep ?? (currentIndex === previousIndex ? currentBuildStep : 0),
+            update.buildStep ?? (currentIndex === previousIndex ? currentBuildStep : 0),
             nextSlide?.buildSteps ?? 0
           );
-          if (typeof state.fullscreen === 'boolean') currentFullscreen = state.fullscreen;
-          const nextState = { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex };
+          if (typeof update.fullscreen === 'boolean') currentFullscreen = update.fullscreen;
+          stateRevision += 1;
+          const updateId = typeof update.updateId === 'string' && update.updateId.length <= 64 ? update.updateId : undefined;
+          const nextState = state(updateId);
           broadcast(clients, 'state', nextState);
           sendJson(res, nextState);
           return;
@@ -136,7 +151,7 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
         return;
       }
 
-      const runtimeAsset = runtimeAssetName(url.pathname);
+      const runtimeAsset = runtimeAssetName(url.pathname, localAuthor);
       if (runtimeAsset) {
         const asset = readRuntimeAsset(runtimeAsset);
         res.writeHead(200, {
@@ -149,13 +164,17 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
 
       const deck = await compileDeck(cwd);
       currentIndex = clampStateIndex(currentIndex, deck.slides.length);
+      currentSlideId = deck.slides[currentIndex]?.id;
       if (url.pathname === '/deck.json') {
         sendJson(res, deck);
         return;
       }
       const mode = ROUTE_MODES.get(url.pathname);
       if (mode) {
-        sendHtml(res, renderPage(deck, mode, { controlUrls: await controlUrls(), server: true }));
+        const rehearsalDeckId = mode === 'presenter' && localAuthor
+          ? createHash('sha256').update(JSON.stringify([deckRoot, deck.config.source])).digest('hex')
+          : undefined;
+        sendHtml(res, renderPage(deck, mode, { controlUrls: await controlUrls(), rehearsalDeckId, server: true }));
         return;
       }
       if (await serveStatic(cwd, url.pathname, res)) {
@@ -246,7 +265,7 @@ async function handleCreateSlide(
   cwd: string,
   req: http.IncomingMessage,
   res: ServerResponse,
-  onCreated: (index: number) => void
+  onCreated: (slide: { index: number; id: string }) => void
 ): Promise<void> {
   try {
     if (req.method !== 'POST') {
@@ -255,7 +274,7 @@ async function handleCreateSlide(
     }
     const input = parseCreateSlideInput(parseJsonObject(await readBody(req)));
     const created = await createSlideSource(cwd, input);
-    onCreated(created.index);
+    onCreated(created);
     sendJson(res, created);
   } catch (error) {
     sendJson(res, { error: error instanceof Error ? error.message : String(error) }, 400);
@@ -360,10 +379,17 @@ function contentType(file: string): string {
   return 'application/octet-stream';
 }
 
-function runtimeAssetName(pathname: string): RuntimeAssetName | undefined {
+function isLocalAuthor(req: http.IncomingMessage, port: number): boolean {
+  const hosts = [`localhost:${port}`, `127.0.0.1:${port}`, `[::1]:${port}`];
+  const addresses = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+  return hosts.includes(req.headers.host ?? '') && addresses.includes(req.socket.remoteAddress ?? '');
+}
+
+function runtimeAssetName(pathname: string, localAuthor: boolean): RuntimeAssetName | undefined {
   const clean = pathname.replace(/^\/+/, '');
   const name = clean.startsWith('_presso/') ? clean.slice('_presso/'.length) : clean;
-  return runtimeAssetNames.includes(name as RuntimeAssetName) ? name as RuntimeAssetName : undefined;
+  return runtimeAssetNames.find((asset) => asset === name)
+    ?? (localAuthor ? rehearsalAssetNames.find((asset) => asset === name) : undefined);
 }
 
 async function buildControlUrls(port: number): Promise<string[]> {

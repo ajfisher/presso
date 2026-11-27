@@ -15,11 +15,14 @@ export type RenderMode =
   | 'print-notes-side'
   | 'print-notes-pages'
   | 'transcript';
-export type RuntimeAssetName = 'presso.css' | 'presso-runtime.js';
+export const runtimeAssetNames = ['presso.css', 'presso-runtime.js'] as const;
+export const rehearsalAssetNames = ['presso-rehearsal.js'] as const;
+export type RuntimeAssetName = typeof runtimeAssetNames[number] | typeof rehearsalAssetNames[number];
 
 interface RenderOptions {
   controlUrls?: string[];
   public?: boolean;
+  rehearsalDeckId?: string;
   server?: boolean;
 }
 
@@ -32,6 +35,7 @@ interface RenderContext {
   mode: RenderMode;
   notesPublic: NotesPublicPolicy;
   public: boolean;
+  rehearsalDeckId?: string;
   server: boolean;
 }
 
@@ -43,7 +47,8 @@ const HANDOUT_NOTES_CHUNK_BUDGET = 1500;
 
 const runtimeAssets: Record<RuntimeAssetName, { contentType: string; file: string }> = {
   'presso.css': { contentType: 'text/css; charset=utf-8', file: 'presso.css' },
-  'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' }
+  'presso-runtime.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-runtime.js' },
+  'presso-rehearsal.js': { contentType: 'text/javascript; charset=utf-8', file: 'presso-rehearsal.js' }
 };
 
 const templates = {
@@ -62,6 +67,8 @@ const templates = {
   presenter: readTemplate('presenter.html'),
   presenterIcons: readTemplate('presenter-icons.html'),
   presenterPreviewTemplate: readTemplate('presenter-preview-template.html'),
+  rehearsalControls: readTemplate('rehearsal-controls.html'),
+  rehearsalDialog: readTemplate('rehearsal-dialog.html'),
   printHandout: readTemplate('print-handout.html'),
   printHandoutPage: readTemplate('print-handout-page.html'),
   printNotes: readTemplate('print-notes.html'),
@@ -74,8 +81,6 @@ const templates = {
   transcript: readTemplate('transcript.html'),
   transcriptSection: readTemplate('transcript-section.html')
 };
-
-export const runtimeAssetNames = Object.keys(runtimeAssets) as RuntimeAssetName[];
 
 export function readRuntimeAsset(name: RuntimeAssetName): { content: string; contentType: string } {
   const asset = runtimeAssets[name];
@@ -118,6 +123,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
     editOverlay: context.editingEnabled ? renderTemplate('editOverlay') : '',
     fullscreenPrompt: printMode ? '' : renderTemplate('fullscreenPrompt'),
     mode,
+    rehearsalDialog: context.rehearsalDeckId ? renderTemplate('rehearsalDialog') : '',
     runtimeConfigJson: scriptJson({
       notesPublic: context.notesPublic,
       controlUrls: context.controlUrls,
@@ -129,6 +135,7 @@ function renderDocument(deck: Deck, mode: RenderMode, body: string, context: Ren
         }
         : { enabled: false },
       routes: buildRoutes(mode, context.server),
+      rehearsalDeckId: context.rehearsalDeckId,
       server: context.server,
       slides: deck.slides.map((slide) => ({
         buildSteps: slide.buildSteps,
@@ -363,6 +370,7 @@ function renderPresenter(deck: Deck, context: RenderContext): string {
     controllerPopover: renderTemplate('controllerPopover'),
     deck: renderDeck(deck, { ...context, mode: 'presenter' }),
     icons: renderTemplate('presenterIcons'),
+    rehearsalControls: context.rehearsalDeckId ? renderTemplate('rehearsalControls') : '',
     previews: deck.slides.map((slide) => renderTemplate('presenterPreviewTemplate', {
       index: String(slide.index),
       slideHtml: renderSlide(slide, context),
@@ -416,6 +424,7 @@ function buildContext(deck: Deck, mode: RenderMode, options: RenderOptions): Ren
     mode,
     notesPublic: deck.config.notes.public,
     public: publicBuild,
+    rehearsalDeckId: server && !publicBuild && mode === 'presenter' ? options.rehearsalDeckId : undefined,
     server
   };
 }

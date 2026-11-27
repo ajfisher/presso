@@ -1,0 +1,15 @@
+<dialog data-presso-chrome data-rehearsal aria-labelledby="rehearsal-title">
+  <header>
+    <h2 id="rehearsal-title">Rehearsals</h2>
+    <form method="dialog"><button>Close</button></form>
+  </header>
+  <p data-rehearsal-empty>No saved rehearsals. Start timing from the presenter controls.</p>
+  <div data-rehearsal-history hidden>
+    <label>Rehearsal <select data-rehearsal-run></select></label>
+    <p data-rehearsal-summary></p>
+    <table>
+      <thead><tr><th scope="col">Slide visit</th><th scope="col">Start</th><th scope="col">Finish</th><th scope="col">Time spent</th></tr></thead>
+      <tbody data-rehearsal-visits></tbody>
+    </table>
+  </div>
+</dialog>
