@@ -1,6 +1,6 @@
 {
   "name": "create-presso",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "Create a Presso presentation with npm create presso.",
   "keywords": [
     "presso",
@@ -38,6 +38,6 @@
     "build": "tsc -b"
   },
   "dependencies": {
-    "@ajfisher/presso-create": "^0.8.1"
+    "@ajfisher/presso-create": "^0.9.0"
   }
 }

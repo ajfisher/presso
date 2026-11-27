@@ -1,8 +1,8 @@
 {
-  "packages/core": "0.8.1",
-  "packages/runtime": "0.8.1",
-  "packages/export": "0.8.1",
-  "packages/create": "0.8.1",
-  "packages/server": "0.8.1",
-  "packages/create-presso": "0.8.1"
+  "packages/core": "0.9.0",
+  "packages/runtime": "0.9.0",
+  "packages/export": "0.9.0",
+  "packages/create": "0.9.0",
+  "packages/server": "0.9.0",
+  "packages/create-presso": "0.9.0"
 }
