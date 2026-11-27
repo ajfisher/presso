@@ -15,7 +15,8 @@
     "release:check": "node scripts/check-publish-readiness.mjs",
     "release:pack": "node scripts/pack-workspaces.mjs --dry-run",
     "release:pack:write": "node scripts/pack-workspaces.mjs --write",
-    "release:smoke-deck": "node scripts/smoke-generated-deck.mjs"
+    "release:smoke-deck": "node scripts/smoke-generated-deck.mjs",
+    "release:smoke-create": "node scripts/smoke-create-presso.mjs"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",

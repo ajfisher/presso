@@ -5,6 +5,7 @@
     { "path": "./packages/runtime" },
     { "path": "./packages/export" },
     { "path": "./packages/create" },
+    { "path": "./packages/create-presso" },
     { "path": "./packages/server" }
   ]
 }

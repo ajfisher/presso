@@ -9,11 +9,14 @@ Presso is a Markdown-native web presentation framework for talks, workshops, spe
 ## Quick Start
 
 ```bash
-npm exec -- @ajfisher/presso-create my-talk
+npm create presso@latest my-talk
 cd my-talk
 npm install
 npm run dev
 ```
+
+`create-presso` wraps this package for npm’s standard create command. The original
+`npx @ajfisher/presso-create@latest my-talk` command and the `createDeck()` API remain supported.
 
 The generated deck uses a `slides/` folder by default:
 

@@ -58,6 +58,7 @@ release-check: build
 	npm run release:check
 	npm run release:pack
 	npm run release:smoke-deck
+	npm run release:smoke-create
 
 release-pack: build
 	npm run release:pack:write
