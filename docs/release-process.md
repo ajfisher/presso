@@ -10,9 +10,10 @@ The publishable packages are:
 - `@ajfisher/presso-runtime`
 - `@ajfisher/presso-export`
 - `@ajfisher/presso-create`
+- `create-presso` (the `npm create presso` entry point)
 - `@ajfisher/presso-server`
 
-These packages are released as a linked set. They should share the same version, and internal `@ajfisher/presso-*` dependencies must use semver ranges such as `^0.2.0`, never `file:` or `workspace:` ranges. Local workspace linking is handled by npm workspaces.
+These packages are released as a linked set. They should share the same version, and internal workspace dependencies must use semver ranges such as `^0.2.0`, never `file:` or `workspace:` ranges. Local workspace linking is handled by npm workspaces.
 
 ## Conventional Commits
 
@@ -100,6 +101,7 @@ This target:
 - verifies package metadata and publishable dependency ranges
 - dry-runs npm package contents
 - scaffolds a generated deck and proves the built CLI can build and transcript it
+- installs packed scaffolders outside the workspace and exercises npm's create command
 
 To write local package tarballs for inspection:
 
@@ -111,7 +113,7 @@ Tarballs are written under `.presso/packages/`.
 
 ## npm Publishing
 
-npm publishing uses npm trusted publishing through GitHub Actions OIDC. Each `@ajfisher/presso-*` package must have a trusted publisher configured on npm with:
+npm publishing uses npm trusted publishing through GitHub Actions OIDC. Each publishable package, including `create-presso`, must have a trusted publisher configured on npm with:
 
 - Provider: GitHub Actions
 - Organization/user: `ajfisher`
@@ -120,7 +122,7 @@ npm publishing uses npm trusted publishing through GitHub Actions OIDC. Each `@a
 - Environment name: blank
 - Allowed actions: `npm publish`
 
-The `Publish npm Packages` workflow is still manual. It grants `id-token: write`, does not use `NPM_TOKEN` or `NODE_AUTH_TOKEN`, disables package-manager caching for the release build, runs `make release-check`, and then publishes all workspaces with public scoped-package access.
+The `Publish npm Packages` workflow is still manual. It grants `id-token: write`, does not use `NPM_TOKEN` or `NODE_AUTH_TOKEN`, disables package-manager caching for the release build, runs `make release-check`, and then publishes all workspaces with public access.
 
 To publish a release:
 
@@ -138,15 +140,27 @@ Trusted publishing requires the workflow filename configured in npm to match exa
 After packages are published, deck authors should be able to run:
 
 ```bash
-npm exec -- @ajfisher/presso-create my-talk
+npm create presso@latest my-talk
 cd my-talk
 npm install
 npm run dev
 ```
 
-The starter package is named `@ajfisher/presso-create` for product-name consistency.
-That means the first scaffold command uses `npm exec`; npm's `create` shorthand
-would look for `@ajfisher/create-presso` instead.
+`npm create presso` resolves to the unscoped `create-presso` package, whose CLI
+calls the existing `@ajfisher/presso-create` implementation. The original
+`npx @ajfisher/presso-create@latest my-talk` command remains supported.
+
+Before advertising the new command, publish `create-presso` and configure its
+trusted publisher using the settings above. The first publication and npm account
+setup are separate release steps; merging the wrapper does not make the command
+available on npm. Include the new package in the next linked release, and verify
+the registry command from a clean directory after publishing.
+
+The release checks pack and install both scaffolder packages in a temporary
+consumer outside the repository, then run `npm create presso@<version>` offline.
+They verify generated files and semver dependencies, reject non-empty targets,
+and build the resulting deck. The pinned version exercises npm’s create mapping
+without requiring an unpublished `latest` tag.
 
 Existing decks should be able to update with:
 

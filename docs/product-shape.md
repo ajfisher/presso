@@ -7,7 +7,7 @@ The first audience is AJ Fisher, but the framework should be usable by other
 speakers through a small npm-based workflow. The ideal experience is:
 
 ```bash
-npm exec -- @ajfisher/presso-create my-talk
+npm create presso@latest my-talk
 cd my-talk
 npm run dev
 npm run pdf
@@ -85,6 +85,7 @@ packages/
 - `@ajfisher/presso-server`: local dev server, WebSocket sync, phone controller pairing,
   and edit/writeback endpoints.
 - `@ajfisher/presso-export`: Playwright-based HTML, PDF, image, and transcript export.
+- `create-presso`: expose the `npm create presso` command.
 - `@ajfisher/presso-create`: scaffold a new deck with starter files.
 
 The repo can start smaller than this, but this is the intended ownership model.

@@ -11,7 +11,7 @@ Presso is a Markdown-native web presentation framework for talks, workshops, spe
 Most users should start with the scaffolder:
 
 ```bash
-npm exec -- @ajfisher/presso-create my-talk
+npm create presso@latest my-talk
 cd my-talk
 npm install
 npm run dev

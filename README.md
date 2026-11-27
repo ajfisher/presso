@@ -7,7 +7,7 @@ Markdown-native web presentation framework for talks, workshops, speaker notes, 
 Create a new deck with npm:
 
 ```bash
-npm exec -- @ajfisher/presso-create my-talk
+npm create presso@latest my-talk
 cd my-talk
 npm install
 npm run dev
@@ -35,7 +35,8 @@ Presso creates a normal folder of Markdown slides, CSS theme files, and deck-loc
 
 | Package | Purpose |
 | --- | --- |
-| [`@ajfisher/presso-create`](packages/create/README.md) | Starter deck scaffolder. |
+| [`create-presso`](packages/create-presso/README.md) | `npm create presso` entry point. |
+| [`@ajfisher/presso-create`](packages/create/README.md) | Shared starter deck scaffolder. |
 | [`@ajfisher/presso-server`](packages/server/README.md) | Main `presso` CLI, dev server, controller sync, editing, and command orchestration. |
 | [`@ajfisher/presso-core`](packages/core/README.md) | Config loading, Markdown parsing, deck model, timing, and edit/writeback primitives. |
 | [`@ajfisher/presso-runtime`](packages/runtime/README.md) | Browser rendering, route templates, runtime assets, and transcript rendering helpers. |
