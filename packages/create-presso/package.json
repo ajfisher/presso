@@ -1,0 +1,43 @@
+{
+  "name": "create-presso",
+  "version": "0.8.1",
+  "description": "Create a Presso presentation with npm create presso.",
+  "keywords": [
+    "presso",
+    "presentations",
+    "markdown",
+    "slides",
+    "speaker-notes",
+    "typescript",
+    "static-site",
+    "pdf-export"
+  ],
+  "homepage": "https://github.com/ajfisher/presso#readme",
+  "bugs": {
+    "url": "https://github.com/ajfisher/presso/issues"
+  },
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ajfisher/presso.git",
+    "directory": "packages/create-presso"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "create-presso": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc -b"
+  },
+  "dependencies": {
+    "@ajfisher/presso-create": "^0.8.1"
+  }
+}

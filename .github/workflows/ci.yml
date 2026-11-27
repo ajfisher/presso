@@ -26,6 +26,9 @@ jobs:
       - name: Build and unit test
         run: make check
 
+      - name: Validate release packages and scaffolding
+        run: make release-check
+
       - name: Locate runner Chrome
         id: chrome
         shell: bash

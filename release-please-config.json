@@ -25,6 +25,10 @@
     "packages/server": {
       "package-name": "@ajfisher/presso-server",
       "component": "@ajfisher/presso-server"
+    },
+    "packages/create-presso": {
+      "package-name": "create-presso",
+      "component": "create-presso"
     }
   },
   "plugins": [
@@ -40,7 +44,8 @@
         "@ajfisher/presso-runtime",
         "@ajfisher/presso-export",
         "@ajfisher/presso-create",
-        "@ajfisher/presso-server"
+        "@ajfisher/presso-server",
+        "create-presso"
       ]
     }
   ]
