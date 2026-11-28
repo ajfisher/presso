@@ -3,8 +3,45 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { addSlide, createDeck, migrateRevealDeck, orderCheck, orderInit } from './commands.js';
+import { deckStatsCommand } from './stats.js';
 
 describe('CLI command helpers', () => {
+  it('reports stats as a table or JSON using the CLI flags', async () => {
+    const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-stats-'));
+    try {
+      await fs.mkdir(path.join(dir, 'slides'));
+      await fs.writeFile(path.join(dir, 'presso.config.mjs'), 'export default { timing: { length: "1:30" } };\n');
+      await fs.writeFile(path.join(dir, 'slides/001-opening.md'), `---
+id: opening
+layout: bullets
+time: "1:00"
+---
+:::fragment
+- A
+- B
+:::
+
+:::notes
+Speak **now**.
+:::
+`);
+      const table = await deckStatsCommand([dir, '--wpm', '120', '--min-words=1']);
+      expect(table).toMatch(/0\s+opening\s+bullets\s+2\s+2\s+0\.7\s+1:00\s+!/);
+      expect(table).toContain('1 slide, 2 advances, 2 notes words, about 0:01 at 120 wpm');
+      expect(table).toContain('One advance every 45 s against a 1:30 target');
+      expect(table).toContain('opening (2 steps, 2 words)');
+      const json = JSON.parse(await deckStatsCommand([dir, '--wpm=120', '--min-words', '1', '--json']));
+      expect(json).toMatchObject({
+        wordsPerMinute: 120, minWordsPerAdvance: 1,
+        slides: [{ id: 'opening', buildSteps: 2, advances: 3, notesWords: 2, targetTimeSeconds: 60, flagged: true }],
+        totals: { slides: 1, advances: 2, notesWords: 2, estimatedSpeakingSeconds: 1, plannedSeconds: 90, secondsPerAdvance: 45 }
+      });
+      await expect(deckStatsCommand([dir, '--min-words='])).rejects.toThrow('--min-words must be a non-negative number');
+    } finally {
+      await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+
   it('scaffolds a starter deck and adds the next numbered slide', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-create-'));
     await createDeck(dir);

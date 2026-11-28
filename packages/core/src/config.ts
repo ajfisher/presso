@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { pathExists } from './fs.js';
+import { parseTime } from './timing.js';
 import type { PressoConfigInput, ResolvedPressoConfig } from './types.js';
 
 const CONFIG_FILES = [
@@ -40,12 +41,23 @@ export function resolveConfig(input: PressoConfigInput, rootDir: string): Resolv
     source,
     theme: input.theme ?? './theme.css',
     rawHtml: input.rawHtml ?? true,
+    ...resolvePlannedLength(input.timing?.length),
     notes: {
       public: input.notes?.public ?? false,
       defaultPrintLayout: input.notes?.defaultPrintLayout ?? 'page'
     },
     deploy: input.deploy ?? {}
   };
+}
+
+function resolvePlannedLength(length: string | number | undefined): Pick<ResolvedPressoConfig, 'timing'> {
+  if (length === undefined) return {};
+  const clock = typeof length === 'string' ? length.trim() : '';
+  const seconds = /^\d+(?::[0-5]?\d){1,2}$/.test(clock) ? parseTime(clock) : length;
+  if (typeof seconds !== 'number' || !Number.isFinite(seconds) || seconds < 0) {
+    throw new Error('timing.length must be a clock time or a non-negative number of seconds.');
+  }
+  return { timing: { lengthSeconds: seconds } };
 }
 
 async function findConfig(rootDir: string): Promise<string | undefined> {

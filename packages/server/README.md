@@ -28,6 +28,7 @@ npm install --save-dev @ajfisher/presso-server
 ```bash
 presso dev [deckDir] [--port=3030]
 presso build [deckDir]
+presso stats [deckDir] [--wpm=130] [--min-words=11] [--json]
 presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
 presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
 presso publish s3 <bucket-name> [directory] [--exclude-file=file]

@@ -54,6 +54,7 @@ export interface PressoConfigInput {
   source?: Partial<DeckSourceConfig>;
   theme?: string;
   rawHtml?: boolean;
+  timing?: { length?: string | number };
   notes?: {
     public?: NotesPublicPolicy;
     defaultPrintLayout?: 'side' | 'below' | 'page';
@@ -76,6 +77,7 @@ export interface ResolvedPressoConfig {
   source: DeckSourceConfig;
   theme: string;
   rawHtml: boolean;
+  timing?: { lengthSeconds: number };
   notes: {
     public: NotesPublicPolicy;
     defaultPrintLayout: 'side' | 'below' | 'page';
