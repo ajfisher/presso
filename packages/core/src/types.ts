@@ -95,6 +95,7 @@ export interface Slide {
   buildSteps: number;
   time?: string;
   targetTimeSeconds?: number;
+  targetTimeSource?: 'authored' | 'interpolated';
   bodyMarkdown: string;
   bodyHtml: string;
   notesMarkdown: string;

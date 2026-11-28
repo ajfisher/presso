@@ -55,6 +55,16 @@ describe('runtime renderer', () => {
     expect(html).not.toContain('</section>\\n<section');
   });
 
+  it('renders the source of each assigned timing target', () => {
+    const timedHtml = renderPage({ ...deck, slides: [
+      { ...deck.slides[0]!, targetTimeSeconds: 37, targetTimeSource: 'interpolated' },
+      { ...deck.slides[1]!, targetTimeSeconds: 60, targetTimeSource: 'authored' }
+    ] }, 'deck');
+    expect(timedHtml).toContain('data-target-time="0:37" data-target-source="interpolated"');
+    expect(timedHtml).toContain('data-target-time="1:00" data-target-source="authored"');
+    expect(renderPage(deck, 'deck')).not.toContain('data-target-source');
+  });
+
   it('renders presentation controls and route config', () => {
     const html = renderPage(deck, 'deck');
     expect(html).toContain('data-action="fullscreen"');
