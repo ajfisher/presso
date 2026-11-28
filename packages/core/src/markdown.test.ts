@@ -139,6 +139,51 @@ Right
     expect(rendered.bodyHtml).toContain('<li data-build-item data-build-step="3">Third</li>');
   });
 
+  it('uses the larger count from fragments and hand-written steps', () => {
+    const authored = `<div data-build-item data-build-step="1">One</div>
+<div data-build-step='2' data-build-item>Two</div>
+<div DATA-BUILD-ITEM data-build-step=3 title="A > B">Three</div>`;
+    expect(renderSlideMarkdown(authored).buildSteps).toBe(3);
+    expect(renderSlideMarkdown(`${authored}
+
+:::fragment
+- First
+- Second
+- Third
+:::
+
+<div data-build-item data-build-step="4">Four</div>`).buildSteps).toBe(4);
+  });
+
+  it.each([
+    ['columns', '<p data-build-item data-build-step="3">Column group</p>'],
+    ['column', '<p data-build-item data-build-step="3">First column</p>'],
+    ['column', '<svg viewBox="0 0 1 1"><rect data-build-item data-build-step="3" width="1" height="1"/></svg>']
+  ])('counts the hand-written step inside %s (%#)', (container, markup) => {
+    expect(renderSlideMarkdown(`:::columns
+${container === 'columns' ? markup : ''}
+
+:::column
+${container === 'column' ? markup : 'Text'}
+:::
+:::`).buildSteps).toBe(3);
+  });
+
+  it('ignores invalid steps and attribute text outside elements', () => {
+    expect(renderSlideMarkdown(`<div data-build-item>Missing</div>
+<div data-build-item data-build-step="-2">Negative</div>
+<div data-build-item data-build-step="3.5">Fractional</div>
+<div data-build-item data-build-step="four">Text</div>
+<div data-build-item-class data-build-step="14">Unmarked</div>
+<div title='data-build-item data-build-step="15"'>Attribute</div>
+<!-- <div data-build-item data-build-step="16"></div> -->
+
+\`\`\`html
+<div data-build-item data-build-step="17">Example</div>
+\`\`\`
+`).buildSteps).toBe(0);
+  });
+
   it('appends custom classes to fragment directive roots', () => {
     const rendered = renderSlideMarkdown(`:::fragment{class="staged-list"}
 - First
