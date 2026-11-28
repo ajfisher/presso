@@ -4,14 +4,23 @@ import type { AddressInfo } from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import { compileDeck, copyDir, pathExists, type Deck, type NotesPublicPolicy, type Slide, type SlideBackground } from '@ajfisher/presso-core';
-import { readRuntimeAsset, renderPage, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@ajfisher/presso-runtime';
+import { readRuntimeAsset, renderPage, renderSnapshotSheet, renderTranscriptMarkdown, runtimeAssetNames, type RenderMode, type TranscriptProfile } from '@ajfisher/presso-runtime';
+import type { Browser } from 'playwright';
+import { forEachSlideStep, selectSnapshotSlides, type SlideStepOptions } from './slide-steps.js';
+
+export { forEachSlideStep, selectSnapshotSlides, type SlideStepOptions } from './slide-steps.js';
 
 export const PDF_LAYOUTS = ['slides', 'notes', 'speaker', 'handout'] as const;
 export type PdfLayout = typeof PDF_LAYOUTS[number];
 
-interface StaticBuildResult {
-  deck: Awaited<ReturnType<typeof compileDeck>>;
-  dest: string;
+export interface SnapshotOptions {
+  slides?: string;
+  steps?: SlideStepOptions['steps'];
+  outDir?: string;
+  scale?: number;
+  motion?: boolean;
+  settleMs?: number;
+  sheet?: boolean;
 }
 
 interface PdfJob {
@@ -117,12 +126,11 @@ const PDF_LAYOUT_ALIASES = new Map<string, PdfLayout>([
 ]);
 
 export async function buildStatic(cwd = process.cwd(), outDir = 'dist'): Promise<string> {
-  return (await writeStaticBuild(cwd, outDir, true)).dest;
+  return writeStaticBuild(await compileDeck(cwd), outDir, true);
 }
 
-async function writeStaticBuild(cwd: string, outDir: string, publicBuild: boolean): Promise<StaticBuildResult> {
-  const deck = await compileDeck(cwd);
-  const dest = path.resolve(cwd, outDir);
+async function writeStaticBuild(deck: Deck, outDir: string, publicBuild: boolean): Promise<string> {
+  const dest = path.resolve(deck.config.rootDir, outDir);
   await fs.rm(dest, { recursive: true, force: true });
   await fs.mkdir(dest, { recursive: true });
 
@@ -145,7 +153,7 @@ async function writeStaticBuild(cwd: string, outDir: string, publicBuild: boolea
     await fs.writeFile(path.join(runtimeDir, assetName), readRuntimeAsset(assetName).content, 'utf8');
   }
 
-  return { deck, dest };
+  return dest;
 }
 
 async function copyTheme(deck: Awaited<ReturnType<typeof compileDeck>>, dest: string): Promise<void> {
@@ -195,19 +203,97 @@ export function pdfOutputFile(layout: PdfLayout): string {
 }
 
 async function exportPdfJobs(cwd: string, jobs: PdfJob[]): Promise<string[]> {
-  const staticRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-pdf-'));
-  try {
-    const { deck, dest } = await writeStaticBuild(cwd, staticRoot, false);
-    const server = await serveStatic(dest);
-    const browser = await launchBrowser();
+  const deck = await compileDeck(cwd);
+  return withStaticBrowser(deck, 'pdf', false, async (origin, browser) => {
+    const outputs: string[] = [];
+    for (const job of jobs) outputs.push(await renderPdfJob(cwd, deck, origin, browser, job));
+    return outputs;
+  });
+}
+
+export async function exportSnapshots(cwd = process.cwd(), options: SnapshotOptions = {}): Promise<string[]> {
+  const { outDir = 'snapshots', steps = 'last', scale = 1, settleMs = 1500, motion = false, sheet = false } = options;
+  if (steps !== 'all' && steps !== 'last') throw new Error('--steps must be all or last.');
+  if (!outDir.trim()) throw new Error('--out requires a directory.');
+  if (!Number.isFinite(scale) || scale <= 0) throw new Error('--scale must be a positive number.');
+  if (!Number.isFinite(settleMs) || settleMs < 0) throw new Error('--settle must be a non-negative number of milliseconds.');
+
+  const deck = await compileDeck(cwd);
+  const selected = selectSnapshotSlides(deck.slides, options.slides);
+  const staticDeck = { ...deck, config: { ...deck.config, notes: { ...deck.config.notes, public: false as const } } };
+  const output = path.resolve(cwd, outDir);
+  const indexWidth = Math.max(2, String(deck.slides.length - 1).length);
+
+  return withStaticBrowser(staticDeck, 'snapshot', true, async (origin, browser) => {
+    await fs.mkdir(output, { recursive: true });
+    const page = await browser.newPage({
+      viewport: deck.config.size,
+      deviceScaleFactor: scale,
+      reducedMotion: motion ? 'no-preference' : 'reduce'
+    });
     try {
-      const outputs: string[] = [];
-      for (const job of jobs) {
-        outputs.push(await renderPdfJob(cwd, deck, server, browser, job));
+      await page.addInitScript((indexes) => {
+        if (window !== window.top) return;
+        document.addEventListener('DOMContentLoaded', () => {
+          document.body.style.setProperty('--presso-stage-padding', '0px', 'important');
+          window.dispatchEvent(new Event('resize'));
+          for (const index of indexes) {
+            const slide = `.presso-slide[data-slide-index="${index}"]`;
+            for (const asset of document.querySelectorAll(`${slide} :is(img, iframe)[loading="lazy"]`)) {
+              asset.setAttribute('loading', 'eager');
+            }
+          }
+        }, { once: true });
+      }, selected.map((slide) => slide.index));
+      await page.goto(`${origin}/`, { waitUntil: 'domcontentloaded' });
+      try {
+        await page.waitForLoadState('networkidle', { timeout: 5000 });
+      } catch (error) {
+        // An embedded demo can keep making requests after it has rendered.
+        if (!(error instanceof Error) || error.name !== 'TimeoutError') throw error;
       }
-      return outputs;
+      const images: Array<{ fileName: string; index: number; slideId: string; step: number }> = [];
+      await forEachSlideStep(page, deck, async (slide, step) => {
+        const index = String(slide.index).padStart(indexWidth, '0');
+        const id = encodeURIComponent(slide.id.toWellFormed());
+        const fileName = `${index}-${id}${steps === 'all' ? `-${step}` : ''}.png`;
+        await page.evaluate(() => document.fonts.ready.then(() => undefined));
+        if (motion && settleMs > 0) await page.waitForTimeout(settleMs);
+        await page.screenshot({
+          path: path.join(output, fileName),
+          style: 'body > [data-presso-chrome], body > .presso-progress { display: none !important; }'
+        });
+        images.push({ fileName, index: slide.index, slideId: slide.id, step });
+      }, { slides: selected, steps });
+
+      const paths = images.map(({ fileName }) => path.join(output, fileName));
+      if (sheet) {
+        const sheetPath = path.join(output, 'index.html');
+        await fs.writeFile(sheetPath, renderSnapshotSheet(images, deck.config.size), 'utf8');
+        paths.push(sheetPath);
+      }
+      return paths;
     } finally {
-      await browser.close();
+      await page.close();
+    }
+  });
+}
+
+async function withStaticBrowser<T>(
+  deck: Deck, prefix: string, publicBuild: boolean,
+  job: (origin: string, browser: Browser) => Promise<T>
+): Promise<T> {
+  const staticRoot = await fs.mkdtemp(path.join(os.tmpdir(), `presso-${prefix}-`));
+  try {
+    const server = await serveStatic(await writeStaticBuild(deck, staticRoot, publicBuild));
+    try {
+      const browser = await launchBrowser();
+      try {
+        return await job(server.origin, browser);
+      } finally {
+        await browser.close();
+      }
+    } finally {
       await server.close();
     }
   } finally {
@@ -217,9 +303,9 @@ async function exportPdfJobs(cwd: string, jobs: PdfJob[]): Promise<string[]> {
 
 async function renderPdfJob(
   cwd: string,
-  deck: Awaited<ReturnType<typeof compileDeck>>,
-  server: StaticServer,
-  browser: import('playwright').Browser,
+  deck: Deck,
+  origin: string,
+  browser: Browser,
   job: PdfJob
 ): Promise<string> {
   const config = PDF_LAYOUT_CONFIG[job.layout];
@@ -228,7 +314,7 @@ async function renderPdfJob(
   const page = await browser.newPage({ viewport: deck.config.size });
   try {
     await page.emulateMedia({ media: 'print' });
-    await page.goto(`${server.origin}${config.route}`, { waitUntil: 'networkidle' });
+    await page.goto(`${origin}${config.route}`, { waitUntil: 'networkidle' });
     await page.pdf({
       height: `${deck.config.size.height}px`,
       path: outputPath,

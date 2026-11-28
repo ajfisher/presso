@@ -158,7 +158,7 @@ as a clock value such as `"16:00"` or a number of seconds.
 Slides with at least two build steps are flagged when their words per advance
 fall below `--min-words`. Use `--json` for the same metrics in scripts.
 
-## PDF And Transcript Export
+## PDF, Snapshot, And Transcript Export
 
 `presso pdf` exports slide-sized PDFs from the same print routes used in browser previews.
 
@@ -178,6 +178,23 @@ PDF layouts are:
 - `handout`: shrunken slide and notes on the same page, written to `handout.pdf`.
 
 Compatibility flags `--notes-pages` and `--notes-side` map to `speaker` and `handout`. Use `--out=custom.pdf` with a single layout. Local PDF exports include speaker notes even when `notes.public` is `false`; public static builds still omit private notes.
+
+`presso snapshot` writes one slide-only PNG per slide at its final build step.
+It uses the same browser as PDF export and writes to `snapshots/` in the deck
+directory. `--steps=all` includes step 0 and every build step. Use `--slides`
+with comma-separated ids and zero-based indices or ranges.
+
+```bash
+presso snapshot --steps=all --slides=opening,12-15 --sheet --scale=2
+```
+
+`--sheet` adds an offline `index.html` linking the images. `--scale=2` doubles
+the pixel density at the configured deck size. Set `--out` to choose a different
+folder. A rerun replaces files with matching names.
+
+Snapshots emulate reduced motion by default. Themes should respect
+`prefers-reduced-motion` for a settled capture. With `--motion`, Presso waits
+`--settle` milliseconds after reaching each step, with a default of 1500.
 
 `presso transcript` writes paste-ready Markdown fragments for publishing talk notes. Profiles are:
 
