@@ -57,6 +57,18 @@ Useful hooks:
 - Frontmatter `vars` applies CSS custom properties to one slide. For example,
   `vars: { stagger: 2s }` sets `--stagger` in the deck, presenter preview,
   embed, and printed slide.
+- `body[data-motion="on"]` enables motion in deck and embed views when the
+  reader allows it. Other views and reduced-motion sessions use `off`. The
+  hook updates when the reader changes their reduced-motion preference.
+- The active slide exposes `data-nav="start"` on load, `forward` and `back`
+  for adjacent-slide advances, and `jump` for direct navigation such as hash
+  changes. Build steps keep the slide's arrival direction. The hook also
+  reflects navigation from the controller and presenter.
+
+```css
+body[data-motion="on"] .presso-slide.is-active .edge.draw path { animation: draw .6s ease both; }
+body[data-motion="on"] .presso-slide.is-active[data-nav="back"] .edge.draw path { animation: none; }
+```
 
 Avoid broad selectors for visual styling:
 

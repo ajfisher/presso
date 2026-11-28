@@ -6,6 +6,12 @@
   const slideCount = Math.max(slides.length, slideMetadata.length);
   const progress = document.querySelector('.presso-progress > span');
   const mode = document.body.dataset.mode || 'deck';
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  function updateMotion() {
+    document.body.dataset.motion = (mode === 'deck' || mode === 'embed') && !reducedMotion.matches ? 'on' : 'off';
+  }
+  updateMotion();
+  reducedMotion.addEventListener('change', updateMotion);
   const serverSync = Boolean(config.server);
   const notesAllowed = config.notesPublic !== false;
   const routes = config.routes || {};
@@ -42,6 +48,7 @@
   const initialHashState = parseHashState(location.hash);
   let index = clampIndex(initialHashState?.index ?? 0);
   let buildStep = clampBuildStep(initialHashState?.buildStep ?? 0, index);
+  let nav = 'start';
   let presentationFullscreen = false;
   let fullscreenDialogMode = 'enter';
   let wakeLock = null;
@@ -79,10 +86,16 @@
     }
   }
 
-  function setIndex(next, source = 'local', nextBuildStep = 0) {
+  function setIndex(next, source = 'local', nextBuildStep = 0, requestedNav) {
     if (!canNavigateSlides) return;
     const previousIndex = index;
     index = clampIndex(next);
+    const delta = index - previousIndex;
+    if (source === 'init') {
+      nav = 'start';
+    } else if (delta !== 0) {
+      nav = requestedNav === 'jump' || Math.abs(delta) > 1 ? 'jump' : (delta > 0 ? 'forward' : 'back');
+    }
     buildStep = clampBuildStep(nextBuildStep, index);
     renderActiveSlide();
     document.body.dataset.currentSlide = String(index);
@@ -92,8 +105,11 @@
     updateStateViews(source === 'init' || previousIndex !== index);
     localStorage.setItem('presso:index', String(index));
     localStorage.setItem('presso:buildStep', String(buildStep));
-    if (source === 'local') channel?.postMessage({ buildStep, index });
-    if (source === 'local') postState(index, { buildStep });
+    if (source === 'local') {
+      const position = delta !== 0 && nav === 'jump' ? { buildStep, index, nav } : { buildStep, index };
+      channel?.postMessage(position);
+      postState(index, position);
+    }
   }
 
   function go(delta) {
@@ -596,8 +612,13 @@
     slides.forEach((slide, i) => {
       const active = i === index;
       slide.classList.toggle('is-active', active);
-      if (active) applyBuildStep(slide, buildStep);
-      else clearBuildStep(slide);
+      if (active) {
+        slide.dataset.nav = nav;
+        applyBuildStep(slide, buildStep);
+      } else {
+        delete slide.dataset.nav;
+        clearBuildStep(slide);
+      }
     });
   }
 
@@ -1033,11 +1054,14 @@
       return;
     }
     const events = new EventSource('/events');
+    let awaitingInitialState = true;
     events.addEventListener('open', () => setSyncStatus('Synced'));
     events.addEventListener('state', (event) => {
       setSyncStatus('Synced');
       if (!canNavigateSlides) return;
-      applyServerState(JSON.parse(event.data), 'remote');
+      const source = awaitingInitialState && nav === 'start' ? 'init' : 'remote';
+      awaitingInitialState = false;
+      applyServerState(JSON.parse(event.data), source);
     });
     events.addEventListener('command', (event) => {
       const command = JSON.parse(event.data);
@@ -1059,7 +1083,7 @@
       presentationFullscreen = state.fullscreen;
       updateFullscreenViews();
     }
-    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source, state.buildStep ?? 0);
+    if (Number.isFinite(Number(state.index))) setIndex(Number(state.index), source, state.buildStep ?? 0, state.nav);
   }
 
   function showFullscreenPrompt(mode) {
@@ -1239,12 +1263,12 @@
     if (event.key === 'Home') {
       if (!canNavigateSlides) return;
       event.preventDefault();
-      setIndex(0);
+      setIndex(0, 'local', 0, 'jump');
     }
     if (event.key === 'End') {
       if (!canNavigateSlides) return;
       event.preventDefault();
-      setIndex(slideCount - 1);
+      setIndex(slideCount - 1, 'local', 0, 'jump');
     }
     if (['ArrowRight', 'PageDown', ' '].includes(event.key)) {
       if (!canNavigateSlides) return;
@@ -1371,7 +1395,7 @@
 
   window.addEventListener('hashchange', () => {
     const next = parseHashState(location.hash);
-    if (next) setIndex(next.index, 'local', next.buildStep ?? 0);
+    if (next) setIndex(next.index, 'local', next.buildStep ?? 0, 'jump');
   });
   window.addEventListener('resize', () => {
     updateDeckSlideScale();
@@ -1382,7 +1406,7 @@
 
   channel?.addEventListener('message', (event) => {
     if (canNavigateSlides && Number.isFinite(Number(event.data.index))) {
-      setIndex(Number(event.data.index), 'remote', event.data.buildStep ?? 0);
+      setIndex(Number(event.data.index), 'remote', event.data.buildStep ?? 0, event.data.nav);
     }
   });
   setSyncStatus(serverSync ? 'Connecting' : 'Local');
@@ -1393,7 +1417,7 @@
   updateTeleprompterViews();
   handleWakeLockUnavailable();
   if (serverSync && initialHashState && (mode === 'deck' || mode === 'embed')) {
-    postState(index, { buildStep }).finally(connectServerEvents);
+    postState(index, { buildStep, nav: 'jump' }).finally(connectServerEvents);
   } else {
     connectServerEvents();
   }

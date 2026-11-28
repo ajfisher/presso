@@ -187,6 +187,54 @@ browserDescribe('browser smoke', () => {
     }
   }, 60000);
 
+  it('exposes live theme motion and slide navigation hooks', async () => {
+    const dist = await buildExampleDeck();
+    const staticServer = await serveStatic(dist);
+    let browser: Browser | undefined;
+
+    try {
+      const playwright = await import('playwright');
+      browser = await launchBrowser(playwright.chromium);
+      const page = await browser.newPage({ reducedMotion: 'no-preference' });
+      await page.goto(`${staticServer.origin}/`, { waitUntil: 'domcontentloaded' });
+      expect(await page.locator('body').getAttribute('data-motion')).toBe('on');
+      await expectSlideNavigation(page, 0, 'start');
+
+      await page.keyboard.press('ArrowRight');
+      await expectSlideNavigation(page, 1, 'forward');
+      const build = page.locator('.presso-slide.is-active [data-build-item]').first();
+      expect(await build.evaluate((item) => getComputedStyle(item).transitionDuration)).toBe('0.18s');
+      await page.keyboard.press('ArrowRight');
+      await expectCurrentBuildStep(page, 1);
+      await expectSlideNavigation(page, 1, 'forward');
+      await page.keyboard.press('ArrowLeft');
+      await page.keyboard.press('ArrowLeft');
+      await expectSlideNavigation(page, 0, 'back');
+
+      await page.goto(`${staticServer.origin}/#/1`);
+      await expectSlideNavigation(page, 1, 'jump');
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      await page.locator('body[data-motion="off"]').waitFor({ state: 'attached' });
+      expect(await build.evaluate((item) => getComputedStyle(item).transitionDuration)).toBe('0s');
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      expect(await page.locator('body').getAttribute('data-motion')).toBe('off');
+      await expectSlideNavigation(page, 1, 'start');
+      await page.emulateMedia({ reducedMotion: 'no-preference' });
+      await page.locator('body[data-motion="on"]').waitFor({ state: 'attached' });
+
+      for (const [route, motion] of [['/embed/', 'on'], ['/presenter/', 'off'], ['/print/slides/', 'off']]) {
+        await page.goto(`${staticServer.origin}${route}`, { waitUntil: 'domcontentloaded' });
+        expect(await page.locator('body').getAttribute('data-motion')).toBe(motion);
+      }
+    } finally {
+      try {
+        await browser?.close();
+      } finally {
+        await staticServer.close();
+      }
+    }
+  }, 30000);
+
   it('supports touch swipe navigation on static deck and embed routes', async () => {
     const dist = await buildExampleDeck();
     const staticServer = await serveStatic(dist);
@@ -341,6 +389,8 @@ browserDescribe('browser smoke', () => {
       await presenterPage.locator('button[data-action="controller-close"]').click();
 
       await controlPage.locator('button[data-action="next"]').click();
+      await expectSlideNavigation(deckPage, 1, 'forward');
+      await expectSlideNavigation(presenterPage, 1, 'forward');
       await expectCurrentSlide(deckPage, 1);
       await expectCurrentSlide(presenterPage, 1);
       await expectCurrentSlide(controlPage, 1);
@@ -349,6 +399,9 @@ browserDescribe('browser smoke', () => {
       await expectCurrentBuildStep(controlPage, 0);
       await expectText(controlPage, '[data-current-title]', 'A tiny vertical slice');
       await expectText(controlPage, '[data-current-position]', '2');
+
+      await presenterPage.reload({ waitUntil: 'domcontentloaded' });
+      await expectSlideNavigation(presenterPage, 1, 'start');
 
       await deckPage.keyboard.press('ArrowRight');
       await expectCurrentSlide(deckPage, 1);
@@ -380,6 +433,20 @@ browserDescribe('browser smoke', () => {
       await expectCurrentBuildStep(presenterPage, 0);
       await expectCurrentBuildStep(controlPage, 0);
       await expectText(controlPage, '[data-current-position]', '3');
+
+      await presenterPage.keyboard.press('ArrowLeft');
+      await expectSlideNavigation(deckPage, 1, 'back');
+      await expectSlideNavigation(presenterPage, 1, 'back');
+      await expectServerState(devServer.origin, 1, 3);
+      await expectCurrentSlide(controlPage, 1);
+
+      await controlPage.keyboard.press('Home');
+      await expectSlideNavigation(deckPage, 0, 'jump');
+      await expectSlideNavigation(presenterPage, 0, 'jump');
+
+      await deckPage.goto(`${devServer.origin}/#/1`, { waitUntil: 'domcontentloaded' });
+      await expectSlideNavigation(deckPage, 1, 'jump');
+      await expectSlideNavigation(presenterPage, 1, 'jump');
 
       await deckPage.goto(`${devServer.origin}/#/5`, { waitUntil: 'domcontentloaded' });
       await expectCurrentSlide(deckPage, 5);
@@ -945,6 +1012,11 @@ async function expectActiveSlide(page: Page, index = 0): Promise<void> {
   await page.waitForSelector(`.presso-slide.is-active[data-slide-index="${index}"]`);
   await expectCurrentSlide(page, index);
   expect(await page.locator('.presso-slide.is-active').evaluate((slide) => getComputedStyle(slide).display)).toBe('grid');
+}
+
+async function expectSlideNavigation(page: Page, index: number, nav: 'start' | 'forward' | 'back' | 'jump'): Promise<void> {
+  await page.locator(`.presso-slide.is-active[data-slide-index="${index}"][data-nav="${nav}"]`).waitFor({ state: 'attached', timeout: 5000 });
+  expect(await page.locator('.presso-slide:not(.is-active)[data-nav]').count()).toBe(0);
 }
 
 async function expectActiveLayout(page: Page, layout: { id: string; layout: string }): Promise<void> {
