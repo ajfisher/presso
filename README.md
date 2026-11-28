@@ -143,6 +143,21 @@ If automatic detection is not available, set `PRESSO_CONTROL_URLS` to a comma-se
 
 Use `make tailnet-reset` to clear the temporary Tailscale Serve mapping.
 
+## Deck Statistics
+
+```bash
+presso stats [deckDir] [--wpm=130] [--min-words=11] [--json]
+```
+
+`presso stats` lists the build steps, speaker notes words, words per advance,
+and finish target for each slide. The totals include estimated speaking time
+at `--wpm`. The average seconds per advance uses `timing.length` from
+`presso.config.ts` when set, or the last slide's finish target. Set the length
+as a clock value such as `"16:00"` or a number of seconds.
+
+Slides with at least two build steps are flagged when their words per advance
+fall below `--min-words`. Use `--json` for the same metrics in scripts.
+
 ## PDF And Transcript Export
 
 `presso pdf` exports slide-sized PDFs from the same print routes used in browser previews.

@@ -3,6 +3,7 @@ import path from 'node:path';
 import { startDevServer } from './server.js';
 import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, migrateRevealDeck, orderAppend, orderCheck, orderInit } from './commands.js';
 import { parsePublishArgs, publishS3 } from './publish.js';
+import { deckStatsCommand } from './stats.js';
 import { resolvePdfLayout } from '@ajfisher/presso-export';
 import { resolveTranscriptProfile, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
@@ -29,6 +30,10 @@ async function main(command = 'help', args: string[]): Promise<void> {
   if (command === 'build') {
     const cwd = resolveDeckDir(args);
     console.log(await buildStatic(cwd));
+    return;
+  }
+  if (command === 'stats') {
+    console.log(await deckStatsCommand(args));
     return;
   }
   if (command === 'pdf') {
@@ -192,6 +197,7 @@ function printHelp(): void {
   console.log(`Presso commands:
   presso dev [deckDir] [--port=3030]
   presso build [deckDir]
+  presso stats [deckDir] [--wpm=130] [--min-words=11] [--json]
   presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
   presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
   presso publish s3 <bucket-name> [directory] [--exclude-file=file]
