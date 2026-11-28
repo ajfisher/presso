@@ -54,6 +54,9 @@ Useful hooks:
 - `[data-background~="image"]` and `[data-background~="color"]` for background-aware rules.
 - `.presso-columns`, `.presso-column`, and `.presso-logos` for first-class directives.
 - Frontmatter `class` values for deck-specific slide variants.
+- Frontmatter `vars` applies CSS custom properties to one slide. For example,
+  `vars: { stagger: 2s }` sets `--stagger` in the deck, presenter preview,
+  embed, and printed slide.
 
 Avoid broad selectors for visual styling:
 

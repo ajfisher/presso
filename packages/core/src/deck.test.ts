@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { checkOrder, compileDeck, parseOrderFile } from './index.js';
+import { checkOrder, compileDeck, parseOrderFile, readSlideSource, writeSlideSource } from './index.js';
 
 describe('deck compilation', () => {
   it('loads the example fixture in numeric filename order', async () => {
@@ -157,6 +157,35 @@ background:
     await expect(compileDeck(dir)).rejects.toThrow('Invalid slide background in slides/001-invalid.md');
   });
 
+  it('normalizes slide vars for CSS and preserves their authored keys and types on writeback', async () => {
+    const vars = { stagger: '2s', '--presso-column-gap': '1rem', columns: 2 };
+    await withSlideVars(vars, async (dir) => {
+      const source = await readSlideSource(dir, 0);
+      await writeSlideSource(dir, 0, { ...source, bodyMarkdown: '# Edited' });
+      const [slide] = (await compileDeck(dir)).slides;
+      expect(slide?.vars).toEqual({ '--stagger': '2s', '--presso-column-gap': '1rem', '--columns': '2' });
+      expect(slide?.metadata.vars).toEqual(vars);
+    });
+  });
+
+  it.each([';', '{', '}', '</', false, ['red']])('rejects invalid slide var values (%j)', async (value) => {
+    await withSlideVars({ tone: value }, async (dir) => {
+      await expect(compileDeck(dir)).rejects.toThrow('Invalid vars value for "tone" on slide "example"');
+    });
+  });
+
+  it.each(['-tone', '--2tone', 'bad key'])('rejects an invalid slide var name (%s)', async (key) => {
+    await withSlideVars({ [key]: 'red' }, async (dir) => {
+      await expect(compileDeck(dir)).rejects.toThrow(`Invalid vars key "${key}" on slide "example"`);
+    });
+  });
+
+  it('requires a map for slide vars', async () => {
+    await withSlideVars(['red'], async (dir) => {
+      await expect(compileDeck(dir)).rejects.toThrow('Invalid vars on slide "example". Expected a map');
+    });
+  });
+
   it('rejects duplicate slide ids with source paths', async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-duplicate-ids-'));
     await fs.mkdir(path.join(dir, 'slides'));
@@ -204,3 +233,14 @@ id: duplicate
     expect(parseOrderFile('# hi\nslides/a.md\n\nslides/b.md')).toEqual(['slides/a.md', 'slides/b.md']);
   });
 });
+
+async function withSlideVars(vars: unknown, check: (dir: string) => Promise<void>): Promise<void> {
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-vars-'));
+  try {
+    await fs.mkdir(path.join(dir, 'slides'));
+    await fs.writeFile(path.join(dir, 'slides', '001-example.md'), `---\nid: example\nvars: ${JSON.stringify(vars)}\n---\n# Example\n`);
+    await check(dir);
+  } finally {
+    await fs.rm(dir, { recursive: true, force: true });
+  }
+}
