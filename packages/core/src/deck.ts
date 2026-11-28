@@ -134,6 +134,7 @@ function buildSlide(content: string, filePath: string, rootDir: string, index: n
     layout: String(metadata.layout ?? 'statement'),
     class: classes,
     background: normalizeSlideBackground(metadata, sourcePath),
+    vars: normalizeSlideVars(metadata.vars, id),
     buildSteps: rendered.buildSteps,
     time: metadata.time === undefined ? undefined : String(metadata.time),
     bodyMarkdown: rendered.bodyMarkdown,
@@ -142,6 +143,22 @@ function buildSlide(content: string, filePath: string, rootDir: string, index: n
     notesHtml: rendered.notesHtml,
     metadata
   };
+}
+
+function normalizeSlideVars(value: unknown, slideId: string): Slide['vars'] {
+  if (value === undefined) return;
+  if (!value || typeof value !== 'object' || Object.getPrototypeOf(value) !== Object.prototype) {
+    throw new Error(`Invalid vars on slide "${slideId}". Expected a map of custom properties.`);
+  }
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+    if (!/^(?:--)?[a-zA-Z][\w-]*$/.test(key)) {
+      throw new Error(`Invalid vars key "${key}" on slide "${slideId}". Use a letter followed by letters, digits, underscores or hyphens, with an optional -- prefix.`);
+    }
+    if ((typeof entry !== 'string' && typeof entry !== 'number') || /[;{}]|<\//.test(String(entry))) {
+      throw new Error(`Invalid vars value for "${key}" on slide "${slideId}". Use a string or number without ;, {, } or </.`);
+    }
+    return [key.startsWith('--') ? key : `--${key}`, String(entry)];
+  }));
 }
 
 function validateSlideIds(slides: Slide[]): void {

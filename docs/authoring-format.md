@@ -202,6 +202,8 @@ class:
 background:
   image: ./assets/map2.webp
   fit: cover
+vars:
+  stagger: 2s
 time: "6:00"
 ```
 
@@ -246,6 +248,7 @@ pipeline:
 | `class` | String or YAML list | Runtime CSS hooks |
 | `background` | Deck-relative asset path, CSS colour, or object with `image`, `color`, `fit`, `position`, `repeat`, and `overlay` | Runtime rendering, transcript visuals |
 | `backgroundFit` | Legacy shorthand for image background sizing | Runtime background sizing |
+| `vars` | Map of CSS custom property names to strings or numbers | Per-slide theme settings |
 | `time` | `"6:00"` or `"00:06:00"` | Timing interpolation and presenter view |
 | `transcript` | `false` | Transcript export omission |
 | `transcriptVisual` | Asset path, `true`, or `false` | Transcript visual selection |
@@ -253,6 +256,12 @@ pipeline:
 
 Deck-level options such as `notes.public`, `baseUrl`, `deploy`, and
 `featureImage` live in `presso.config.ts`, not slide frontmatter.
+
+In `vars`, use `stagger` or `--stagger` to set `--stagger` on the slide.
+Names start with a letter after the optional `--` and can contain letters,
+digits, underscores, and hyphens. Presso also accepts `--presso-` properties.
+Use valid CSS values. Values containing `;`, `{`, `}`, or `</` produce a
+compile error.
 
 Background shorthand treats path-like strings such as `./hero.webp`,
 `assets/hero.webp`, or `hero.webp` as images. Bare CSS identifiers such as

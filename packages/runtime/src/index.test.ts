@@ -126,6 +126,25 @@ describe('runtime renderer', () => {
     expect(html).toContain('srcset="../assets/example.svg 1x, ../assets/example@2x.svg 2x"');
   });
 
+  it.each<RenderMode>(['deck', 'embed', 'presenter', 'print-slides', 'print-speaker', 'print-handout'])(
+    'renders background and escaped slide vars in a single style attribute in %s', (mode) => {
+      const html = renderPage({
+        ...deck,
+        slides: [{
+          ...deck.slides[0]!,
+          background: { color: '#10131a' },
+          vars: { '--stagger': '900ms', '--label': '"A & B"' }
+        }]
+      }, mode);
+      const sections = html.match(/<section [^>]*data-slide-id="one"[^>]*>/g) ?? [];
+      expect(sections).toHaveLength(mode === 'presenter' ? 2 : 1);
+      for (const section of sections) {
+        expect(section.match(/ style=/g)).toHaveLength(1);
+        expect(section).toContain('style="--presso-bg-color: #10131a; --stagger: 900ms; --label: &quot;A &amp; B&quot;;"');
+      }
+    }
+  );
+
   it('renders structured background hooks without default overlays', () => {
     const html = renderPage({
       ...deck,

@@ -91,6 +91,7 @@ export interface Slide {
   layout: string;
   class: string[];
   background?: SlideBackground;
+  vars?: Record<string, string>;
   buildSteps: number;
   time?: string;
   targetTimeSeconds?: number;

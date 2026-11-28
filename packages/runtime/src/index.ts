@@ -293,9 +293,10 @@ function renderSlide(slide: Slide, context: RenderContext): string {
   const classNames = ['presso-slide', ...slide.class].join(' ');
   const target = slide.targetTimeSeconds === undefined ? '' : secondsToClock(slide.targetTimeSeconds);
   const background = renderBackground(slide.background);
+  const vars = Object.entries(slide.vars ?? {}).map(([name, value]) => `${name}: ${value};`);
+  const style = [background.style, ...vars].filter(Boolean).join(' ');
   return renderTemplate('slide', {
     backgroundKind: escapeAttr(background.kind),
-    backgroundStyle: background.style ? ` style="${escapeAttr(background.style)}"` : '',
     bodyHtml: rewriteRelativeHtml(slide.bodyHtml, context.assetPrefix),
     buildSteps: String(slide.buildSteps),
     classNames: escapeAttr(classNames),
@@ -303,6 +304,7 @@ function renderSlide(slide: Slide, context: RenderContext): string {
     layout: escapeAttr(slide.layout),
     notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
     slideId: escapeAttr(slide.id),
+    styleAttr: style ? ` style="${escapeAttr(style)}"` : '',
     targetTime: escapeAttr(target),
     title: escapeAttr(slide.title)
   });
