@@ -305,6 +305,7 @@ function renderSlide(slide: Slide, context: RenderContext): string {
     notesHtml: context.includeNotes ? rewriteRelativeHtml(slide.notesHtml, context.assetPrefix) : '',
     slideId: escapeAttr(slide.id),
     styleAttr: style ? ` style="${escapeAttr(style)}"` : '',
+    targetSourceAttr: slide.targetTimeSource ? ` data-target-source="${escapeAttr(slide.targetTimeSource)}"` : '',
     targetTime: escapeAttr(target),
     title: escapeAttr(slide.title)
   });

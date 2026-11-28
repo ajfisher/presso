@@ -1,35 +1,41 @@
+import { countNotesWords } from './notes-words.js';
 import type { Slide } from './types.js';
+
+const MIN_SLIDE_WEIGHT_WORDS = 11;
 
 export function applyTiming(slides: Slide[]): Slide[] {
   const keyframes = slides
     .map((slide, index) => ({ index, seconds: parseTime(slide.time) }))
     .filter((item): item is { index: number; seconds: number } => item.seconds !== undefined);
 
-  if (keyframes.length === 0) {
-    return slides.map((slide) => ({ ...slide }));
-  }
-
   const nextSlides = slides.map((slide) => ({ ...slide }));
+  if (!keyframes.length) return nextSlides;
 
-  for (let k = 0; k < keyframes.length - 1; k += 1) {
-    const current = keyframes[k]!;
-    const next = keyframes[k + 1]!;
-    const span = next.index - current.index;
-    const secondsSpan = next.seconds - current.seconds;
-    for (let index = current.index; index <= next.index; index += 1) {
-      const ratio = span === 0 ? 0 : (index - current.index) / span;
-      nextSlides[index]!.targetTimeSeconds = Math.round(current.seconds + secondsSpan * ratio);
+  let previous = { index: -1, seconds: 0 };
+  for (const keyframe of keyframes) {
+    const markerSlide = nextSlides[keyframe.index]!;
+    if (!Number.isFinite(keyframe.seconds) || keyframe.seconds < previous.seconds) {
+      throw new Error(`Invalid time marker on slide "${markerSlide.id}". Finish times must be finite and non-decreasing from 0:00.`);
     }
+
+    const segment = nextSlides.slice(previous.index + 1, keyframe.index + 1);
+    const weights = segment.map((slide) => countNotesWords(slide.notesHtml) + MIN_SLIDE_WEIGHT_WORDS);
+    const totalWeight = weights.reduce((total, weight) => total + weight, 0);
+    let elapsedWeight = 0;
+    for (let offset = 0; offset < segment.length - 1; offset += 1) {
+      elapsedWeight += weights[offset]!;
+      const slide = segment[offset]!;
+      slide.targetTimeSeconds = Math.round(previous.seconds + (keyframe.seconds - previous.seconds) * (elapsedWeight / totalWeight));
+      slide.targetTimeSource = 'interpolated';
+    }
+    markerSlide.targetTimeSeconds = keyframe.seconds;
+    markerSlide.targetTimeSource = 'authored';
+    previous = keyframe;
   }
 
-  const first = keyframes[0]!;
-  for (let index = 0; index < first.index; index += 1) {
-    nextSlides[index]!.targetTimeSeconds = first.seconds;
-  }
-
-  const last = keyframes[keyframes.length - 1]!;
-  for (let index = last.index; index < nextSlides.length; index += 1) {
-    nextSlides[index]!.targetTimeSeconds = last.seconds;
+  for (const slide of nextSlides.slice(previous.index + 1)) {
+    slide.targetTimeSeconds = previous.seconds;
+    slide.targetTimeSource = 'interpolated';
   }
 
   return nextSlides;

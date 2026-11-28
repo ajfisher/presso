@@ -590,30 +590,22 @@ Rules:
 
 ## Timing
 
-Timing markers are keyframes:
+Set `time` to the cumulative target for finishing a slide:
 
 ```yaml
 time: "15:00"
 ```
 
-The runtime interpolates between known times. For example:
+The talk starts at 0:00 before the first slide. Between the start and the first
+marker, and between any two markers, each slide gets a share of the interval
+based on its speaker notes word count plus a floor of 11 words. Slides with no
+notes still get time. Presso rounds the calculated finish times to the nearest
+second and keeps each authored marker exact. A marker earlier than the
+previous marker or 0:00 produces a compile error.
 
-```text
-slide 1:  0:00
-slide 5:  6:00
-slide 10: 15:00
-slide 30: 30:00
-```
-
-Slides between markers inherit interpolated target times. The first
-implementation can distribute time evenly. Later, timing can be weighted by:
-
-- Speaker notes length.
-- Code blocks.
-- Number of bullets.
-- Images or diagrams.
-- Fragments.
-- Explicit pause hints.
+Slides after the last marker use its finish time. With no markers, the deck
+has no timing targets. Rendered slides with a target carry
+`data-target-source="authored"` or `data-target-source="interpolated"`.
 
 ## Deck Config
 
