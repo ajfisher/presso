@@ -565,6 +565,11 @@ Raw HTML is supported as a power user path:
 <iframe class="external" src="http://localhost:8002/" style="height: 400px;"></iframe>
 ```
 
+Use `data-build-item` and `data-build-step="2"` together to reveal an HTML or
+inline SVG element at a particular build step. Hand-written steps and
+`:::fragment` steps share the same numbering on a slide, so an element and a
+fragment on the same step appear together.
+
 Rules:
 
 - Raw HTML is allowed in local and public builds.

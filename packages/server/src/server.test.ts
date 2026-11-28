@@ -30,6 +30,35 @@ describe('dev server state', () => {
     expect(clampStateBuildStep('nope', 5)).toBe(0);
   });
 
+  it('renders and broadcasts hand-written build steps in dev', async () => {
+    const root = await createFolderDeck();
+    await fs.appendFile(path.join(root, 'slides/001-intro.md'), `
+<div data-build-item data-build-step="1">One</div>
+<div data-build-item data-build-step="2">Two</div>
+<div data-build-item data-build-step="3">Three</div>
+`);
+    const server = await startTestServer(root);
+    const page = await fetch(server.origin);
+    expect(await page.text()).toContain('data-build-steps="3"');
+
+    const events = await fetch(`${server.origin}/events`, { signal: AbortSignal.timeout(3_000) });
+    const reader = events.body!.pipeThrough(new TextDecoderStream()).getReader();
+    try {
+      expect(await postJson(server, '/state', { index: 0, buildStep: 2 })).toMatchObject({ index: 0, buildStep: 2 });
+      let received = '';
+      while (received.split('\n\n').length < 3) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        received += value;
+      }
+      const update = received.split('\n\n')[1];
+      expect(update).toContain('event: state');
+      expect(JSON.parse(update.split('data: ')[1])).toMatchObject({ index: 0, buildStep: 2 });
+    } finally {
+      await reader.cancel();
+    }
+  });
+
   it('finds tailnet HTTPS controller URLs for the active dev server port', () => {
     const status = JSON.stringify({
       Foreground: {

@@ -1,4 +1,5 @@
 import { marked } from 'marked';
+import { defaultTreeAdapter, html, parseFragment } from 'parse5';
 
 const NOTES_RE = /^:::notes\s*\n([\s\S]*?)\n:::\s*$/m;
 const INLINE_DIRECTIVE_RE = /^::([a-zA-Z][\w-]*)(\{[^}]*\})?\s*$/gm;
@@ -39,13 +40,30 @@ interface ContainerDirective {
 export function renderSlideMarkdown(markdown: string): RenderedMarkdown {
   const { bodyMarkdown, notesMarkdown } = extractNotes(markdown);
   const context: RenderContext = { buildSteps: 0 };
+  const bodyHtml = renderMarkdownInternal(bodyMarkdown, { breaks: true }, context, true);
   return {
     bodyMarkdown: bodyMarkdown.trim(),
-    bodyHtml: renderMarkdownInternal(bodyMarkdown, { breaks: true }, context, true),
-    buildSteps: context.buildSteps,
+    bodyHtml,
+    buildSteps: Math.max(context.buildSteps, highestBuildStep(bodyHtml)),
     notesMarkdown: notesMarkdown.trim(),
     notesHtml: renderMarkdown(notesMarkdown, { breaks: false })
   };
+}
+
+function highestBuildStep(bodyHtml: string): number {
+  if (!/data-build-item/i.test(bodyHtml)) return 0;
+  const body = defaultTreeAdapter.createElement('div', html.NS.HTML, []);
+  const pending = [...parseFragment(body, bodyHtml, {}).childNodes];
+  let highest = 0;
+  while (pending.length) {
+    const node = pending.pop()!;
+    if (!defaultTreeAdapter.isElementNode(node)) continue;
+    for (const child of node.childNodes) pending.push(child);
+    if (!node.attrs.some(({ name }) => name === 'data-build-item')) continue;
+    const step = Number(node.attrs.find(({ name }) => name === 'data-build-step')?.value);
+    if (Number.isInteger(step) && step > highest) highest = step;
+  }
+  return highest;
 }
 
 export function renderMarkdown(markdown: string, options: RenderMarkdownOptions = {}): string {
