@@ -1,6 +1,6 @@
 # @ajfisher/presso-export
 
-Static, transcript, and PDF export helpers for Presso.
+Static, transcript, PDF, and PNG snapshot export helpers for Presso.
 
 ![Presso deck preview](https://raw.githubusercontent.com/ajfisher/presso/main/docs/media/presso-deck.png)
 
@@ -12,16 +12,17 @@ Presso is a Markdown-native web presentation framework for talks, workshops, spe
 npm install @ajfisher/presso-export
 ```
 
-Most deck authors use these helpers through the `presso build`, `presso transcript`, and `presso pdf` commands from `@ajfisher/presso-server`.
+Most deck authors use these helpers through the `presso build`, `presso transcript`, `presso pdf`, and `presso snapshot` commands from `@ajfisher/presso-server`.
 
 ## Example
 
 ```js
-import { buildStatic, exportPdf, exportTranscript } from '@ajfisher/presso-export';
+import { buildStatic, exportPdf, exportSnapshots, exportTranscript } from '@ajfisher/presso-export';
 
 await buildStatic('path/to/deck');
 await exportTranscript('path/to/deck', 'transcript.md', { profile: 'notes-visuals' });
 await exportPdf('path/to/deck', 'speaker', 'speaker.pdf');
+await exportSnapshots('path/to/deck', { steps: 'all', sheet: true });
 ```
 
 ## Outputs

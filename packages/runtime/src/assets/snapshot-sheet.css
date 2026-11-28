@@ -1,0 +1,25 @@
+body {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  margin: 1.5rem;
+}
+
+main {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+}
+
+figure { margin: 0; }
+
+img {
+  display: block;
+  height: auto;
+  outline: 1px solid GrayText;
+  width: 100%;
+}
+
+figcaption {
+  margin-block-start: .5rem;
+  overflow-wrap: anywhere;
+}

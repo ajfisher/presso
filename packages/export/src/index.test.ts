@@ -2,9 +2,20 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildStatic, exportTranscript, pdfOutputFile, resolvePdfLayout } from './index.js';
+import { compileDeck } from '@ajfisher/presso-core';
+import { buildStatic, exportTranscript, pdfOutputFile, resolvePdfLayout, selectSnapshotSlides } from './index.js';
 
 const tmpRoots: string[] = [];
+
+it('selects snapshot slides by id or zero-based range in deck order', async () => {
+  const { slides } = await compileDeck(path.resolve('examples/basic'));
+  expect(selectSnapshotSlides(slides, ' notes, 0-2, 6 ').map((slide) => slide.id)).toEqual([
+    'title', 'content', 'notes', 'logos'
+  ]);
+  expect(() => selectSnapshotSlides(slides, 'missing')).toThrow('Unknown slide selection "missing"');
+  expect(() => selectSnapshotSlides(slides, '1-20')).toThrow('outside the deck');
+  expect(() => selectSnapshotSlides(slides, '3-1')).toThrow('reversed');
+});
 
 describe('static export', () => {
   afterEach(async () => {

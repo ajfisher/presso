@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import type { Deck, NotesPublicPolicy, Slide, SlideBackground, SlideBackgroundOverlay } from '@ajfisher/presso-core';
+import type { Deck, DeckSize, NotesPublicPolicy, Slide, SlideBackground, SlideBackgroundOverlay } from '@ajfisher/presso-core';
 export { renderTranscriptMarkdown, resolveTranscriptProfile, TRANSCRIPT_PROFILES, type TranscriptMarkdownOptions, type TranscriptProfile } from './transcript.js';
 
 export type RenderMode =
@@ -71,6 +71,8 @@ const templates = {
   printSpeakerSlidePage: readTemplate('print-speaker-slide-page.html'),
   shortcutsOverlay: readTemplate('shortcuts-overlay.html'),
   slide: readTemplate('slide.html'),
+  snapshotFigure: readTemplate('snapshot-figure.html'),
+  snapshotSheet: readTemplate('snapshot-sheet.html'),
   transcript: readTemplate('transcript.html'),
   transcriptSection: readTemplate('transcript-section.html')
 };
@@ -83,6 +85,20 @@ export function readRuntimeAsset(name: RuntimeAssetName): { content: string; con
     content: readFileSync(new URL(asset.file, ASSET_ROOT), 'utf8'),
     contentType: asset.contentType
   };
+}
+
+export function renderSnapshotSheet(
+  images: ReadonlyArray<{ fileName: string; index: number; slideId: string; step: number }>, size: DeckSize
+): string {
+  return renderTemplate('snapshotSheet', {
+    style: readFileSync(new URL('snapshot-sheet.css', ASSET_ROOT), 'utf8'),
+    figures: images.map(({ fileName, index, slideId, step }) => renderTemplate('snapshotFigure', {
+      caption: escapeHtml(`${index} · ${slideId} · Step ${step}`),
+      href: escapeAttr(encodeURIComponent(fileName)),
+      width: escapeAttr(String(size.width)),
+      height: escapeAttr(String(size.height))
+    })).join('\n')
+  });
 }
 
 export function renderPage(deck: Deck, mode: RenderMode, options: RenderOptions = {}): string {

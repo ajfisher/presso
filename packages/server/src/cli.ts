@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import path from 'node:path';
+import { parseArgs } from 'node:util';
 import { startDevServer } from './server.js';
 import { addSlide, buildStatic, createDeck, deploy, exportPdf, exportPdfs, exportTranscript, migrateRevealDeck, orderAppend, orderCheck, orderInit } from './commands.js';
 import { parsePublishArgs, publishS3 } from './publish.js';
 import { deckStatsCommand } from './stats.js';
-import { resolvePdfLayout } from '@ajfisher/presso-export';
+import { exportSnapshots, resolvePdfLayout } from '@ajfisher/presso-export';
 import { resolveTranscriptProfile, type TranscriptProfile } from '@ajfisher/presso-runtime';
 
 const [, , command, ...args] = process.argv;
@@ -51,6 +52,10 @@ async function main(command = 'help', args: string[]): Promise<void> {
       fragment: options.fragment,
       profile: options.profile
     }));
+    return;
+  }
+  if (command === 'snapshot') {
+    console.log(await runSnapshot(args));
     return;
   }
   if (command === 'deploy') {
@@ -187,6 +192,30 @@ function parseTranscriptArgs(args: string[]): { cwd: string; fragment: boolean; 
   };
 }
 
+async function runSnapshot(args: string[]): Promise<string> {
+  const { values, positionals } = parseArgs({
+    args, allowPositionals: true, options: {
+      steps: { type: 'string' }, slides: { type: 'string' }, scale: { type: 'string' },
+      motion: { type: 'boolean' }, settle: { type: 'string' }, sheet: { type: 'boolean' }, out: { type: 'string' }
+    }
+  });
+  if (positionals.length > 1) throw new Error('Expected at most one deck directory for presso snapshot.');
+  if (values.steps !== undefined && values.steps !== 'last' && values.steps !== 'all') {
+    throw new Error('--steps must be all or last.');
+  }
+  const outDir = values.out ?? 'snapshots';
+  const outputs = await exportSnapshots(path.resolve(positionals[0] ?? '.'), {
+    steps: values.steps,
+    slides: values.slides,
+    scale: values.scale === undefined ? undefined : Number(values.scale),
+    motion: values.motion,
+    settleMs: values.settle === undefined ? undefined : Number(values.settle.trim() || 'NaN'),
+    sheet: values.sheet,
+    outDir
+  });
+  return outputs.map((output) => path.isAbsolute(outDir) ? output : path.relative(process.cwd(), output)).join('\n');
+}
+
 function requireValue(args: string[], index: number, flag: string): string {
   const value = args[index];
   if (!value || value.startsWith('--')) throw new Error(`${flag} requires a value.`);
@@ -199,6 +228,7 @@ function printHelp(): void {
   presso build [deckDir]
   presso stats [deckDir] [--wpm=130] [--min-words=11] [--json]
   presso pdf [deckDir] [--layout=slides|notes|speaker|handout] [--all] [--out=file.pdf]
+  presso snapshot [deckDir] [--steps=all] [--slides=ids-or-ranges] [--scale=2] [--motion] [--settle=1500] [--sheet] [--out=dir]
   presso transcript [deckDir] [--profile=full|notes|notes-visuals] [--fragment] [--out=file.md]
   presso publish s3 <bucket-name> [directory] [--exclude-file=file]
   presso deploy [deckDir] [--yes]

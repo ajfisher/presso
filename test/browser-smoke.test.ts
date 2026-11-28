@@ -5,7 +5,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildStatic, exportPdfs } from '@ajfisher/presso-export';
+import { buildStatic, exportPdfs, exportSnapshots } from '@ajfisher/presso-export';
 import type { Browser, Page } from 'playwright';
 
 const runBrowserSmoke = process.env.PRESSO_BROWSER_SMOKE === '1';
@@ -580,6 +580,42 @@ browserDescribe('browser smoke', () => {
       const header = await fs.readFile(file, 'utf8');
       expect(header.startsWith('%PDF')).toBe(true);
     }
+  }, 60000);
+
+  it('exports snapshots at the final step or at every step including zero', async () => {
+    const deck = await fs.mkdtemp(path.join(os.tmpdir(), 'presso-snapshot-smoke-'));
+    tmpRoots.push(deck);
+    await fs.mkdir(path.join(deck, 'slides'));
+    await fs.writeFile(path.join(deck, 'presso.config.mjs'), `export default {
+  size: { width: 320, height: 180 }, notes: { public: 'visible' }
+};`);
+    await fs.writeFile(path.join(deck, 'slides/001-title.md'), '# Same slide\n\n:::notes\nNOTES_MUST_STAY_OUT\n:::\n');
+    await fs.writeFile(path.join(deck, 'slides/002-builds.md'), '# Builds\n\n:::fragment\n- First\n- Second\n:::\n');
+    await fs.writeFile(path.join(deck, 'slides/003-end.md'), '# Same slide\n');
+    await fs.mkdir(path.join(deck, 'snapshots'));
+    await fs.writeFile(path.join(deck, 'snapshots/01-builds.png'), 'previous output');
+
+    const final = await exportSnapshots(deck);
+    expect(final.map((file) => path.relative(deck, file))).toEqual([
+      'snapshots/00-title.png', 'snapshots/01-builds.png', 'snapshots/02-end.png'
+    ]);
+    const all = await exportSnapshots(deck, { steps: 'all', outDir: 'all', sheet: true });
+    expect(all.map((file) => path.basename(file))).toEqual([
+      '00-title-0.png', '01-builds-0.png', '01-builds-1.png', '01-builds-2.png', '02-end-0.png', 'index.html'
+    ]);
+    const finalBuild = await fs.readFile(final[1]!);
+    expect((await fs.readFile(final[0]!)).equals(await fs.readFile(final[2]!))).toBe(true);
+    expect(finalBuild.equals(await fs.readFile(all[3]!))).toBe(true);
+    expect(finalBuild.equals(await fs.readFile(all[1]!))).toBe(false);
+    const sheet = await fs.readFile(all[5]!, 'utf8');
+    expect(sheet).toContain('src="01-builds-2.png"');
+    expect(sheet).toContain('1 · builds · Step 2');
+    expect(sheet).not.toContain('NOTES_MUST_STAY_OUT');
+
+    const scaled = await exportSnapshots(deck, { slides: 'end', scale: 2, motion: true, settleMs: 0, outDir: 'scaled' });
+    expect(scaled.map((file) => path.basename(file))).toEqual(['02-end.png']);
+    const png = await fs.readFile(scaled[0]!);
+    expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([640, 360]);
   }, 60000);
 });
 
