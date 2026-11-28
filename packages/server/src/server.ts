@@ -114,7 +114,10 @@ export async function startDevServer(cwd = process.cwd(), port = 3030): Promise<
             nextSlide?.buildSteps ?? 0
           );
           if (typeof state.fullscreen === 'boolean') currentFullscreen = state.fullscreen;
-          const nextState = { buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex };
+          const nextState = {
+            buildStep: currentBuildStep, fullscreen: currentFullscreen, index: currentIndex,
+            ...(state.nav === 'jump' && currentIndex !== previousIndex ? { nav: 'jump' } : {})
+          };
           broadcast(clients, 'state', nextState);
           sendJson(res, nextState);
           return;
